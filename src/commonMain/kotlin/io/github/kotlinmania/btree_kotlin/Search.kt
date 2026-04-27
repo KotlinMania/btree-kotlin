@@ -34,9 +34,16 @@ package io.github.kotlinmania.btree_kotlin
 //   - sealed class Bound<T> { Included(T); Excluded(T); object Unbounded } in Map.kt (Phase 4)
 //   - interface RangeBounds<T> { fun startBound(): Bound<T>; fun endBound(): Bound<T> }
 //     also in Map.kt (Phase 4)
-//   - fun <V> isSetVal(): Boolean — IsSetVal bridge from set_val.rs (Phase 1 sibling
-//     port SetVal.kt). If that port instead exposes the function as a member of
-//     a wrapper type, swap the call site below accordingly.
+//   - fun <V> isSetVal(value: V): Boolean — IsSetVal bridge from set_val.rs
+//     (sibling port SetVal.kt, landed). Rust's `V::is_set_val()` is a pure
+//     static dispatch on the type parameter; Kotlin has no trait specialization,
+//     so the bridge is a runtime `value is SetValZst` check that needs an actual
+//     V on hand. searchTreeForBifurcation has no V value at the entry point —
+//     once Phase-2 NodeRef lands, the call site below should source a sample V
+//     from `self` (e.g. via a `values()` accessor returning `List<V>`) and pass
+//     it through. Until then the call below remains spelled `isSetVal<V>()`,
+//     consistent with Search.kt being not-compilable-in-isolation per the
+//     Phase-2-dep marker in PORTING.md.
 
 /**
  * `SearchBound` mirrors `core::ops::Bound` but adds two unconditional
