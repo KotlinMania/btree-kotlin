@@ -5,46 +5,35 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-# Fetch tree-sitter
-include(FetchContent)
+# Use vendored tree-sitter sources. Builds must not clone or fetch grammars
+# during configure.
+set(AST_DISTANCE_VENDOR_DIR "${CMAKE_CURRENT_SOURCE_DIR}/vendor")
+set(tree-sitter_SOURCE_DIR "${AST_DISTANCE_VENDOR_DIR}/tree-sitter")
+set(tree-sitter-rust_SOURCE_DIR "${AST_DISTANCE_VENDOR_DIR}/tree-sitter-rust")
+set(tree-sitter-kotlin_SOURCE_DIR "${AST_DISTANCE_VENDOR_DIR}/tree-sitter-kotlin")
+set(tree-sitter-cpp_SOURCE_DIR "${AST_DISTANCE_VENDOR_DIR}/tree-sitter-cpp")
+set(tree-sitter-python_SOURCE_DIR "${AST_DISTANCE_VENDOR_DIR}/tree-sitter-python")
+set(tree-sitter-typescript_SOURCE_DIR "${AST_DISTANCE_VENDOR_DIR}/tree-sitter-typescript")
 
-FetchContent_Declare(
-    tree-sitter
-    GIT_REPOSITORY https://github.com/tree-sitter/tree-sitter.git
-    GIT_TAG v0.22.6
+foreach(required_tree_sitter_source
+    "${tree-sitter_SOURCE_DIR}/lib/src/lib.c"
+    "${tree-sitter_SOURCE_DIR}/lib/include/tree_sitter/api.h"
+    "${tree-sitter-rust_SOURCE_DIR}/src/parser.c"
+    "${tree-sitter-rust_SOURCE_DIR}/src/scanner.c"
+    "${tree-sitter-kotlin_SOURCE_DIR}/src/parser.c"
+    "${tree-sitter-kotlin_SOURCE_DIR}/src/scanner.c"
+    "${tree-sitter-cpp_SOURCE_DIR}/src/parser.c"
+    "${tree-sitter-cpp_SOURCE_DIR}/src/scanner.c"
+    "${tree-sitter-python_SOURCE_DIR}/src/parser.c"
+    "${tree-sitter-python_SOURCE_DIR}/src/scanner.c"
+    "${tree-sitter-typescript_SOURCE_DIR}/typescript/src/parser.c"
+    "${tree-sitter-typescript_SOURCE_DIR}/typescript/src/scanner.c"
+    "${tree-sitter-typescript_SOURCE_DIR}/common/scanner.h"
 )
-
-FetchContent_Declare(
-    tree-sitter-rust
-    GIT_REPOSITORY https://github.com/tree-sitter/tree-sitter-rust.git
-    GIT_TAG v0.21.2
-)
-
-FetchContent_Declare(
-    tree-sitter-kotlin
-    GIT_REPOSITORY https://github.com/fwcd/tree-sitter-kotlin.git
-    GIT_TAG 0.3.8
-)
-
-FetchContent_Declare(
-    tree-sitter-cpp
-    GIT_REPOSITORY https://github.com/tree-sitter/tree-sitter-cpp.git
-    GIT_TAG v0.22.3
-)
-
-FetchContent_Declare(
-    tree-sitter-python
-    GIT_REPOSITORY https://github.com/tree-sitter/tree-sitter-python.git
-    GIT_TAG v0.21.0
-)
-
-FetchContent_Declare(
-    tree-sitter-typescript
-    GIT_REPOSITORY https://github.com/tree-sitter/tree-sitter-typescript.git
-    GIT_TAG v0.21.2
-)
-
-FetchContent_MakeAvailable(tree-sitter tree-sitter-rust tree-sitter-kotlin tree-sitter-cpp tree-sitter-python tree-sitter-typescript)
+    if(NOT EXISTS "${required_tree_sitter_source}")
+        message(FATAL_ERROR "Missing vendored tree-sitter source: ${required_tree_sitter_source}")
+    endif()
+endforeach()
 
 # Build tree-sitter core as a library
 # Disable warnings for third-party C code (they use old-style prototypes)

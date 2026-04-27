@@ -23,6 +23,7 @@ tmp/
 # AST distance tool reports
 port_status_report.md
 high_priority_ports.md
+NEXT_ACTIONS.md
 
 # AST distance agent state and lock files
 .cache/
