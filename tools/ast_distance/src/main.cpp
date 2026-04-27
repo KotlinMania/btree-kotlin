@@ -217,6 +217,46 @@ static std::string current_project_name() {
     }
 }
 
+static std::optional<std::filesystem::path> find_repo_root(std::filesystem::path path) {
+    std::error_code ec;
+    if (path.empty()) return std::nullopt;
+
+    path = path.lexically_normal();
+    if (!std::filesystem::is_directory(path, ec)) {
+        path = path.parent_path();
+    }
+
+    while (!path.empty()) {
+        if (std::filesystem::exists(path / ".git", ec)) {
+            return path;
+        }
+        auto parent = path.parent_path();
+        if (parent == path) break;
+        path = parent;
+    }
+    return std::nullopt;
+}
+
+static std::string repo_relative_display_path(const std::string& raw_path) {
+    std::error_code ec;
+    std::filesystem::path input(raw_path);
+    std::filesystem::path absolute =
+        input.is_absolute() ? input : (std::filesystem::current_path(ec) / input);
+    absolute = absolute.lexically_normal();
+
+    if (auto repo_root = find_repo_root(absolute)) {
+        auto rel = std::filesystem::relative(absolute, *repo_root, ec);
+        if (!ec && !rel.empty()) {
+            return rel.generic_string();
+        }
+    }
+
+    if (input.is_relative()) {
+        return input.lexically_normal().generic_string();
+    }
+    return absolute.generic_string();
+}
+
 static void write_missing_config_after_comparison(const ConfigEndpoint& source,
                                                   const ConfigEndpoint& target) {
     const std::string path = default_reexport_config_path();
@@ -1414,14 +1454,16 @@ void generate_reports(const Codebase& source, const Codebase& target,
     std::time_t now = std::time(nullptr);
     char date_buf[100];
     std::strftime(date_buf, sizeof(date_buf), "%Y-%m-%d", std::localtime(&now));
+    const std::string source_display_path = repo_relative_display_path(source.root_path);
+    const std::string target_display_path = repo_relative_display_path(target.root_path);
     
     // 1. Generate port_status_report.md
     {
         std::ofstream report("port_status_report.md");
         report << "# Code Port - Progress Report\n\n";
         report << "**Generated:** " << date_buf << "\n";
-        report << "**Source:** " << source.root_path << "\n";
-        report << "**Target:** " << target.root_path << "\n\n";
+        report << "**Source:** " << source_display_path << "\n";
+        report << "**Target:** " << target_display_path << "\n\n";
         
         report << "## Executive Summary\n\n";
         report << "| Metric | Count | Percentage |\n";
@@ -1749,8 +1791,8 @@ void generate_reports(const Codebase& source, const Codebase& target,
         report << "```bash\n";
         report << "# Initialize task queue for systematic porting\n";
         report << "cd tools/ast_distance\n";
-        report << "./ast_distance --init-tasks ../../" << source.root_path 
-               << " " << source.language << " ../../" << target.root_path 
+        report << "./ast_distance --init-tasks ../../" << source_display_path
+               << " " << source.language << " ../../" << target_display_path
                << " " << target.language << " tasks.json ../../AGENTS.md\n\n";
         report << "# Get next high-priority task\n";
         report << "./ast_distance --assign tasks.json <agent-id>\n";
