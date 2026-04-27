@@ -10,6 +10,7 @@
 #include <map>
 #include <set>
 #include <cctype>
+#include <cstring>
 #include <algorithm>
 #include <cmath>
 
