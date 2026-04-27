@@ -167,10 +167,22 @@ internal fun <BorrowType : Marker.BorrowType, K, V, Q : Comparable<Q>> NodeRef<B
 internal inline fun <BorrowType : Marker.BorrowType, K, reified V, Q : Comparable<Q>, R : RangeBounds<Q>> NodeRef<BorrowType, K, V, Marker.LeafOrInternal>.searchTreeForBifurcation(
     range: R,
 ): BifurcationResult<BorrowType, K, V, Q>
+    where K : Comparable<Q> = searchTreeForBifurcationExplicit(range, isSetVal<V>())
+
+/**
+ * Explicit-`isSet` variant of [searchTreeForBifurcation] for callers that
+ * cannot be `inline reified V` themselves — notably class methods on
+ * `BTreeMap<K, V>` and `BTreeSet<T>` whose `V` is the class's own type
+ * parameter (not reified). The boolean is passed in directly; callers
+ * obtain it from a sentinel KV value or from the static knowledge that
+ * they are constructing a Set vs. a Map.
+ */
+internal fun <BorrowType : Marker.BorrowType, K, V, Q : Comparable<Q>, R : RangeBounds<Q>> NodeRef<BorrowType, K, V, Marker.LeafOrInternal>.searchTreeForBifurcationExplicit(
+    range: R,
+    isSet: Boolean,
+): BifurcationResult<BorrowType, K, V, Q>
     where K : Comparable<Q> {
     var self = this
-    // Determine if map or set is being searched
-    val isSet = isSetVal<V>()
 
     // Inlining these variables should be avoided. We assume the bounds reported by `range`
     // remain the same, but an adversarial implementation could change between calls (#81138).

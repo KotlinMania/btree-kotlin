@@ -26,7 +26,7 @@ package io.github.kotlinmania.btree_kotlin
  * with three variants and per-subclass `toString()` matching the upstream
  * `#[derive(Debug)]` rendering.
  */
-internal sealed class Bound<out T> {
+sealed class Bound<out T> {
     /** An inclusive bound. */
     data class Included<T>(val value: T) : Bound<T>() {
         override fun toString(): String = "Included($value)"
@@ -53,7 +53,7 @@ internal sealed class Bound<out T> {
  * `start_bound(&self) -> Bound<&T>` becomes `startBound(): Bound<T>`
  * (no shared-borrow vocabulary in Kotlin — see file header).
  */
-internal interface RangeBounds<T> {
+interface RangeBounds<T> {
     /**
      * Start index bound. Returns the start value as a `Bound`.
      */

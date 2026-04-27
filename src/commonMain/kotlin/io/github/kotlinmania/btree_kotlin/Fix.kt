@@ -3,11 +3,9 @@
 // copyright The Rust Project Developers, dual-licensed Apache-2.0 / MIT.
 package io.github.kotlinmania.btree_kotlin
 
-// `super::map::MIN_LEN` (upstream `map.rs` line 31) is `node::MIN_LEN_AFTER_SPLIT`.
-// Map.kt is not yet ported (Phase 4); we expose the same constant here so fix.rs
-// and remove.rs (Phase 1 siblings) compile against it. When map.rs lands, this
-// declaration moves there and this file imports it through the flat package.
-internal const val MIN_LEN: Int = MIN_LEN_AFTER_SPLIT
+// `super::map::MIN_LEN` (upstream `map.rs` line 31) lives in Map.kt now that
+// Phase 4 has landed. Both Fix.kt and Remove.kt import it through the flat
+// package.
 
 /**
  * Translation: upstream `fn fix_node_through_parent` returns

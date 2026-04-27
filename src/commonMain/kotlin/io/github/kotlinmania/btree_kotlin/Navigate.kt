@@ -435,8 +435,19 @@ internal inline fun <BorrowType : Marker.BorrowType, K, reified V, Q : Comparabl
     NodeRef<BorrowType, K, V, Marker.LeafOrInternal>.findLeafEdgesSpanningRange(
     range: R,
 ): LeafRange<BorrowType, K, V>
+    where K : Comparable<Q> = findLeafEdgesSpanningRangeExplicit(range, isSetVal<V>())
+
+/**
+ * Explicit-`isSet` variant of [findLeafEdgesSpanningRange] for non-reified
+ * callers (class methods on `BTreeMap`/`BTreeSet`).
+ */
+internal fun <BorrowType : Marker.BorrowType, K, V, Q : Comparable<Q>, R : RangeBounds<Q>>
+    NodeRef<BorrowType, K, V, Marker.LeafOrInternal>.findLeafEdgesSpanningRangeExplicit(
+    range: R,
+    isSet: Boolean,
+): LeafRange<BorrowType, K, V>
     where K : Comparable<Q> {
-    when (val r = this.searchTreeForBifurcation<BorrowType, K, V, Q, R>(range)) {
+    when (val r = this.searchTreeForBifurcationExplicit<BorrowType, K, V, Q, R>(range, isSet)) {
         is BifurcationResult.LeafEdge -> return LeafRange.none()
         is BifurcationResult.Ok -> {
             val bif = r.value
@@ -513,6 +524,16 @@ internal inline fun <K, reified V, Q : Comparable<Q>, R : RangeBounds<Q>>
     return this.findLeafEdgesSpanningRange<Marker.Immut, K, V, Q, R>(range)
 }
 
+/** Explicit-`isSet` variant of [rangeSearchImmut] for non-reified callers. */
+internal fun <K, V, Q : Comparable<Q>, R : RangeBounds<Q>>
+    NodeRef<Marker.Immut, K, V, Marker.LeafOrInternal>.rangeSearchImmutExplicit(
+    range: R,
+    isSet: Boolean,
+): LeafRange<Marker.Immut, K, V>
+    where K : Comparable<Q> {
+    return this.findLeafEdgesSpanningRangeExplicit<Marker.Immut, K, V, Q, R>(range, isSet)
+}
+
 /** Finds the pair of leaf edges delimiting an entire tree (Immut). */
 internal fun <K, V> NodeRef<Marker.Immut, K, V, Marker.LeafOrInternal>.fullRangeImmut():
     LazyLeafRange<Marker.Immut, K, V> {
@@ -539,6 +560,16 @@ internal inline fun <K, reified V, Q : Comparable<Q>, R : RangeBounds<Q>>
 ): LeafRange<Marker.ValMut, K, V>
     where K : Comparable<Q> {
     return this.findLeafEdgesSpanningRange<Marker.ValMut, K, V, Q, R>(range)
+}
+
+/** Explicit-`isSet` variant of [rangeSearchValMut] for non-reified callers. */
+internal fun <K, V, Q : Comparable<Q>, R : RangeBounds<Q>>
+    NodeRef<Marker.ValMut, K, V, Marker.LeafOrInternal>.rangeSearchValMutExplicit(
+    range: R,
+    isSet: Boolean,
+): LeafRange<Marker.ValMut, K, V>
+    where K : Comparable<Q> {
+    return this.findLeafEdgesSpanningRangeExplicit<Marker.ValMut, K, V, Q, R>(range, isSet)
 }
 
 /**
