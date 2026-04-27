@@ -50,7 +50,7 @@ jobs:
           set -e
           missing=0
           for f in $(find src/commonMain/kotlin -name '*.kt'); do
-            if ! head -3 "$f" | grep -q '^// port-lint: source library/alloc/src/collections/btree/'; then
+            if ! head -3 "$f" | grep -qE '^// port-lint: source library/(alloc/src/collections/btree|core/src/ops)/'; then
               echo "MISSING port-lint header: $f"
               missing=$((missing + 1))
             fi
