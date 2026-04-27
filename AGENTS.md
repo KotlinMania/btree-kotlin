@@ -30,7 +30,7 @@ Every ported `.kt` file must start with:
 // port-lint: source library/alloc/src/collections/btree/<file>.rs
 // Derived from the Rust standard library (rust-lang/rust),
 // copyright The Rust Project Developers, dual-licensed Apache-2.0 / MIT.
-package io.github.kotlinmania.btree_kotlin
+package io.github.kotlinmania.btree
 ```
 
 The `// port-lint:` line is the contract. Path is relative to the
@@ -96,7 +96,7 @@ Deviations need a one-line comment explaining the reason.
 | `let len_underflow` | `val lenUnderflow` |
 | Type names already PascalCase | unchanged (`BTreeMap`, `NodeRef`) |
 | `const FOO_BAR: usize = 5` | `const val FOO_BAR: Int = 5` (UPPER_SNAKE for compile-time constants is idiomatic Kotlin) |
-| `mod foo;` | leave the file in `package io.github.kotlinmania.btree_kotlin`; Kotlin packages mirror Rust modules conceptually but we keep a flat namespace inside `btree_kotlin` |
+| `mod foo;` | leave the file in `package io.github.kotlinmania.btree`; Kotlin packages mirror Rust modules conceptually but we keep a flat namespace inside `btree` |
 
 ### Iterator translation
 

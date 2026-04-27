@@ -1,7 +1,7 @@
 // port-lint: source library/alloc/src/collections/btree/remove.rs
 // Derived from the Rust standard library (rust-lang/rust),
 // copyright The Rust Project Developers, dual-licensed Apache-2.0 / MIT.
-package io.github.kotlinmania.btree_kotlin
+package io.github.kotlinmania.btree
 
 // Phase-2 dependencies satisfied by Node.kt: NodeRef, Handle, ForceResult,
 // Marker, LeftOrRight, ChooseParentKvResult, EdgeKvResult, AscendResult,

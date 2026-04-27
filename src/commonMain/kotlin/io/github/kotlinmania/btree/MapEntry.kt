@@ -1,7 +1,7 @@
 // port-lint: source library/alloc/src/collections/btree/map/entry.rs
 // Derived from the Rust standard library (rust-lang/rust),
 // copyright The Rust Project Developers, dual-licensed Apache-2.0 / MIT.
-package io.github.kotlinmania.btree_kotlin
+package io.github.kotlinmania.btree
 
 // Translation notes:
 //   - Upstream `pub enum Entry<'a, K, V, A> { Vacant(...), Occupied(...) }` is

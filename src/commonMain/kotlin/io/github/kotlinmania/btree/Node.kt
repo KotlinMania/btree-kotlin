@@ -3,7 +3,7 @@
 // copyright The Rust Project Developers, dual-licensed Apache-2.0 / MIT.
 @file:Suppress("UNCHECKED_CAST", "RemoveExplicitTypeArguments", "ConvertTwoComparisonsToRangeCheck")
 
-package io.github.kotlinmania.btree_kotlin
+package io.github.kotlinmania.btree
 
 // This is an attempt at an implementation following the ideal
 //

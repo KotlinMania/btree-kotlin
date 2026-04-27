@@ -1,7 +1,7 @@
 // port-lint: source library/alloc/src/collections/btree/set.rs
 // Derived from the Rust standard library (rust-lang/rust),
 // copyright The Rust Project Developers, dual-licensed Apache-2.0 / MIT.
-package io.github.kotlinmania.btree_kotlin
+package io.github.kotlinmania.btree
 
 // Translation notes (binding for downstream consumers):
 //   - `BTreeSet<T>` is a thin wrapper over a `BTreeMap<T, SetValZst>` whose
@@ -559,7 +559,7 @@ class BTreeSet<T : Comparable<T>> : MutableSet<T> {
      * because it carries the `nextBack` and `len` accessors directly.
      */
     class Iter<T> internal constructor(
-        internal val inner: io.github.kotlinmania.btree_kotlin.Iter<T, SetValZst>,
+        internal val inner: io.github.kotlinmania.btree.Iter<T, SetValZst>,
     ) : Iterator<T> {
         override fun hasNext(): Boolean = inner.hasNext()
         override fun next(): T = inner.next().key
@@ -578,7 +578,7 @@ class BTreeSet<T : Comparable<T>> : MutableSet<T> {
      * Created by Rust's `into_iter`; in Kotlin spell as a manual call.
      */
     class IntoIter<T> internal constructor(
-        internal val inner: io.github.kotlinmania.btree_kotlin.IntoIter<T, SetValZst>,
+        internal val inner: io.github.kotlinmania.btree.IntoIter<T, SetValZst>,
     ) : Iterator<T> {
         override fun hasNext(): Boolean = inner.hasNext()
         override fun next(): T = inner.next().first
@@ -597,7 +597,7 @@ class BTreeSet<T : Comparable<T>> : MutableSet<T> {
      * [BTreeSet.range].
      */
     class Range<T> internal constructor(
-        internal val inner: io.github.kotlinmania.btree_kotlin.Range<T, SetValZst>,
+        internal val inner: io.github.kotlinmania.btree.Range<T, SetValZst>,
     ) : Iterator<T> {
         override fun hasNext(): Boolean = inner.hasNext()
         override fun next(): T = inner.next().key
@@ -791,7 +791,7 @@ class BTreeSet<T : Comparable<T>> : MutableSet<T> {
      * — wraps Map's `ExtractIf` and projects `(k, v) -> k`.
      */
     class ExtractIf<T : Comparable<T>> internal constructor(
-        internal val inner: io.github.kotlinmania.btree_kotlin.ExtractIf<T, SetValZst, T>,
+        internal val inner: io.github.kotlinmania.btree.ExtractIf<T, SetValZst, T>,
     ) : Iterator<T> {
         override fun hasNext(): Boolean = inner.hasNext()
         override fun next(): T = inner.next().first
@@ -815,7 +815,7 @@ class BTreeSet<T : Comparable<T>> : MutableSet<T> {
      * A `Cursor` is created with [BTreeSet.lowerBound] and [BTreeSet.upperBound].
      */
     class Cursor<K : Comparable<K>> internal constructor(
-        internal val inner: io.github.kotlinmania.btree_kotlin.Cursor<K, SetValZst>,
+        internal val inner: io.github.kotlinmania.btree.Cursor<K, SetValZst>,
     ) {
         /**
          * Advances the cursor to the next gap, returning the element that it
@@ -839,7 +839,7 @@ class BTreeSet<T : Comparable<T>> : MutableSet<T> {
      * A cursor over a `BTreeSet` with editing operations.
      */
     class CursorMut<T : Comparable<T>> internal constructor(
-        internal val inner: io.github.kotlinmania.btree_kotlin.CursorMut<T, SetValZst>,
+        internal val inner: io.github.kotlinmania.btree.CursorMut<T, SetValZst>,
     ) {
         /** Advances the cursor to the next gap, returning the moved-over element. */
         fun next(): T? = inner.next()?.first
@@ -890,7 +890,7 @@ class BTreeSet<T : Comparable<T>> : MutableSet<T> {
      * unique while the cursor is held.
      */
     class CursorMutKey<T : Comparable<T>> internal constructor(
-        internal val inner: io.github.kotlinmania.btree_kotlin.CursorMutKey<T, SetValZst>,
+        internal val inner: io.github.kotlinmania.btree.CursorMutKey<T, SetValZst>,
     ) {
         /** Advances the cursor to the next gap, returning the moved-over element. */
         fun next(): T? = inner.next()?.first

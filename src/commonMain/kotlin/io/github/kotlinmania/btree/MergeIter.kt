@@ -1,7 +1,7 @@
 // port-lint: source library/alloc/src/collections/btree/merge_iter.rs
 // Derived from the Rust standard library (rust-lang/rust),
 // copyright The Rust Project Developers, dual-licensed Apache-2.0 / MIT.
-package io.github.kotlinmania.btree_kotlin
+package io.github.kotlinmania.btree
 
 /**
  * Core of an iterator that merges the output of two strictly ascending iterators,

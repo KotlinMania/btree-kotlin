@@ -1,7 +1,7 @@
 // port-lint: source library/alloc/src/collections/btree/mem.rs
 // Derived from the Rust standard library (rust-lang/rust),
 // copyright The Rust Project Developers, dual-licensed Apache-2.0 / MIT.
-package io.github.kotlinmania.btree_kotlin
+package io.github.kotlinmania.btree
 
 /**
  * This replaces the value behind the `v` unique reference by calling the

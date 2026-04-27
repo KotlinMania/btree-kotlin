@@ -67,7 +67,7 @@ Once Map.kt and Set.kt land:
    to a local repo for `lalrpop-kotlin` to consume.
 2. In `lalrpop-kotlin`, replace the snapshot-and-sort `BTreeMap` /
    `BTreeSet` classes in `collections/map/Map.kt` and
-   `collections/set/Set.kt` with `import io.github.kotlinmania.btree_kotlin.BTreeMap`
+   `collections/set/Set.kt` with `import io.github.kotlinmania.btree.BTreeMap`
    etc. Keep the Kotlin-side `Map`/`Set` typealiases pointing at the
    imported types.
 3. Re-run the lalrpop-kotlin parity test. The 4-grammar corpus must

@@ -1,7 +1,7 @@
 // port-lint: source library/alloc/src/collections/btree/dedup_sorted_iter.rs
 // Derived from the Rust standard library (rust-lang/rust),
 // copyright The Rust Project Developers, dual-licensed Apache-2.0 / MIT.
-package io.github.kotlinmania.btree_kotlin
+package io.github.kotlinmania.btree
 
 // Rust: use core::iter::Peekable;
 // Kotlin's stdlib has no Peekable adapter, so we inline a tiny one-element

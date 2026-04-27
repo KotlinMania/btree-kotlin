@@ -1,7 +1,7 @@
 // port-lint: source library/alloc/src/collections/btree/navigate.rs
 // Derived from the Rust standard library (rust-lang/rust),
 // copyright The Rust Project Developers, dual-licensed Apache-2.0 / MIT.
-package io.github.kotlinmania.btree_kotlin
+package io.github.kotlinmania.btree
 
 // Phase-2 dependencies satisfied by Node.kt: NodeRef, Handle, ForceResult,
 // AscendResult, EdgeKvResult, Marker, descend, ascend, force, firstEdge,

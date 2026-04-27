@@ -3,7 +3,7 @@
 // copyright The Rust Project Developers, dual-licensed Apache-2.0 / MIT.
 @file:Suppress("UNCHECKED_CAST")
 
-package io.github.kotlinmania.btree_kotlin
+package io.github.kotlinmania.btree
 
 // File-level translation notes
 // =============================
@@ -58,7 +58,7 @@ package io.github.kotlinmania.btree_kotlin
  * We might temporarily have fewer elements during methods.
  *
  * Mirrors upstream `pub(super) const MIN_LEN: usize = node::MIN_LEN_AFTER_SPLIT;`.
- * Imported by Fix.kt and Remove.kt through the flat `btree_kotlin` package.
+ * Imported by Fix.kt and Remove.kt through the flat `btree` package.
  */
 internal const val MIN_LEN: Int = MIN_LEN_AFTER_SPLIT
 

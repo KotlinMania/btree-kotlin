@@ -1,7 +1,7 @@
 // port-lint: source library/alloc/src/collections/btree/fix.rs
 // Derived from the Rust standard library (rust-lang/rust),
 // copyright The Rust Project Developers, dual-licensed Apache-2.0 / MIT.
-package io.github.kotlinmania.btree_kotlin
+package io.github.kotlinmania.btree
 
 // `super::map::MIN_LEN` (upstream `map.rs` line 31) lives in Map.kt now that
 // Phase 4 has landed. Both Fix.kt and Remove.kt import it through the flat

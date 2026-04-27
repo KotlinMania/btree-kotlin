@@ -1,7 +1,7 @@
 // port-lint: source library/core/src/ops/range.rs
 // Derived from the Rust standard library (rust-lang/rust),
 // copyright The Rust Project Developers, dual-licensed Apache-2.0 / MIT.
-package io.github.kotlinmania.btree_kotlin
+package io.github.kotlinmania.btree
 
 // Subset port: only the `Bound<T>` enum and the `RangeBounds<T>` trait
 // (plus its default `contains` method) are translated. The concrete

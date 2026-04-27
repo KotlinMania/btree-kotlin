@@ -32,7 +32,7 @@ files have landed.
 ## Layout
 
 ```
-src/commonMain/kotlin/io/github/kotlinmania/btree_kotlin/
+src/commonMain/kotlin/io/github/kotlinmania/btree/
 ├── Node.kt              ← library/alloc/src/collections/btree/node.rs
 ├── Search.kt            ← search.rs
 ├── Navigate.kt          ← navigate.rs

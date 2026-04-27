@@ -6,7 +6,7 @@ This is **btree-kotlin**, a line-by-line port of `std::collections::BTreeMap`
 and `BTreeSet` from the Rust standard library to Kotlin Multiplatform.
 
 The Kotlin port lives in
-`src/commonMain/kotlin/io/github/kotlinmania/btree_kotlin/`. The
+`src/commonMain/kotlin/io/github/kotlinmania/btree/`. The
 upstream Rust source it was translated from is **not tracked** in this
 repo — fetch it into `tmp/rust-stdlib-collections-btree/` by running
 `./tools/fetch-rust-source.sh` after cloning. CI does this
@@ -36,7 +36,7 @@ Every Kotlin file MUST start with:
 // port-lint: source library/alloc/src/collections/btree/<file>.rs
 // Derived from the Rust standard library (rust-lang/rust),
 // copyright The Rust Project Developers, dual-licensed Apache-2.0 / MIT.
-package io.github.kotlinmania.btree_kotlin
+package io.github.kotlinmania.btree
 ```
 
 The `port-lint` line points at the upstream Rust path (relative to the
@@ -124,7 +124,7 @@ After every file lands, run:
 ```bash
 ./tools/ast_distance/ast_distance --compare-functions \
     tmp/rust-stdlib-collections-btree/<file>.rs rust \
-    src/commonMain/kotlin/io/github/kotlinmania/btree_kotlin/<File>.kt kotlin
+    src/commonMain/kotlin/io/github/kotlinmania/btree/<File>.kt kotlin
 ```
 
 This is **mandatory** for porting discipline — record the AST cosine

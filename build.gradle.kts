@@ -77,7 +77,7 @@ kotlin {
     }
 
     androidLibrary {
-        namespace = "io.github.kotlinmania.btree_kotlin"
+        namespace = "io.github.kotlinmania.btree"
         compileSdk = 34
         minSdk = 24
     }
