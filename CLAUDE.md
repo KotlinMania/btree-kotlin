@@ -107,18 +107,27 @@ typealias. The exception is when Rust itself uses `pub type` (a real
 type alias, not a re-export); in that case translate to `typealias` and
 point the comment at the upstream `pub type` line.
 
-### Use ast_distance for verification.
+### Use ast_distance for verification (BINDING)
+
+The C++ source for `ast_distance` lives in `tools/ast_distance/`. Build
+once per clone:
+
+```bash
+(cd tools/ast_distance && cmake -B build -S . && cmake --build build -j 8 && cp build/ast_distance .)
+```
 
 After every file lands, run:
 
 ```bash
-../lalrpop-kotlin/tools/ast_distance/ast_distance --compare-functions \
+./tools/ast_distance/ast_distance --compare-functions \
     tmp/rust-stdlib-collections-btree/<file>.rs rust \
     src/commonMain/kotlin/io/github/kotlinmania/btree_kotlin/<File>.kt kotlin
 ```
 
-We borrow `lalrpop-kotlin`'s already-built `ast_distance` binary; no
-need to rebuild it here.
+This is **mandatory** for porting discipline — record the AST cosine
+score in `PORTING.md` for every file you port. CI also runs a
+whole-tree `--deep` scan and fails the build if any port-lint header
+is missing.
 
 ## Translation Mappings (short reference)
 

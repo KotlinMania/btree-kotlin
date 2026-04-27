@@ -32,5 +32,4 @@ high_priority_ports.md
 
 # AST distance compiled binary (CMake output, rebuild from source)
 tools/ast_distance/ast_distance
-tools/ast_distance/ast_distance.real
 tools/ast_distance/build/
