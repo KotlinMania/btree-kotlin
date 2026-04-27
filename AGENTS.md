@@ -112,6 +112,129 @@ upstream is `dying_*`, port the body but drop the leading `dying_` —
 e.g. `dying_remove_kv` becomes `removeKv`. Document the rename in
 the function's KDoc.
 
+## Patterns from Phase 1 (binding for downstream phases)
+
+These came out of the first wave of agent work. Roll them in when
+you encounter the corresponding upstream construct.
+
+### `pub(super)` → `internal`
+
+`pub(super)` in upstream's flat `btree/` module is effectively
+crate-internal (visible to siblings, hidden from external callers).
+Kotlin's `internal` is the closest available match. The AGENTS.md
+table above already covers `pub(crate) → internal`; treat
+`pub(super)` the same.
+
+### `mem::replace` / `take_mut` translation pattern
+
+Rust's `mem::replace(&mut v, change)` and friends can't be transliterated
+1:1 because Kotlin lambdas can't take a mutable reference to a caller's
+local or field. Translate them as **return-the-new-value**: callers
+read the old value, pass it through the closure, and assign the result
+back. For `mem::replace` specifically, return `Pair<T, R>` so the side
+result is preserved. Inline the read-modify-write at the call-site
+when that's clearer than threading the helper through.
+
+### `core::iter::Peekable<I>` translation
+
+Kotlin stdlib has no `Peekable`. Inline a tiny private adapter when
+you need it: a wrapper over the source iterator with one-element
+look-ahead exposed via `peek(): T?` and `next(): T?` (both nullable —
+null means exhausted, no separate `Option` shape needed). Cache the
+peeked element in a `private var pending: T? = null` slot; refill on
+demand. The Phase 1 `DedupSortedIter.kt` is the canonical example.
+
+### Sum types with iterator-emitted variants
+
+Rust `enum Foo<T> { A(T), B(T) }` used as a "next item came from A or
+B" tag translates to **two `T?` slots plus a discriminator enum**:
+
+```kotlin
+private enum class Side { NONE, A, B }
+private var side: Side = Side.NONE
+private var slotA: T? = null
+private var slotB: T? = null
+```
+
+The discriminator is the source of truth — nullness of the slots is
+incidental, so the layout works correctly even when `T` itself is a
+nullable type. `MergeIter.kt` is the canonical example.
+
+### `Iterator::next() -> Option<Item>` split into Kotlin `hasNext`/`next`
+
+Rust iterators expose a single `next()` returning `Option<T>`. Kotlin's
+`Iterator<T>` interface requires `hasNext(): Boolean` + `next(): T`.
+Translate by computing the next item once into a `private var pending: T? = null`
+cache, returning `pending != null` from `hasNext()`, and consuming
+the cache from `next()`. Refill `pending` lazily from the underlying
+state machine. Recurring pattern across all the iterator ports.
+
+### `Cmp: Fn(...) -> Ordering` translation
+
+Rust `Ordering::{Less, Equal, Greater}` maps cleanly onto Kotlin's
+`Comparator.compare` convention: negative / zero / positive Int.
+Translate `cmp_fn: F where F: Fn(&A, &B) -> Ordering` as
+`cmpFn: (A, B) -> Int` and document the contract in KDoc. Don't
+introduce a Kotlin `Ordering` enum.
+
+### `K: Borrow<Q> + Ord` plus a borrow-aware compare
+
+Upstream uses `key.cmp(k.borrow())` to compare a query of type `&Q`
+against a stored key of type `K` where `K: Borrow<Q>`. Kotlin doesn't
+have `Borrow`, so:
+
+1. Bound `Q : Comparable<Q>` (mirrors Rust's `Q: Ord`).
+2. Bound `K : Comparable<Q>` — ask the stored key to compare against
+   the query type directly. (Some types will need a small Comparable
+   adapter in Kotlin.)
+3. Replace `key.cmp(k.borrow())` with `-k.compareTo(key)` or
+   `k.compareTo(key).inv()` — the sign flip preserves the Rust
+   orientation (positive = key > stored, etc.).
+
+### `ExactSizeIterator` has no Kotlin equivalent
+
+Rust's `I: ExactSizeIterator` gives `.len()` on the iterator. Kotlin's
+`Iterator<T>` doesn't. When porting a function that needs the length,
+take the `Int` length as an explicit parameter from the caller. The
+caller usually has it from the source collection's `size`.
+
+### `FusedIterator` is implicit
+
+Rust's `FusedIterator` marker promises that once `next()` returns
+`None`, all subsequent calls also return `None`. Kotlin's
+`Iterator<T>` contract has this implicitly — once `hasNext()` returns
+`false`, the iterator stays exhausted. No marker, no extra code.
+
+### `impl Clone` and `impl Debug`
+
+Rust iterator types often `derive(Clone)` so you can fork them. Kotlin
+`Iterator<T>` is generally not cloneable (no shared interface for it).
+Omit the `Clone` translation; document in KDoc that consumers should
+not assume forkability. For `impl Debug`, render as `override fun toString()`
+matching upstream's tuple format.
+
+### Trait specialization (`default fn`) has no equivalent
+
+Rust's `impl<V> IsSetVal for V { default fn is_set_val() = false }`
+plus an override `impl IsSetVal for SetValZST` doesn't translate
+1:1. Use a runtime type check at the call site:
+`fun <V> isSetVal(value: V): Boolean = value is SetValZst`. Document
+the change in the function's KDoc, and explicitly note that
+`isSetVal()` (no argument) became `isSetVal(v)` (takes the value).
+
+### Compile-time-incomplete files are OK in early phases
+
+A file that doesn't compile in isolation because it references types
+from a later-phase file (e.g. Search.kt referencing NodeRef before
+node.rs lands) is fine — but it must not be committed without:
+
+- A header comment listing which phase will resolve the dangling refs.
+- A row in PORTING.md marked `landed (Phase-N dep)` so the phase-N
+  agent knows it has an eager consumer waiting.
+- Zero stubs of the types it depends on. Forward references that fail
+  to resolve are preferable to fake placeholder classes that conflict
+  with the real implementation when it lands.
+
 ## File-by-file checklist
 
 The phase ordering and which agent owns which file is tracked in
