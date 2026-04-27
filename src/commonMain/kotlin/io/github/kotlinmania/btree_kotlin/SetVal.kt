@@ -33,14 +33,19 @@ internal data object SetValZst : Comparable<SetValZst> {
  * `impl<V> IsSetVal for V { default fn is_set_val() -> bool { false } }`
  * plus a specialized `impl IsSetVal for SetValZST { fn is_set_val() ->
  * bool { true } }`. Kotlin has no trait specialization; per
- * AGENTS.md the equivalent is a runtime `is SetValZst` check at the
- * call site.
+ * AGENTS.md the equivalent is a runtime `is SetValZst` check.
  *
- * Note the signature change relative to upstream: Rust's
- * `V::is_set_val()` takes no value (pure static dispatch on the type
- * parameter), whereas this Kotlin form requires a value of `V` so the
- * runtime check has something to look at. Callers that previously
- * called `isSetVal<V>()` need to thread through whatever `V` they
- * have on hand.
+ * Two overloads are exposed:
+ *
+ *   * [isSetVal] taking a value of `V` — used when callers have a `V`
+ *     in hand. The runtime check examines that value.
+ *   * [isSetVal] (no value, `reified V`) — matches Rust's static
+ *     `V::is_set_val()` 1:1. The reified type parameter lets us compare
+ *     `V::class` against `SetValZst::class` without an instance, which
+ *     is what Search.kt's `searchTreeForBifurcation` needs (it has no
+ *     `V` value at the entry point). Callers using this form must be
+ *     `inline` themselves so the type parameter remains reified.
  */
 internal fun <V> isSetVal(value: V): Boolean = value is SetValZst
+
+internal inline fun <reified V> isSetVal(): Boolean = V::class == SetValZst::class

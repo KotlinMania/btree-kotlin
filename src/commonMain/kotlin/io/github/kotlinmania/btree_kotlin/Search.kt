@@ -3,47 +3,20 @@
 // copyright The Rust Project Developers, dual-licensed Apache-2.0 / MIT.
 package io.github.kotlinmania.btree_kotlin
 
-// Forward references: the symbols below are introduced in Phase 2 by Node.kt
-// (the port of node.rs) and in later phases. They are spelled here the way
-// they will resolve once those files land. Until then this file does not
-// compile in isolation, and per project rule we do not introduce stub
-// classes to paper over that.
+// Phase-2 dependencies satisfied by Node.kt: NodeRef, Handle, ForceResult,
+// Marker. `Bound<T>` / `RangeBounds<T>` come from sibling Range.kt
+// (subset port of `core::ops::range`). The IsSetVal bridge comes from
+// SetVal.kt — see below for why this file uses the `reified V` overload.
 //
-// Phase-2 dependencies (all in package `btree_kotlin`):
-//   - class NodeRef<BorrowType, K, V, Type>
-//       fun keys(): List<K>
-//       fun len(): Int
-//       fun reborrow(): NodeRef<Marker.Immut, K, V, Type>
-//       (on Type = Marker.LeafOrInternal) fun force():
-//         ForceResult<NodeRef<BorrowType, K, V, Marker.Leaf>,
-//                     NodeRef<BorrowType, K, V, Marker.Internal>>
-//   - class Handle<Node, HandleType>
-//       companion: fun <BT, K, V, NT> newKv(node, idx): Handle<NodeRef<...>, Marker.KV>
-//                  fun <BT, K, V, NT> newEdge(node, idx): Handle<NodeRef<...>, Marker.Edge>
-//       (on Edge handle to LeafOrInternal node) fun force():
-//         ForceResult<Handle<NodeRef<..., Marker.Leaf>, Marker.Edge>,
-//                     Handle<NodeRef<..., Marker.Internal>, Marker.Edge>>
-//       (on Edge handle to Internal node) fun descend():
-//         NodeRef<BorrowType, K, V, Marker.LeafOrInternal>
-//   - sealed class ForceResult<L, I> { class Leaf(val value: L); class Internal(val value: I) }
-//   - object Marker — phantom-type tags. Members:
-//       Leaf, Internal, LeafOrInternal, Owned, Dying, DormantMut, Immut, Mut, ValMut,
-//       KV, Edge, sealed class BorrowType
-//
-// Other forward references (not in node.rs):
-//   - sealed class Bound<T> { Included(T); Excluded(T); object Unbounded } in Map.kt (Phase 4)
-//   - interface RangeBounds<T> { fun startBound(): Bound<T>; fun endBound(): Bound<T> }
-//     also in Map.kt (Phase 4)
-//   - fun <V> isSetVal(value: V): Boolean — IsSetVal bridge from set_val.rs
-//     (sibling port SetVal.kt, landed). Rust's `V::is_set_val()` is a pure
-//     static dispatch on the type parameter; Kotlin has no trait specialization,
-//     so the bridge is a runtime `value is SetValZst` check that needs an actual
-//     V on hand. searchTreeForBifurcation has no V value at the entry point —
-//     once Phase-2 NodeRef lands, the call site below should source a sample V
-//     from `self` (e.g. via a `values()` accessor returning `List<V>`) and pass
-//     it through. Until then the call below remains spelled `isSetVal<V>()`,
-//     consistent with Search.kt being not-compilable-in-isolation per the
-//     Phase-2-dep marker in PORTING.md.
+// Result<T, E> translation choice for [searchTreeForBifurcation]:
+// Upstream returns `Result<Bifurcation<...>, Handle<..., Marker.Leaf, Marker.Edge>>`.
+// AGENTS.md's default is "throw E, return T", but Kotlin/Native disallows
+// type-parameterized subclasses of `Throwable`, and the leaf-edge handle
+// carries three generic parameters (`BorrowType, K, V`). We therefore
+// switch to the closer-to-source pattern: return a sealed [BifurcationResult]
+// with `Ok(value)` and `LeafEdge(handle)` variants, mirroring Rust's
+// `Result::Ok` / `Result::Err`. This is the more transliteration-faithful
+// of the two valid Kotlin/Native workarounds (see PORTING.md row).
 
 /**
  * `SearchBound` mirrors `core::ops::Bound` but adds two unconditional
@@ -105,14 +78,26 @@ internal sealed class IndexResult {
 }
 
 /**
- * Thrown by [searchTreeForBifurcation] when the lower and upper bounds
- * collapse onto the same leaf edge. Per AGENTS.md, `Result<T, E>` translates
- * to "throw `E`, return `T`". This wrapper carries the Err handle that the
- * Rust signature would have returned in the `Err` arm.
+ * Translation of the Rust return type
+ * `Result<Bifurcation<...>, Handle<NodeRef<..., Marker.Leaf>, Marker.Edge>>`
+ * for [searchTreeForBifurcation]. Kotlin/Native rejects subclasses of
+ * `Throwable` that carry type parameters, so the AGENTS.md default
+ * (throw `E`, return `T`) doesn't apply here; the next-most-faithful
+ * pattern is the sealed-class-of-Ok-or-Err shape Rust itself uses.
  */
-internal class BifurcationLeafEdge<BorrowType, K, V>(
-    val edge: Handle<NodeRef<BorrowType, K, V, Marker.Leaf>, Marker.Edge>,
-) : RuntimeException()
+internal sealed class BifurcationResult<BorrowType, K, V, Q> {
+    data class Ok<BorrowType, K, V, Q>(
+        val value: Bifurcation<BorrowType, K, V, Q>,
+    ) : BifurcationResult<BorrowType, K, V, Q>() {
+        override fun toString(): String = "Ok($value)"
+    }
+
+    data class LeafEdge<BorrowType, K, V, Q>(
+        val handle: Handle<NodeRef<BorrowType, K, V, Marker.Leaf>, Marker.Edge>,
+    ) : BifurcationResult<BorrowType, K, V, Q>() {
+        override fun toString(): String = "LeafEdge($handle)"
+    }
+}
 
 /**
  * Tuple holding the bifurcation result of [searchTreeForBifurcation]: the
@@ -166,16 +151,22 @@ internal fun <BorrowType : Marker.BorrowType, K, V, Q : Comparable<Q>> NodeRef<B
  * corresponding pair of bounds for continuing the search in the child
  * nodes, in case the node is internal.
  *
- * If not found, throws [BifurcationLeafEdge] carrying the leaf edge
- * matching the entire range. (Rust: `Err(handle)`.)
+ * If not found, returns [BifurcationResult.LeafEdge] carrying the leaf
+ * edge matching the entire range. (Rust: `Err(handle)`.)
  *
  * As a diagnostic service, panics if the range specifies impossible bounds.
  *
  * The result is meaningful only if the tree is ordered by key.
+ *
+ * `inline` + `reified V` is required so the [isSetVal] static-dispatch
+ * overload (matching Rust's `V::is_set_val()`) resolves at the call
+ * site rather than needing a sample `V` from the receiver. This
+ * cascades to callers; once Phase-4 map.rs lands its callers must also
+ * be `inline reified V`.
  */
-internal fun <BorrowType : Marker.BorrowType, K, V, Q : Comparable<Q>, R : RangeBounds<Q>> NodeRef<BorrowType, K, V, Marker.LeafOrInternal>.searchTreeForBifurcation(
+internal inline fun <BorrowType : Marker.BorrowType, K, reified V, Q : Comparable<Q>, R : RangeBounds<Q>> NodeRef<BorrowType, K, V, Marker.LeafOrInternal>.searchTreeForBifurcation(
     range: R,
-): Bifurcation<BorrowType, K, V, Q>
+): BifurcationResult<BorrowType, K, V, Q>
     where K : Comparable<Q> {
     var self = this
     // Determine if map or set is being searched
@@ -198,12 +189,12 @@ internal fun <BorrowType : Marker.BorrowType, K, V, Q : Comparable<Q>, R : Range
             val s: Q = when (start) {
                 is Bound.Included -> start.value
                 is Bound.Excluded -> start.value
-                else -> error("unreachable")
+                Bound.Unbounded -> error("unreachable")
             }
             val e: Q = when (end) {
                 is Bound.Included -> end.value
                 is Bound.Excluded -> end.value
-                else -> error("unreachable")
+                Bound.Unbounded -> error("unreachable")
             }
             if (s > e) {
                 if (isSet) {
@@ -221,19 +212,21 @@ internal fun <BorrowType : Marker.BorrowType, K, V, Q : Comparable<Q>, R : Range
         // SAFETY: `lowerEdgeIdx` is a valid edge index returned by `findLowerBoundIndex`.
         val (upperEdgeIdx, upperChildBound) = self.findUpperBoundIndex(upperBound, lowerEdgeIdx)
         if (lowerEdgeIdx < upperEdgeIdx) {
-            return Bifurcation(
-                self,
-                lowerEdgeIdx,
-                upperEdgeIdx,
-                lowerChildBound,
-                upperChildBound,
+            return BifurcationResult.Ok(
+                Bifurcation(
+                    self,
+                    lowerEdgeIdx,
+                    upperEdgeIdx,
+                    lowerChildBound,
+                    upperChildBound,
+                ),
             )
         }
         check(lowerEdgeIdx == upperEdgeIdx) // debug_assert_eq!(lower_edge_idx, upper_edge_idx);
         // SAFETY: `lowerEdgeIdx` is a valid edge index for `self`.
         val commonEdge = Handle.newEdge(self, lowerEdgeIdx)
         when (val forced = commonEdge.force()) {
-            is ForceResult.Leaf -> throw BifurcationLeafEdge(forced.value)
+            is ForceResult.Leaf -> return BifurcationResult.LeafEdge(forced.value)
             is ForceResult.Internal -> {
                 self = forced.value.descend()
                 lowerBound = lowerChildBound
