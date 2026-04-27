@@ -1,0 +1,22 @@
+{
+  "type": "port",
+  "name": "btree-kotlin",
+  "source": {
+    "path": "tmp/rust-stdlib-collections-btree",
+    "lang": "rust"
+  },
+  "target": {
+    "path": "src/commonMain/kotlin/io/github/kotlinmania/btree_kotlin",
+    "lang": "kotlin"
+  },
+  "checks": {
+    "deep": true,
+    "missing": true,
+    "todos": true,
+    "lint": true
+  },
+  "reexport_modules": [
+    "mod.rs",
+    "lib.rs"
+  ]
+}

@@ -1,0 +1,42 @@
+btree-kotlin
+============
+
+A Kotlin Multiplatform port of `std::collections::BTreeMap` and
+`std::collections::BTreeSet` from the Rust standard library
+(`library/alloc/src/collections/btree/`).
+
+The Rust upstream is dual-licensed Apache-2.0 OR MIT, copyright
+The Rust Project Developers. The Kotlin translation here is a
+derivative work, distributed under the same dual Apache-2.0 OR MIT
+terms. All algorithmic and structural design credit — the B-tree of
+order 6, the Handle/NodeRef cursor scheme, the underflow-handling
+fixup logic, the iterator state machines — belongs to the upstream
+contributors.
+
+Vendored Rust source under `tmp/rust-stdlib-collections-btree/` is
+unchanged from upstream. The Kotlin port lives at
+`src/commonMain/kotlin/io/github/kotlinmania/btree_kotlin/`. Each
+ported `.kt` file carries a `// port-lint:` header pointing at the
+specific Rust source path it was translated from, plus a short
+attribution preamble naming the upstream copyright holder and the
+dual license.
+
+Upstream:
+  Repo:    https://github.com/rust-lang/rust
+  Path:    library/alloc/src/collections/btree
+  License: COPYRIGHT (Apache-2.0 OR MIT)
+
+Kotlin port:
+  Maintainer: Sydney Renee <sydney@solace.ofharmony.ai>
+  Fork:       https://github.com/KotlinMania/btree-kotlin
+  License:    LICENSE-APACHE OR LICENSE-MIT (your choice; matches upstream)
+
+Translation rules — see CLAUDE.md and PORTING.md. The short version:
+line-by-line transliteration; `MaybeUninit<T>` becomes nullable Kotlin
+storage; raw pointers / `NonNull<T>` become regular references;
+`unsafe` boundaries are marked but otherwise dissolve under the
+Kotlin GC; iterators round-trip through Kotlin's standard
+`Iterator<T>` / `MutableIterator<T>` interfaces; the public
+`BTreeMap<K, V>` / `BTreeSet<T>` types implement
+`MutableMap<K, V>` / `MutableSet<T>` so callers downstream can use
+them anywhere a Kotlin map/set is expected.

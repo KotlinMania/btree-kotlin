@@ -1,0 +1,36 @@
+/target/
+Cargo.lock
+*.wasm
+rust-source/
+
+# Kotlin/Gradle build artifacts
+build/
+.gradle/
+*.class
+*.jar
+*.war
+*.ear
+
+# Keep the Gradle wrapper jar checked in so CI can run `./gradlew`.
+!gradle/wrapper/gradle-wrapper.jar
+.idea/
+*.iml
+out/
+# Ignore everything under tmp/ EXCEPT the vendored Rust standard
+# library source — port-lint relies on the locked snapshot being
+# checked in for byte-level provenance verification.
+tmp/*
+!tmp/rust-stdlib-collections-btree/
+
+# AST distance tool reports
+port_status_report.md
+high_priority_ports.md
+
+# AST distance agent state and lock files
+.cache/
+*.lock
+
+# AST distance compiled binary (CMake output, rebuild from source)
+tools/ast_distance/ast_distance
+tools/ast_distance/ast_distance.real
+tools/ast_distance/build/

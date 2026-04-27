@@ -1,0 +1,63 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Compile commonMain (macosArm64)
+        run: ./gradlew compileKotlinMacosArm64 --no-daemon
+
+      - name: Compile commonMain (linuxX64)
+        run: ./gradlew compileKotlinLinuxX64 --no-daemon
+
+      - name: Compile commonMain (jsBrowser)
+        run: ./gradlew compileKotlinJs --no-daemon
+
+      - name: Compile commonMain (wasmJs)
+        run: ./gradlew compileKotlinWasmJs --no-daemon
+
+      - name: Run macosArm64 tests
+        run: ./gradlew macosArm64Test --no-daemon
+
+  port-lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Verify port-lint headers
+        shell: bash
+        run: |
+          set -e
+          missing=0
+          for f in $(find src/commonMain/kotlin -name '*.kt'); do
+            if ! head -3 "$f" | grep -q '^// port-lint: source library/alloc/src/collections/btree/'; then
+              echo "MISSING port-lint header: $f"
+              missing=$((missing + 1))
+            fi
+            if ! head -5 "$f" | grep -q 'rust-lang/rust'; then
+              echo "MISSING upstream attribution: $f"
+              missing=$((missing + 1))
+            fi
+          done
+          if [ "$missing" -gt 0 ]; then
+            echo "$missing files missing required headers."
+            exit 1
+          fi
+          echo "All Kotlin files carry port-lint and attribution headers."
