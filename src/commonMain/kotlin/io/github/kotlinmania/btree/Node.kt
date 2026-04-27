@@ -1004,7 +1004,7 @@ internal sealed class LeftOrRight<T> {
  * Given an edge index where we want to insert into a node filled to capacity,
  * computes a sensible KV index of a split point and where to perform the insertion.
  */
-private fun splitpoint(edgeIdx: Int): Pair<Int, LeftOrRight<Int>> {
+internal fun splitpoint(edgeIdx: Int): Pair<Int, LeftOrRight<Int>> {
     check(edgeIdx <= CAPACITY) // debug_assert!(edge_idx <= CAPACITY)
     return when {
         edgeIdx < EDGE_IDX_LEFT_OF_CENTER -> Pair(KV_IDX_CENTER - 1, LeftOrRight.Left(edgeIdx))

@@ -6,7 +6,7 @@
     "lang": "rust"
   },
   "target": {
-    "path": "src/commonMain/kotlin/io/github/kotlinmania/btree_kotlin",
+    "path": "src/commonMain/kotlin/io/github/kotlinmania/btree",
     "lang": "kotlin"
   },
   "checks": {
