@@ -9,14 +9,14 @@ package io.github.kotlinmania.btree
 //     as "BTreeSet" rather than "BTreeMap".
 //   - Allocator parameter `A: Allocator + Clone = Global` is dropped on every
 //     type and method (Kotlin GC supersedes; matches Map.kt's convention).
-//   - `mod entry` is `#[unstable(btree_set_entry)]` and not part of the stable
+//   - `mod entry` is `(unstable(btreeSetEntry))` and not part of the stable
 //     surface; we don't port the `set/entry.rs` shim. The Map's `Entry` API is
 //     directly available for callers who want it through `BTreeSet.map`-level
 //     gymnastics, but the user-visible Set surface omits it intentionally.
 //   - The set iterator types collide by name with Map.kt's top-level `Iter`,
 //     `IntoIter`, `Range`, `ExtractIf`. Per AGENTS.md "no typealias re-export",
 //     we nest the set iterators inside `BTreeSet` itself; callers spell
-//     `BTreeSet.Iter<T>`, mirroring Rust's `btree_set::Iter` namespacing. The
+//     `BTreeSet.Iter<T>`, mirroring Rust's `btreeSet::Iter` namespacing. The
 //     `Cursor` / `CursorMut` / `CursorMutKey` types are likewise nested.
 //   - `Drop`, `Clone` (on iterators), `IntoIterator`, `Default`, `Hash`,
 //     `PartialOrd`, `Ord`, `Extend`, `From<[T; N]>`, `FromIterator<T>`, and the
@@ -32,7 +32,7 @@ package io.github.kotlinmania.btree
 //
 // Iterator translation:
 //   - Kotlin's `Iterator<T>` / `MutableIterator<T>` is the base interface; the
-//     `next_back` / `len` methods translate to plain methods (no
+//     `nextBack` / `len` methods translate to plain methods (no
 //     `DoubleEndedIterator` / `ExactSizeIterator` interface in Kotlin stdlib).
 //   - Rust's `FusedIterator` is implicit — Kotlin iterators stay exhausted
 //     once `hasNext()` returns false.
@@ -66,11 +66,11 @@ private const val ITER_PERFORMANCE_TIPPING_SIZE_DIFF: Int = 16
  * and take worst-case logarithmic and amortized constant time per item
  * returned.
  *
- * Implements [MutableSet] so consumers can use the Kotlin collections idioms
+ * Implements [MutableSet] so consumers can import the Kotlin collections idioms
  * for free; instance methods that mirror upstream's surface (e.g. [insert],
  * [first], [popFirst]) coexist with the [MutableSet] contract.
  *
- * `T : Comparable<T>` mirrors `where T: Ord` on every Rust impl — the type
+ * `T : Comparable<T>` mirrors `where T: Ord` on every Rust implementation — the type
  * system enforces it once at the class parameter rather than at every method.
  */
 class BTreeSet<T : Comparable<T>> : MutableSet<T> {
@@ -80,7 +80,7 @@ class BTreeSet<T : Comparable<T>> : MutableSet<T> {
     /**
      * Makes a new, empty `BTreeSet`. Does not allocate anything on its own.
      *
-     * Mirrors `pub const fn new() -> BTreeSet<T>`. `const` doesn't translate
+     * Mirrors `public const function new() -> BTreeSet<T>`. `const` doesn't translate
      * to Kotlin (compile-time evaluation only applies to `const val` of
      * primitive types); we keep the body identical and drop the const.
      */
@@ -101,7 +101,7 @@ class BTreeSet<T : Comparable<T>> : MutableSet<T> {
     /**
      * Makes a new `BTreeSet` with a reasonable choice of B.
      *
-     * Mirrors `pub const fn new_in(alloc: A) -> BTreeSet<T, A>`. The allocator
+     * Mirrors `public const function newIn(alloc: A) -> BTreeSet<T, A>`. The allocator
      * parameter is dropped (Kotlin GC supersedes).
      */
     companion object {
@@ -109,7 +109,7 @@ class BTreeSet<T : Comparable<T>> : MutableSet<T> {
 
         /**
          * Constructs a `BTreeSet` from an iterable of values. Mirrors
-         * upstream's `impl<T: Ord> FromIterator<T> for BTreeSet<T>`.
+         * upstream's `implementation<T: Ord> FromIterator<T> for BTreeSet<T>`.
          */
         fun <T : Comparable<T>> fromIterable(items: Iterable<T>): BTreeSet<T> {
             val list = items.toMutableList()
@@ -121,12 +121,12 @@ class BTreeSet<T : Comparable<T>> : MutableSet<T> {
 
         /**
          * Constructs a `BTreeSet` from a vararg of values. Mirrors upstream's
-         * `impl<T: Ord, const N: usize> From<[T; N]> for BTreeSet<T>`.
+         * `implementation<T: Ord, const N: usize> From<[T; N]> for BTreeSet<T>`.
          */
         fun <T : Comparable<T>> of(vararg values: T): BTreeSet<T> = fromIterable(values.asIterable())
 
         /**
-         * Mirrors upstream `fn from_sorted_iter` (private to the `Ord` impl
+         * Mirrors upstream `function fromSortedIter` (private to the `Ord` implementation
          * block). Kept internal because callers are the factory methods
          * above plus the operator overloads below.
          */
@@ -144,7 +144,7 @@ class BTreeSet<T : Comparable<T>> : MutableSet<T> {
 
     /**
      * Constructs a double-ended iterator over a sub-range of elements in the
-     * set. The simplest way is to use the Kotlin `RangeBounds<T>` interface,
+     * set. The simplest way is to import the Kotlin `RangeBounds<T>` interface,
      * with [Bound] endpoints.
      *
      * Translation note: upstream's `K: Borrow<Q>` plus `R: RangeBounds<K>` is
@@ -246,7 +246,7 @@ class BTreeSet<T : Comparable<T>> : MutableSet<T> {
 
     /**
      * Returns a reference to the element in the set, if any, that is equal
-     * to [value]. Mirrors upstream `pub fn get<Q>(&self, value: &Q) -> Option<&T>`.
+     * to [value]. Mirrors upstream `fun get<Q>(&self, value: &Q) -> Option<&T>`.
      *
      * Translation note: the cross-type-borrow form `Q : ?Sized + Ord` is
      * specialised to `Q == T` for the same constraint-clash reason as
@@ -265,7 +265,7 @@ class BTreeSet<T : Comparable<T>> : MutableSet<T> {
      * contains at least all the elements in `self`.
      */
     fun isSubset(other: BTreeSet<T>): Boolean {
-        // Same result as self.difference(other).next().is_none()
+        // Same result as self.difference(other).next().isNone()
         // but the code below is faster (hugely in some cases).
         if (this.size > other.size) return false // self has more elements than other
         val selfMin = this.first() ?: return true // self is empty
@@ -348,7 +348,7 @@ class BTreeSet<T : Comparable<T>> : MutableSet<T> {
      */
     fun popLast(): T? = map.popLast()?.first
 
-    // ---- insert / replace / get_or_insert / get_or_insert_with -------------
+    // ---- insert / replace / getOrInsert / getOrInsertWith -------------
 
     /**
      * Adds a value to the set.
@@ -362,7 +362,7 @@ class BTreeSet<T : Comparable<T>> : MutableSet<T> {
      */
     override fun add(element: T): Boolean = map.insert(element, SetValZst) == null
 
-    /** Kotlin alias for [add]. Matches upstream's `pub fn insert(...)`. */
+    /** Kotlin alias for [add]. Matches upstream's `fun insert(...)`. */
     fun insert(value: T): Boolean = add(value)
 
     /**
@@ -399,7 +399,7 @@ class BTreeSet<T : Comparable<T>> : MutableSet<T> {
 
     /**
      * Removes and returns the element in the set, if any, that is equal to
-     * [value]. Mirrors upstream `pub fn take<Q>(&mut self, value: &Q) -> Option<T>`.
+     * [value]. Mirrors upstream `fun take<Q>(&mut self, value: &Q) -> Option<T>`.
      */
     fun take(value: T): T? = map.removeEntry(value)?.first
 
@@ -410,7 +410,7 @@ class BTreeSet<T : Comparable<T>> : MutableSet<T> {
      * `false`. The elements are visited in ascending order.
      */
     fun retain(f: (T) -> Boolean) {
-        // Mirrors upstream: `self.extract_if(.., |v| !f(v)).for_each(drop);`
+        // Mirrors upstream: `self.extractIf(.., |v| !f(v)).forEach(drop);`
         val it = extractIf(unboundedSet<T>()) { v -> !f(v) }
         while (it.hasNext()) it.next()
     }
@@ -447,13 +447,13 @@ class BTreeSet<T : Comparable<T>> : MutableSet<T> {
      */
     fun iter(): Iter<T> = Iter(map.iter())
 
-    /** Mirrors upstream `pub const fn len(&self) -> usize`. */
+    /** Mirrors upstream `public const function len(&self) -> usize`. */
     fun len(): Int = map.size
 
     /** Returns `true` if the set contains no elements. */
     override fun isEmpty(): Boolean = map.isEmpty()
 
-    // ---- lower_bound / lower_bound_mut / upper_bound / upper_bound_mut -----
+    // ---- lowerBound / lowerBoundMut / upperBound / upperBoundMut -----
 
     /**
      * Returns a [Cursor] pointing at the gap before the smallest element
@@ -529,12 +529,12 @@ class BTreeSet<T : Comparable<T>> : MutableSet<T> {
     }
 
     override fun hashCode(): Int {
-        // Mirrors upstream `impl<T: Hash> Hash for BTreeSet<T> { fn hash(...) { self.map.hash(...) } }`.
+        // Mirrors upstream `implementation<T: Hash> Hash for BTreeSet<T> { function hash(...) { self.map.hash(...) } }`.
         return map.hashCode()
     }
 
     override fun toString(): String {
-        // Upstream `fmt::Debug` renders as `f.debug_set().entries(self.iter()).finish()`.
+        // Upstream `fmt::Debug` renders as `f.debugSet().entries(self.iter()).finish()`.
         val sb = StringBuilder("{")
         var first = true
         val it = iter()
@@ -555,7 +555,7 @@ class BTreeSet<T : Comparable<T>> : MutableSet<T> {
      * An iterator over the items of a `BTreeSet`. Created by [iter].
      *
      * Wraps Map's iterator and projects `entry.key`. Upstream uses
-     * `Keys<'a, T, SetValZST>` for the same effect; we use Map's full `Iter`
+     * `Keys<'a, T, SetValZST>` for the same effect; we import Map's full `Iter`
      * because it carries the `nextBack` and `len` accessors directly.
      */
     class Iter<T> internal constructor(
@@ -564,7 +564,7 @@ class BTreeSet<T : Comparable<T>> : MutableSet<T> {
         override fun hasNext(): Boolean = inner.hasNext()
         override fun next(): T = inner.next().key
 
-        /** Mirrors `DoubleEndedIterator::next_back`. */
+        /** Mirrors `DoubleEndedIterator::nextBack`. */
         fun nextBack(): T? = inner.nextBack()?.key
 
         /** Mirrors `ExactSizeIterator::len`. */
@@ -575,7 +575,7 @@ class BTreeSet<T : Comparable<T>> : MutableSet<T> {
 
     /**
      * An owning iterator over the items of a `BTreeSet` in ascending order.
-     * Created by Rust's `into_iter`; in Kotlin spell as a manual call.
+     * Created by Rust's `intoIter`; in Kotlin spell as a manual call.
      */
     class IntoIter<T> internal constructor(
         internal val inner: io.github.kotlinmania.btree.IntoIter<T, SetValZst>,
@@ -583,7 +583,7 @@ class BTreeSet<T : Comparable<T>> : MutableSet<T> {
         override fun hasNext(): Boolean = inner.hasNext()
         override fun next(): T = inner.next().first
 
-        /** Mirrors `DoubleEndedIterator::next_back`. */
+        /** Mirrors `DoubleEndedIterator::nextBack`. */
         fun nextBack(): T? = inner.nextBack()?.first
 
         /** Mirrors `ExactSizeIterator::len`. */
@@ -602,7 +602,7 @@ class BTreeSet<T : Comparable<T>> : MutableSet<T> {
         override fun hasNext(): Boolean = inner.hasNext()
         override fun next(): T = inner.next().key
 
-        /** Mirrors `DoubleEndedIterator::next_back`. */
+        /** Mirrors `DoubleEndedIterator::nextBack`. */
         fun nextBack(): T? = inner.nextBack()?.key
 
         override fun toString(): String = "Range(${inner})"
@@ -787,7 +787,7 @@ class BTreeSet<T : Comparable<T>> : MutableSet<T> {
     }
 
     /**
-     * Iterator returned by [extractIf]. Mirrors upstream `pub struct ExtractIf`
+     * Iterator returned by [extractIf]. Mirrors upstream `class ExtractIf`
      * — wraps Map's `ExtractIf` and projects `(k, v) -> k`.
      */
     class ExtractIf<T : Comparable<T>> internal constructor(
@@ -1016,7 +1016,7 @@ internal class PeekableSetIter<T>(private val source: BTreeSet.Iter<T>) {
         return if (source.hasNext()) source.next() else null
     }
 
-    /** Mirrors `Peekable::len` — used by [BTreeSet.Difference] size_hint computations. */
+    /** Mirrors `Peekable::len` — used by [BTreeSet.Difference] sizeHint computations. */
     fun len(): Int = source.len() + (if (bufferedFilled) 1 else 0)
 
     override fun toString(): String = "Peekable(${source})"

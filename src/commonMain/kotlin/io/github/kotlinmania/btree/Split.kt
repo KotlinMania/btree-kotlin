@@ -8,7 +8,7 @@ package io.github.kotlinmania.btree
 //     in Navigate.kt (port of navigate.rs). Until that file lands the four
 //     call-sites in `calcSplitLength` below are unresolved; this is the
 //     documented "Compile-time-incomplete files are OK" pattern from
-//     AGENTS.md. `fixRightBorder` / `fixLeftBorder` (also `pub(super)` on
+//     AGENTS.md. `fixRightBorder` / `fixLeftBorder` (also `public(super)` on
 //     `Root<K, V>` upstream) already live in Fix.kt and resolve cleanly.
 // (PORTING.md tracks this cross-file dependency.)
 
@@ -26,11 +26,11 @@ internal fun <K, V> calcSplitLength(
     if (rootA.height() < rootB.height()) {
         lengthA = rootA.reborrow().calcLength()
         lengthB = totalNum - lengthA
-        check(lengthB == rootB.reborrow().calcLength()) // debug_assert_eq!
+        check(lengthB == rootB.reborrow().calcLength()) // debugAssertEq!
     } else {
         lengthB = rootB.reborrow().calcLength()
         lengthA = totalNum - lengthB
-        check(lengthA == rootA.reborrow().calcLength()) // debug_assert_eq!
+        check(lengthA == rootA.reborrow().calcLength()) // debugAssertEq!
     }
     return Pair(lengthA, lengthB)
 }

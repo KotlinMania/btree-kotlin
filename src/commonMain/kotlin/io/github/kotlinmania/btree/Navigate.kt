@@ -13,7 +13,7 @@ package io.github.kotlinmania.btree
 // findUpperBoundEdge, searchTreeForBifurcation from Search.kt.
 //
 // Allocator translation: upstream's `A: Allocator + Clone` parameter on
-// `deallocating_next*` / `deallocating_end` exists solely so manual
+// `deallocatingNext*` / `deallocatingEnd` exists solely so manual
 // deallocation can be plumbed down the stack. Kotlin's GC supersedes
 // manual deallocation, so the parameter is dropped at every call site
 // (matching the dissolution already done in Node.kt's
@@ -45,7 +45,7 @@ internal class LeafRange<BorrowType, K, V>(
     var back: Handle<NodeRef<BorrowType, K, V, Marker.Leaf>, Marker.Edge>?,
 ) {
     companion object {
-        // `impl<B, K, V> Default for LeafRange<B, K, V>` — `default()` returns an empty range.
+        // `implementation<B, K, V> Default for LeafRange<B, K, V>` — `default()` returns an empty range.
         internal fun <BorrowType, K, V> default(): LeafRange<BorrowType, K, V> =
             LeafRange(front = null, back = null)
 
@@ -53,7 +53,7 @@ internal class LeafRange<BorrowType, K, V>(
             LeafRange(front = null, back = null)
     }
 
-    // `impl<'a, K: 'a, V: 'a> Clone for LeafRange<marker::Immut<'a>, K, V>` is
+    // `implementation<'a, K: 'a, V: 'a> Clone for LeafRange<marker::Immut<'a>, K, V>` is
     // omitted: Kotlin `Iterator<T>`-shaped types are not generally cloneable
     // and consumers of this port don't fork ranges. The two equivalent
     // immutable handles can be reconstructed via [reborrow].
@@ -82,11 +82,11 @@ internal class LeafRange<BorrowType, K, V>(
     // -------------------------------------------------------------------------
 
     /**
-     * Mirrors upstream `impl<'a, K, V> LeafRange<marker::Immut<'a>, K, V> {
-     *   pub(super) fn next_checked(&mut self) -> Option<(&'a K, &'a V)>
+     * Mirrors upstream `implementation<'a, K, V> LeafRange<marker::Immut<'a>, K, V> {
+     *   public(super) function nextChecked(&mut self) -> Option<(&'a K, &'a V)>
      * }`.
      *
-     * Caller-side discipline replaces Rust's BorrowType-restricted impl block:
+     * Caller-side discipline replaces Rust's BorrowType-restricted implementation block:
      * call this only when the underlying `BorrowType` is `Immut`.
      */
     @Suppress("UNCHECKED_CAST")
@@ -95,7 +95,7 @@ internal class LeafRange<BorrowType, K, V>(
         return self.performNextChecked { kv -> kv.intoKv() }
     }
 
-    /** Mirrors `next_back_checked` for `LeafRange<Immut, K, V>`. */
+    /** Mirrors `nextBackChecked` for `LeafRange<Immut, K, V>`. */
     @Suppress("UNCHECKED_CAST")
     internal fun nextBackCheckedImmut(): Pair<K, V>? {
         val self = this as LeafRange<Marker.Immut, K, V>
@@ -107,8 +107,8 @@ internal class LeafRange<BorrowType, K, V>(
     // -------------------------------------------------------------------------
 
     /**
-     * Mirrors upstream `impl<'a, K, V> LeafRange<marker::ValMut<'a>, K, V> {
-     *   pub(super) fn next_checked(&mut self) -> Option<(&'a K, &'a mut V)>
+     * Mirrors upstream `implementation<'a, K, V> LeafRange<marker::ValMut<'a>, K, V> {
+     *   public(super) function nextChecked(&mut self) -> Option<(&'a K, &'a mut V)>
      * }`.
      */
     @Suppress("UNCHECKED_CAST")
@@ -118,7 +118,7 @@ internal class LeafRange<BorrowType, K, V>(
         return self.performNextChecked { kv -> kv.intoKvValmut() }
     }
 
-    /** Mirrors `next_back_checked` for `LeafRange<ValMut, K, V>`. */
+    /** Mirrors `nextBackChecked` for `LeafRange<ValMut, K, V>`. */
     @Suppress("UNCHECKED_CAST")
     internal fun nextBackCheckedValMut(): Pair<K, V>? {
         val self = this as LeafRange<Marker.ValMut, K, V>
@@ -128,8 +128,8 @@ internal class LeafRange<BorrowType, K, V>(
 }
 
 /**
- * Mirrors `impl<BorrowType: marker::BorrowType, K, V> LeafRange<...> {
- *   fn perform_next_checked<F, R>(&mut self, f: F) -> Option<R>
+ * Mirrors `implementation<BorrowType: marker::BorrowType, K, V> LeafRange<...> {
+ *   function performNextChecked<F, R>(&mut self, f: F) -> Option<R>
  * }`.
  *
  * If possible, extract some result from the following KV and move to the edge beyond it.
@@ -138,7 +138,7 @@ private inline fun <BorrowType : Marker.BorrowType, K, V, R> LeafRange<BorrowTyp
     f: (Handle<NodeRef<BorrowType, K, V, Marker.LeafOrInternal>, Marker.KV>) -> R,
 ): R? {
     if (isEmptyInternal()) return null
-    // mem::replace(self.front.as_mut().unwrap(), |front| { ... })
+    // mem::replace(self.front.asMut().unwrap(), |front| { ... })
     val frontVal = front!!
     val (newFront, result) = replace(frontVal) { fr ->
         val kv = when (val r = fr.nextKv()) {
@@ -153,7 +153,7 @@ private inline fun <BorrowType : Marker.BorrowType, K, V, R> LeafRange<BorrowTyp
 }
 
 /**
- * Mirrors `fn perform_next_back_checked`.
+ * Mirrors `function performNextBackChecked`.
  *
  * If possible, extract some result from the preceding KV and move to the edge beyond it.
  */
@@ -205,12 +205,12 @@ internal sealed class LazyLeafHandle<BorrowType, K, V> {
         val edge: Handle<NodeRef<BorrowType, K, V, Marker.Leaf>, Marker.Edge>,
     ) : LazyLeafHandle<BorrowType, K, V>()
 
-    // `impl<'a, K: 'a, V: 'a> Clone for LazyLeafHandle<marker::Immut<'a>, K, V>` is
+    // `implementation<'a, K: 'a, V: 'a> Clone for LazyLeafHandle<marker::Immut<'a>, K, V>` is
     // omitted (data class generates structural equality; cloning a NodeRef or
     // Handle is just copying the reference, so no body is needed).
 }
 
-/** Translates `fn reborrow(&self) -> LazyLeafHandle<marker::Immut<'_>, K, V>`. */
+/** Translates `function reborrow(&self) -> LazyLeafHandle<marker::Immut<'_>, K, V>`. */
 internal fun <BorrowType, K, V> LazyLeafHandle<BorrowType, K, V>.reborrow():
     LazyLeafHandle<Marker.Immut, K, V> = when (this) {
     is LazyLeafHandle.Root -> LazyLeafHandle.Root(node.reborrow())
@@ -227,7 +227,7 @@ internal class LazyLeafRange<BorrowType, K, V>(
     var back: LazyLeafHandle<BorrowType, K, V>?,
 ) {
     companion object {
-        // `impl<B, K, V> Default for LazyLeafRange<B, K, V>` — empty range.
+        // `implementation<B, K, V> Default for LazyLeafRange<B, K, V>` — empty range.
         internal fun <BorrowType, K, V> default(): LazyLeafRange<BorrowType, K, V> =
             LazyLeafRange(front = null, back = null)
 
@@ -235,7 +235,7 @@ internal class LazyLeafRange<BorrowType, K, V>(
             LazyLeafRange(front = null, back = null)
     }
 
-    // `impl<'a, K: 'a, V: 'a> Clone for LazyLeafRange<marker::Immut<'a>, K, V>`
+    // `implementation<'a, K: 'a, V: 'a> Clone for LazyLeafRange<marker::Immut<'a>, K, V>`
     // omitted — see LeafRange for rationale.
 
     /** Temporarily takes out another, immutable equivalent of the same range. */
@@ -251,14 +251,14 @@ internal class LazyLeafRange<BorrowType, K, V>(
     // -------------------------------------------------------------------------
 
     /**
-     * Mirrors `unsafe fn next_unchecked(&mut self) -> (&'a K, &'a V)` for `Immut`.
+     * Mirrors `unsafe function nextUnchecked(&mut self) -> (&'a K, &'a V)` for `Immut`.
      *
      * SAFETY: There must be another KV in the direction travelled.
      */
     @Suppress("UNCHECKED_CAST")
     internal fun nextUncheckedImmut(): Pair<K, V> {
         val self = this as LazyLeafRange<Marker.Immut, K, V>
-        // SAFETY: caller-enforced precondition guarantees init_front() returns non-null.
+        // SAFETY: caller-enforced precondition guarantees initFront() returns non-null.
         val edge = self.initFront()!!
         val (newEdge, kv) = edge.nextUncheckedImmut()
         // Write back the advanced edge into the front slot (the caller of
@@ -268,7 +268,7 @@ internal class LazyLeafRange<BorrowType, K, V>(
         return kv
     }
 
-    /** Mirrors `unsafe fn next_back_unchecked` for `Immut`. */
+    /** Mirrors `unsafe function nextBackUnchecked` for `Immut`. */
     @Suppress("UNCHECKED_CAST")
     internal fun nextBackUncheckedImmut(): Pair<K, V> {
         val self = this as LazyLeafRange<Marker.Immut, K, V>
@@ -283,7 +283,7 @@ internal class LazyLeafRange<BorrowType, K, V>(
     // -------------------------------------------------------------------------
 
     /**
-     * Mirrors `unsafe fn next_unchecked(&mut self) -> (&'a K, &'a mut V)` for `ValMut`.
+     * Mirrors `unsafe function nextUnchecked(&mut self) -> (&'a K, &'a mut V)` for `ValMut`.
      *
      * SAFETY: There must be another KV in the direction travelled.
      */
@@ -296,7 +296,7 @@ internal class LazyLeafRange<BorrowType, K, V>(
         return kv
     }
 
-    /** Mirrors `unsafe fn next_back_unchecked` for `ValMut`. */
+    /** Mirrors `unsafe function nextBackUnchecked` for `ValMut`. */
     @Suppress("UNCHECKED_CAST")
     internal fun nextBackUncheckedValMut(): Pair<K, V> {
         val self = this as LazyLeafRange<Marker.ValMut, K, V>
@@ -310,7 +310,7 @@ internal class LazyLeafRange<BorrowType, K, V>(
     // LazyLeafRange<Dying, K, V>
     // -------------------------------------------------------------------------
 
-    /** Mirrors `fn take_front` for `LazyLeafRange<Dying, K, V>`. */
+    /** Mirrors `function takeFront` for `LazyLeafRange<Dying, K, V>`. */
     @Suppress("UNCHECKED_CAST")
     internal fun takeFrontDying():
         Handle<NodeRef<Marker.Dying, K, V, Marker.Leaf>, Marker.Edge>? {
@@ -324,7 +324,7 @@ internal class LazyLeafRange<BorrowType, K, V>(
     }
 
     /**
-     * Mirrors `unsafe fn deallocating_next_unchecked<A>(&mut self, alloc: A)` for `Dying`.
+     * Mirrors `unsafe function deallocatingNextUnchecked<A>(&mut self, alloc: A)` for `Dying`.
      *
      * The `alloc` parameter is dropped (GC supersedes). All other semantics preserved.
      *
@@ -335,19 +335,19 @@ internal class LazyLeafRange<BorrowType, K, V>(
     internal fun deallocatingNextUncheckedDying():
         Handle<NodeRef<Marker.Dying, K, V, Marker.LeafOrInternal>, Marker.KV> {
         val self = this as LazyLeafRange<Marker.Dying, K, V>
-        check(self.front != null) // debug_assert!(self.front.is_some())
+        check(self.front != null) // debugAssert(self.front.isSome())
         val edge = self.initFront()!!
         val (newEdge, kv) = edge.deallocatingNextUnchecked()
         self.front = LazyLeafHandle.Edge(newEdge)
         return kv
     }
 
-    /** Mirrors `unsafe fn deallocating_next_back_unchecked` for `Dying`. */
+    /** Mirrors `unsafe function deallocatingNextBackUnchecked` for `Dying`. */
     @Suppress("UNCHECKED_CAST")
     internal fun deallocatingNextBackUncheckedDying():
         Handle<NodeRef<Marker.Dying, K, V, Marker.LeafOrInternal>, Marker.KV> {
         val self = this as LazyLeafRange<Marker.Dying, K, V>
-        check(self.back != null) // debug_assert!(self.back.is_some())
+        check(self.back != null) // debugAssert(self.back.isSome())
         val edge = self.initBack()!!
         val (newEdge, kv) = edge.deallocatingNextBackUnchecked()
         self.back = LazyLeafHandle.Edge(newEdge)
@@ -355,7 +355,7 @@ internal class LazyLeafRange<BorrowType, K, V>(
     }
 
     /**
-     * Mirrors `fn deallocating_end<A>(&mut self, alloc: A)` for `Dying`.
+     * Mirrors `function deallocatingEnd<A>(&mut self, alloc: A)` for `Dying`.
      *
      * `alloc` parameter dropped (GC supersedes manual deallocation).
      */
@@ -368,11 +368,11 @@ internal class LazyLeafRange<BorrowType, K, V>(
 }
 
 // -------------------------------------------------------------------------
-// LazyLeafRange<BorrowType: marker::BorrowType>: init_front / init_back
+// LazyLeafRange<BorrowType: marker::BorrowType>: initFront / initBack
 // -------------------------------------------------------------------------
 
 /**
- * Mirrors `fn init_front(&mut self) -> Option<&mut Handle<...>>`.
+ * Mirrors `function initFront(&mut self) -> Option<&mut Handle<...>>`.
  *
  * Returns the underlying leaf-edge handle, descending from the root if the
  * front slot is still in `Root` form. The caller-side equivalent of Rust's
@@ -395,7 +395,7 @@ internal fun <BorrowType : Marker.BorrowType, K, V> LazyLeafRange<BorrowType, K,
     }
 }
 
-/** Mirrors `fn init_back`. */
+/** Mirrors `function initBack`. */
 internal fun <BorrowType : Marker.BorrowType, K, V> LazyLeafRange<BorrowType, K, V>.initBack():
     Handle<NodeRef<BorrowType, K, V, Marker.Leaf>, Marker.Edge>? {
     val current = back
@@ -411,22 +411,22 @@ internal fun <BorrowType : Marker.BorrowType, K, V> LazyLeafRange<BorrowType, K,
 }
 
 // ============================================================================
-// NodeRef<LeafOrInternal>: find_leaf_edges_spanning_range
+// NodeRef<LeafOrInternal>: findLeafEdgesSpanningRange
 // ============================================================================
 
 /**
  * Finds the distinct leaf edges delimiting a specified range in a tree.
  *
  * If such distinct edges exist, returns them in ascending order, meaning
- * that a non-zero number of calls to `next_unchecked` on the `front` of
- * the result and/or calls to `next_back_unchecked` on the `back` of the
+ * that a non-zero number of calls to `nextUnchecked` on the `front` of
+ * the result and/or calls to `nextBackUnchecked` on the `back` of the
  * result will eventually reach the same edge.
  *
  * If there are no such edges, i.e., if the tree contains no key within
  * the range, returns an empty `front` and `back`.
  *
  * # Safety
- * Unless `BorrowType` is `Immut`, do not use the handles to visit the same
+ * Unless `BorrowType` is `Immut`, do not import the handles to visit the same
  * KV twice.
  *
  * `inline reified V` cascades from [searchTreeForBifurcation].
@@ -483,10 +483,10 @@ internal fun <BorrowType : Marker.BorrowType, K, V, Q : Comparable<Q>, R : Range
 }
 
 // ============================================================================
-// full_range (free function)
+// fullRange (free function)
 // ============================================================================
 
-/** Mirrors top-level `fn full_range`. */
+/** Mirrors top-level `function fullRange`. */
 internal fun <BorrowType : Marker.BorrowType, K, V> fullRange(
     root1: NodeRef<BorrowType, K, V, Marker.LeafOrInternal>,
     root2: NodeRef<BorrowType, K, V, Marker.LeafOrInternal>,
@@ -498,17 +498,17 @@ internal fun <BorrowType : Marker.BorrowType, K, V> fullRange(
 }
 
 // ============================================================================
-// NodeRef<Immut, ...>: range_search, full_range
+// NodeRef<Immut, ...>: rangeSearch, fullRange
 // ============================================================================
 
 /**
  * Finds the pair of leaf edges delimiting a specific range in a tree.
  *
- * Mirrors `impl<'a, K: 'a, V: 'a> NodeRef<marker::Immut<'a>, K, V, marker::LeafOrInternal> {
- *   pub(super) fn range_search<Q, R>(...) -> LeafRange<marker::Immut<'a>, K, V>
+ * Mirrors `implementation<'a, K: 'a, V: 'a> NodeRef<marker::Immut<'a>, K, V, marker::LeafOrInternal> {
+ *   public(super) function rangeSearch<Q, R>(...) -> LeafRange<marker::Immut<'a>, K, V>
  * }`.
  *
- * Renamed to [rangeSearchImmut] (vs `range_search`) because Kotlin extension-function
+ * Renamed to [rangeSearchImmut] (vs `rangeSearch`) because Kotlin extension-function
  * overload resolution rejects same-name extensions whose receivers differ only in
  * concrete generic argument — same workaround Node.kt applies for
  * `forgetNodeType*`.
@@ -541,7 +541,7 @@ internal fun <K, V> NodeRef<Marker.Immut, K, V, Marker.LeafOrInternal>.fullRange
 }
 
 // ============================================================================
-// NodeRef<ValMut, ...>: range_search, full_range
+// NodeRef<ValMut, ...>: rangeSearch, fullRange
 // ============================================================================
 
 /**
@@ -552,7 +552,7 @@ internal fun <K, V> NodeRef<Marker.Immut, K, V, Marker.LeafOrInternal>.fullRange
  * The result is meaningful only if the tree is ordered by key.
  *
  * # Safety
- * Do not use the duplicate handles to visit the same KV twice.
+ * Do not import the duplicate handles to visit the same KV twice.
  */
 internal inline fun <K, reified V, Q : Comparable<Q>, R : RangeBounds<Q>>
     NodeRef<Marker.ValMut, K, V, Marker.LeafOrInternal>.rangeSearchValMut(
@@ -587,7 +587,7 @@ internal fun <K, V> NodeRef<Marker.ValMut, K, V, Marker.LeafOrInternal>.fullRang
 }
 
 // ============================================================================
-// NodeRef<Dying, ...>: full_range
+// NodeRef<Dying, ...>: fullRange
 // ============================================================================
 
 /**
@@ -605,7 +605,7 @@ internal fun <K, V> NodeRef<Marker.Dying, K, V, Marker.LeafOrInternal>.fullRange
 }
 
 // ============================================================================
-// Handle<Leaf, Edge>: next_kv / next_back_kv
+// Handle<Leaf, Edge>: nextKv / nextBackKv
 // ============================================================================
 
 /**
@@ -662,7 +662,7 @@ internal fun <BorrowType : Marker.BorrowType, K, V>
 }
 
 // ============================================================================
-// Handle<Internal, Edge>: next_kv (private)
+// Handle<Internal, Edge>: nextKv (private)
 // ============================================================================
 
 /**
@@ -683,7 +683,7 @@ internal sealed class NextKvInternalResult<BorrowType, K, V> {
  * Given an internal edge handle, returns Ok with a handle to the neighboring KV
  * on the right side, which is either in the same internal node or in an ancestor node.
  *
- * Mirrors private `fn next_kv` on `Handle<NodeRef<..., Internal>, Edge>`.
+ * Mirrors private `function nextKv` on `Handle<NodeRef<..., Internal>, Edge>`.
  *
  * Renamed to `nextKvInternal` (vs `nextKv`) because Kotlin extension-function
  * overload resolution rejects same-name extensions whose receivers differ only
@@ -717,7 +717,7 @@ internal fun <BorrowType : Marker.BorrowType, K, V>
 }
 
 // ============================================================================
-// Handle<Dying, Leaf, Edge>: deallocating_next / deallocating_next_back / deallocating_end
+// Handle<Dying, Leaf, Edge>: deallocatingNext / deallocatingNextBack / deallocatingEnd
 // ============================================================================
 
 /**
@@ -733,7 +733,7 @@ internal fun <BorrowType : Marker.BorrowType, K, V>
  *
  * # Safety
  * - The given edge must not have been previously returned by counterpart
- *   `deallocating_next_back`.
+ *   `deallocatingNextBack`.
  * - The returned KV handle is only valid to access the key and value,
  *   and only valid until the next call to a `deallocating_` method.
  */
@@ -797,7 +797,7 @@ internal fun <K, V>
 /**
  * Deallocates a pile of nodes from the leaf up to the root.
  * This is the only way to deallocate the remainder of a tree after
- * `deallocating_next` and `deallocating_next_back` have been nibbling at
+ * `deallocatingNext` and `deallocatingNextBack` have been nibbling at
  * both sides of the tree, and have hit the same edge. As it is intended
  * only to be called when all keys and values have been returned,
  * no cleanup is done on any of the keys or values.
@@ -815,13 +815,13 @@ internal fun <K, V>
 }
 
 // ============================================================================
-// Handle<Immut, Leaf, Edge>: next_unchecked / next_back_unchecked
+// Handle<Immut, Leaf, Edge>: nextUnchecked / nextBackUnchecked
 // ============================================================================
 
 /**
- * Mirrors `unsafe fn next_unchecked(&mut self) -> (&'a K, &'a V)`.
+ * Mirrors `unsafe function nextUnchecked(&mut self) -> (&'a K, &'a V)`.
  *
- * Translation pattern: upstream `mem::replace(self, |leaf_edge| {...})` returns
+ * Translation pattern: upstream `mem::replace(self, |leafEdge| {...})` returns
  * the side result while writing the new leaf-edge into the slot. The Kotlin
  * port returns `Pair<NewEdge, KV>` and the caller assigns the new edge back
  * into whatever field held the receiver (always `LazyLeafRange.front` or
@@ -857,15 +857,15 @@ internal fun <K, V>
 }
 
 // ============================================================================
-// Handle<ValMut, Leaf, Edge>: next_unchecked / next_back_unchecked
+// Handle<ValMut, Leaf, Edge>: nextUnchecked / nextBackUnchecked
 // ============================================================================
 
 /**
- * Mirrors `unsafe fn next_unchecked(&mut self) -> (&'a K, &'a mut V)` for `ValMut`.
+ * Mirrors `unsafe function nextUnchecked(&mut self) -> (&'a K, &'a mut V)` for `ValMut`.
  *
  * SAFETY: There must be another KV in the direction travelled.
  *
- * Upstream defers `into_kv_valmut()` until after the `mem::replace` to gain a
+ * Upstream defers `intoKvValmut()` until after the `mem::replace` to gain a
  * micro-optimisation noted in the comment "Doing this last is faster, according
  * to benchmarks". Preserved verbatim.
  */
@@ -901,22 +901,22 @@ internal fun <K, V>
 }
 
 // ============================================================================
-// Handle<Dying, Leaf, Edge>: deallocating_next_unchecked / deallocating_next_back_unchecked
+// Handle<Dying, Leaf, Edge>: deallocatingNextUnchecked / deallocatingNextBackUnchecked
 // ============================================================================
 
 /**
- * Mirrors `unsafe fn deallocating_next_unchecked<A>(&mut self, alloc: A)` for `Dying`.
+ * Mirrors `unsafe function deallocatingNextUnchecked<A>(&mut self, alloc: A)` for `Dying`.
  *
  * `alloc` parameter dropped (GC supersedes).
  *
  * SAFETY:
  * - There must be another KV in the direction travelled.
  * - That KV was not previously returned by counterpart
- *   `deallocating_next_back_unchecked` on any copy of the handles
+ *   `deallocatingNextBackUnchecked` on any copy of the handles
  *   being used to traverse the tree.
  *
  * The only safe way to proceed with the updated handle is to compare it, drop it,
- * or call this method or counterpart `deallocating_next_back_unchecked` again.
+ * or call this method or counterpart `deallocatingNextBackUnchecked` again.
  */
 internal fun <K, V>
     Handle<NodeRef<Marker.Dying, K, V, Marker.Leaf>, Marker.Edge>.deallocatingNextUnchecked():
@@ -944,7 +944,7 @@ internal fun <K, V>
 }
 
 // ============================================================================
-// NodeRef<LeafOrInternal>: first_leaf_edge / last_leaf_edge
+// NodeRef<LeafOrInternal>: firstLeafEdge / lastLeafEdge
 // ============================================================================
 
 /**
@@ -980,11 +980,11 @@ internal fun <BorrowType : Marker.BorrowType, K, V>
 }
 
 // ============================================================================
-// Position<BorrowType, K, V>: visit_nodes_in_order, calc_length
+// Position<BorrowType, K, V>: visitNodesInOrder, calcLength
 // ============================================================================
 
 /**
- * Mirrors `pub(super) enum Position<BorrowType, K, V> { Leaf(...), Internal(...), InternalKV }`.
+ * Mirrors `public(super) enum Position<BorrowType, K, V> { Leaf(...), Internal(...), InternalKV }`.
  */
 internal sealed class Position<BorrowType, K, V> {
     data class Leaf<BorrowType, K, V>(
@@ -1053,7 +1053,7 @@ internal fun <K, V> NodeRef<Marker.Immut, K, V, Marker.LeafOrInternal>.calcLengt
 }
 
 // ============================================================================
-// Handle<LeafOrInternal, KV>: next_leaf_edge / next_back_leaf_edge
+// Handle<LeafOrInternal, KV>: nextLeafEdge / nextBackLeafEdge
 // ============================================================================
 
 /** Returns the leaf edge closest to a KV for forward navigation. */
@@ -1085,7 +1085,7 @@ internal fun <BorrowType : Marker.BorrowType, K, V>
 }
 
 // ============================================================================
-// NodeRef<LeafOrInternal>: lower_bound / upper_bound
+// NodeRef<LeafOrInternal>: lowerBound / upperBound
 // ============================================================================
 
 /**

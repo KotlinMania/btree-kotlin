@@ -13,7 +13,7 @@ package io.github.kotlinmania.btree
 // (PORTING.md tracks this cross-file dependency.)
 //
 // Translation notes:
-//   - The upstream `impl<K, V> Root<K, V> { fn bulk_push... }` becomes a
+//   - The upstream `implementation<K, V> Root<K, V> { function bulkPush... }` becomes a
 //     Kotlin extension function on the `Root<K, V>` typealias from Node.kt
 //     (`Root<K, V> = NodeRef<Marker.Owned, K, V, Marker.LeafOrInternal>`).
 //   - The `length: &mut usize` out-parameter is preserved as an `IntArray`

@@ -6,7 +6,7 @@ package io.github.kotlinmania.btree
 /**
  * Models a reborrow of some unique reference, when you know that the reborrow
  * and all its descendants (i.e., all pointers and references derived from it)
- * will not be used any more at some point, after which you want to use the
+ * will not be used any more at some point, after which you want to import the
  * original unique reference again.
  *
  * The borrow checker usually handles this stacking of borrows for you, but
@@ -26,7 +26,7 @@ internal class DormantMutRef<T> private constructor(
         /**
          * Capture a unique borrow, and immediately reborrow it. For the compiler,
          * the lifetime of the new reference is the same as the lifetime of the
-         * original reference, but you promise to use it for a shorter period.
+         * original reference, but you promise to import it for a shorter period.
          *
          * Rust returns the tuple `(&'a mut T, Self)`; in Kotlin that destructure
          * becomes a `Pair<T, DormantMutRef<T>>`.

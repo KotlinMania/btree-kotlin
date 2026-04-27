@@ -1,9 +1,9 @@
-// port-lint: source library/alloc/src/collections/btree/dedup_sorted_iter.rs
+// port-lint: source library/alloc/src/collections/btree/dedupSortedIter.rs
 // Derived from the Rust standard library (rust-lang/rust),
 // copyright The Rust Project Developers, dual-licensed Apache-2.0 / MIT.
 package io.github.kotlinmania.btree
 
-// Rust: use core::iter::Peekable;
+// Rust: import core::iter::Peekable;
 // Kotlin's stdlib has no Peekable adapter, so we inline a tiny one-element
 // lookahead buffer that mirrors `Peekable::next` / `Peekable::peek`. The
 // buffered element is itself a `Pair<K, V>`, which is a non-null reference,
@@ -31,9 +31,9 @@ private class Peekable<K, V>(private val source: Iterator<Pair<K, V>>) {
 /// An iterator for deduping the key of a sorted iterator.
 /// When encountering the duplicated key, only the last key-value pair is yielded.
 ///
-/// Used by [`BTreeMap::bulk_build_from_sorted_iter`][1].
+/// Used by [`BTreeMap::bulkBuildFromSortedIter`][1].
 ///
-/// [1]: crate::collections::BTreeMap::bulk_build_from_sorted_iter
+/// [1]: crate::collections::BTreeMap::bulkBuildFromSortedIter
 internal class DedupSortedIter<K, V, I : Iterator<Pair<K, V>>>(
     iter: I,
 ) : Iterator<Pair<K, V>> where K : Any {

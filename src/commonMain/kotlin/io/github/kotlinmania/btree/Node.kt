@@ -26,7 +26,7 @@ package io.github.kotlinmania.btree
 // we make do with lots of unsafety. The Kotlin port is even more dynamic:
 // it represents `LeafNode` and `InternalNode` as a class hierarchy, with
 // `InternalNode` extending `LeafNode`. That mirrors the upstream
-// `#[repr(C)]` trick — the upstream cast `*mut InternalNode -> *mut LeafNode`
+// `(repr(C))` trick — the upstream cast `*mut InternalNode -> *mut LeafNode`
 // is, in Kotlin, the implicit upcast that comes for free with subclassing.
 //
 // A major goal of this module is to avoid complexity by treating the tree as a generic (if
@@ -53,7 +53,7 @@ private const val EDGE_IDX_RIGHT_OF_CENTER: Int = B
  * The underlying representation of leaf nodes and part of the representation of internal nodes.
  *
  * The class is `open` so that [InternalNode] can extend it. This mirrors the
- * upstream `#[repr(C)]` layout where an `InternalNode` begins with a
+ * upstream `(repr(C))` layout where an `InternalNode` begins with a
  * `LeafNode` field and a pointer to the internal can be cast to a pointer
  * to its leaf portion. In Kotlin a Leaf-typed reference is allowed to point
  * at an [InternalNode] instance, and the runtime `height` field
@@ -65,7 +65,7 @@ internal open class LeafNode<K, V> {
 
     /**
      * This node's index into the parent node's `edges` array.
-     * `*node.parent.edges[node.parent_idx]` should be the same thing as `node`.
+     * `*node.parent.edges[node.parentIdx]` should be the same thing as `node`.
      * This is only guaranteed to be initialized when `parent` is non-null.
      */
     var parentIdx: Int = 0
@@ -102,7 +102,7 @@ internal open class LeafNode<K, V> {
  * behind `BoxedNode`s to prevent dropping uninitialized keys and values. Any pointer to an
  * `InternalNode` can be directly cast to a pointer to the underlying `LeafNode` portion of the
  * node, allowing code to act on leaf and internal nodes generically without having to even check
- * which of the two a pointer is pointing at. This property is enabled by the use of `repr(C)`
+ * which of the two a pointer is pointing at. This property is enabled by the import of `repr(C)`
  * upstream; in Kotlin it is enabled by class inheritance ([InternalNode] extends [LeafNode]).
  */
 internal class InternalNode<K, V> : LeafNode<K, V>() {
@@ -171,7 +171,7 @@ internal typealias BoxedNode<K, V> = LeafNode<K, V>
  * - Both type parameters are kept as phantom-style markers (no `PhantomData`
  *   needed; Kotlin variance handles what `PhantomData` was conveying).
  * - Where upstream `force()` discriminates between Leaf and Internal at the
- *   type level (matching on `match height { 0 => Leaf, _ => Internal }`),
+ *   type level (selecting Leaf when height is 0 and Internal otherwise),
  *   the Kotlin port discriminates at runtime via the same `height` field.
  */
 internal class NodeRef<BorrowType, K, V, Type> internal constructor(
@@ -191,10 +191,10 @@ internal class NodeRef<BorrowType, K, V, Type> internal constructor(
     var node: LeafNode<K, V>,
 ) {
     companion object {
-        // ---- new_leaf / new_internal --------------------------------------
+        // ---- newLeaf / newInternal --------------------------------------
 
         /**
-         * Mirrors `NodeRef::<Owned, K, V, Leaf>::new_leaf` (upstream node.rs,
+         * Mirrors `NodeRef::<Owned, K, V, Leaf>::newLeaf` (upstream node.rs,
          * line 224). Returns an Owned NodeRef wrapping a freshly allocated leaf.
          */
         fun <K, V> newLeaf(): NodeRef<Marker.Owned, K, V, Marker.Leaf> {
@@ -231,7 +231,7 @@ internal class NodeRef<BorrowType, K, V, Type> internal constructor(
             node: InternalNode<K, V>,
             height: Int,
         ): NodeRef<BorrowType, K, V, Marker.Internal> {
-            check(height > 0) // debug_assert!(height > 0)
+            check(height > 0) // debugAssert(height > 0)
             return NodeRef(height = height, node = node)
         }
     }
@@ -264,18 +264,18 @@ internal class NodeRef<BorrowType, K, V, Type> internal constructor(
      */
     fun structuralEq(other: NodeRef<BorrowType, K, V, Type>): Boolean {
         return if (node === other.node) {
-            check(height == other.height) // debug_assert_eq!(height, other.height)
+            check(height == other.height) // debugAssertEq(height, other.height)
             true
         } else {
             false
         }
     }
 
-    // ---- forget_type ------------------------------------------------------
+    // ---- forgetType ------------------------------------------------------
 
     /**
      * Removes any static information asserting that this node is a `Leaf`
-     * (or `Internal`) node. Mirrors both `forget_type` impls in upstream.
+     * (or `Internal`) node. Mirrors both `forgetType` impls in upstream.
      */
     fun forgetType(): NodeRef<BorrowType, K, V, Marker.LeafOrInternal> {
         return NodeRef(height = height, node = node)
@@ -286,8 +286,8 @@ internal class NodeRef<BorrowType, K, V, Type> internal constructor(
 // NodeRef: methods restricted by BorrowType / Type
 // =====================================================================
 //
-// Upstream achieves the static restrictions via `impl<...> NodeRef<...>`
-// blocks; in Kotlin we use top-level extension functions guarded by
+// Upstream achieves the static restrictions via `implementation<...> NodeRef<...>`
+// blocks; in Kotlin we import top-level extension functions guarded by
 // generic constraints (when applicable) or by relying on the call site
 // to pick the right type-parameter instantiation. The type system here
 // is weaker than Rust's: methods that upstream restricts to e.g.
@@ -307,7 +307,7 @@ internal class NodeRef<BorrowType, K, V, Type> internal constructor(
  * both, upon success, do nothing.
  *
  * Translation note: upstream signature is
- * `fn ascend(self) -> Result<Handle<...>, Self>`. We return a Kotlin sealed
+ * `function ascend(self) -> Result<Handle<...>, Self>`. We return a Kotlin sealed
  * class `AscendResult` so the caller can recover `self` on the failure
  * branch (mirrors the `Err(self)` shape).
  */
@@ -323,8 +323,8 @@ internal sealed class AscendResult<BorrowType, K, V> {
 
 internal fun <BorrowType : Marker.BorrowType, K, V, Type> NodeRef<BorrowType, K, V, Type>.ascend():
     AscendResult<BorrowType, K, V> {
-    // const { assert!(BorrowType::TRAVERSAL_PERMIT) } — Kotlin has no compile-time
-    // discrimination on type parameters; the upstream Owned impl sets
+    // const { assert(BorrowType::TRAVERSAL_PERMIT) } — Kotlin has no compile-time
+    // discrimination on type parameters; the upstream Owned implementation sets
     // TRAVERSAL_PERMIT = false to forbid traversal. In practice ascend()
     // is never called on Owned NodeRefs by the rest of the port.
     val parent = node.parent
@@ -360,7 +360,7 @@ internal fun <BorrowType : Marker.BorrowType, K, V, Type> NodeRef<BorrowType, K,
 internal fun <BorrowType : Marker.BorrowType, K, V, Type> NodeRef<BorrowType, K, V, Type>.firstKv():
     Handle<NodeRef<BorrowType, K, V, Type>, Marker.KV> {
     val len = this.len()
-    check(len > 0) // assert!(len > 0)
+    check(len > 0) // assert(len > 0)
     // SAFETY: 0 < len.
     return Handle.newKv(this, 0)
 }
@@ -369,7 +369,7 @@ internal fun <BorrowType : Marker.BorrowType, K, V, Type> NodeRef<BorrowType, K,
 internal fun <BorrowType : Marker.BorrowType, K, V, Type> NodeRef<BorrowType, K, V, Type>.lastKv():
     Handle<NodeRef<BorrowType, K, V, Type>, Marker.KV> {
     val len = this.len()
-    check(len > 0) // assert!(len > 0)
+    check(len > 0) // assert(len > 0)
     // SAFETY: len - 1 < len.
     return Handle.newKv(this, len - 1)
 }
@@ -398,7 +398,7 @@ internal fun <K, V, Type> NodeRef<Marker.Immut, K, V, Type>.keys(): List<K> {
 }
 
 /**
- * Generic `keys` accessor — the upstream `pub(super) fn keys(&self) -> &[K]`
+ * Generic `keys` accessor — the upstream `public(super) function keys(&self) -> &[K]`
  * is restricted to `Immut`, but Search.kt calls `keys()` on
  * `NodeRef<BorrowType, K, V, Type>` after a `reborrow()`, which yields an
  * `Immut` borrow. We expose this convenience with the same generic
@@ -428,7 +428,7 @@ internal fun <BorrowType, K, V, Type> NodeRef<BorrowType, K, V, Type>.keys(): Li
  * reference, so the function is safe — we just drop the link.
  *
  * Naming: the rename `dying_*` -> bare name doesn't apply here because the
- * function is already named `deallocate_and_ascend` upstream (no leading
+ * function is already named `deallocateAndAscend` upstream (no leading
  * `dying_`). The body, however, has its `alloc.deallocate(...)` call
  * dissolved (GC supersedes manual deallocation).
  */
@@ -516,14 +516,14 @@ internal fun <K, V> newOwnedTree(): Root<K, V> {
  */
 internal fun <K, V> NodeRef<Marker.Owned, K, V, Marker.LeafOrInternal>.pushInternalLevel():
     NodeRef<Marker.Mut, K, V, Marker.Internal> {
-    // takeMut(self, |old_root| NodeRef::new_internal(old_root, alloc).forget_type())
+    // takeMut(self, |oldRoot| NodeRef::newInternal(oldRoot, alloc).forgetType())
     // In Kotlin we read self, build the new root, and write back fields.
     val oldRoot: Root<K, V> = NodeRef(height = height, node = node)
     val newRoot = NodeRef.newInternal(oldRoot).forgetType()
     height = newRoot.height
     node = newRoot.node
 
-    // `self.borrow_mut()`, except that we just forgot we're internal now.
+    // `self.borrowMut()`, except that we just forgot we're internal now.
     return NodeRef(height = height, node = node)
 }
 
@@ -539,7 +539,7 @@ internal fun <K, V> NodeRef<Marker.Owned, K, V, Marker.LeafOrInternal>.pushInter
  * Panics if there is no internal level, i.e., if the root node is a leaf.
  */
 internal fun <K, V> NodeRef<Marker.Owned, K, V, Marker.LeafOrInternal>.popInternalLevel() {
-    check(height > 0) // assert!(self.height > 0)
+    check(height > 0) // assert(self.height > 0)
 
     // SAFETY: we asserted to be internal.
     val internalSelf: NodeRef<Marker.Mut, K, V, Marker.Internal> =
@@ -581,7 +581,7 @@ internal fun <K, V> NodeRef<Marker.Mut, K, V, Marker.LeafOrInternal>.setParentLi
  *
  * Upstream returns `&mut InternalNode<K, V>`; in Kotlin we return the
  * `InternalNode` reference directly. The `as` downcast mirrors the upstream
- * `as_internal_ptr` cast (which is sound by the static type guarantee that
+ * `asInternalPtr` cast (which is sound by the static type guarantee that
  * the node is `Marker.Internal`, i.e. the runtime instance is an
  * `InternalNode`).
  */
@@ -600,7 +600,7 @@ internal fun <K, V, Type> NodeRef<Marker.Mut, K, V, Type>.asLeafMut(): LeafNode<
 
 /**
  * Offers exclusive access to the leaf portion of a leaf or internal node.
- * Upstream `into_leaf_mut` consumed `self`; in Kotlin we just return the
+ * Upstream `intoLeafMut` consumed `self`; in Kotlin we just return the
  * underlying node reference.
  */
 internal fun <K, V, Type> NodeRef<Marker.Mut, K, V, Type>.intoLeafMut(): LeafNode<K, V> {
@@ -635,8 +635,8 @@ internal fun <K, V, Type> NodeRef<Marker.Dying, K, V, Type>.asLeafDying(): LeafN
 
 // ---- NodeRef<Mut, ..., Type>: key/val area accessors -------------------
 //
-// Upstream uses `SliceIndex` so a single `key_area_mut(idx)` /
-// `key_area_mut(start..end)` / `key_area_mut(..end)` covers all forms.
+// Upstream uses `SliceIndex` so a single `keyAreaMut(idx)` /
+// `keyAreaMut(start..end)` / `keyAreaMut(..end)` covers all forms.
 // Kotlin doesn't have a slice-index trait, so we expose three small
 // helpers per area: a single-slot accessor and bulk shift/insert/remove
 // helpers operate directly on the underlying arrays via the
@@ -667,7 +667,7 @@ internal fun <K, V, Type> NodeRef<Marker.Mut, K, V, Type>.writeValArea(idx: Int,
 /**
  * Reads (and conceptually moves out of) the key slot at [idx].
  *
- * Mirrors `key_area_mut(idx).assume_init_read()`. In Kotlin the slot is
+ * Mirrors `keyAreaMut(idx).assumeInitRead()`. In Kotlin the slot is
  * not nulled out (GC will reclaim once no longer reachable from `len`-area
  * scope), but the caller treats the slot as logically uninitialised.
  *
@@ -739,7 +739,7 @@ internal fun <K, V> NodeRef<Marker.Mut, K, V, Marker.Internal>.correctChildrensP
     range: IntRange,
 ) {
     for (i in range) {
-        check(i <= len()) // debug_assert!(i <= self.len())
+        check(i <= len()) // debugAssert(i <= self.len())
         // SAFETY: caller-provided range items are valid edge indices.
         Handle.newEdge(this.reborrowMut(), i).correctParentLink()
     }
@@ -765,7 +765,7 @@ internal fun <K, V> NodeRef<Marker.Mut, K, V, Marker.Leaf>.pushWithHandle(
     value: V,
 ): Handle<NodeRef<Marker.Mut, K, V, Marker.Leaf>, Marker.KV> {
     val idx = this.len()
-    check(idx < CAPACITY) // assert!(idx < CAPACITY)
+    check(idx < CAPACITY) // assert(idx < CAPACITY)
     setLen(idx + 1)
     // SAFETY: idx < CAPACITY by the assert above.
     this.writeKeyArea(idx, key)
@@ -795,10 +795,10 @@ internal fun <K, V> NodeRef<Marker.Mut, K, V, Marker.Internal>.push(
     value: V,
     edge: Root<K, V>,
 ) {
-    check(edge.height == this.height - 1) // assert!(edge.height == self.height - 1)
+    check(edge.height == this.height - 1) // assert(edge.height == self.height - 1)
 
     val idx = this.len()
-    check(idx < CAPACITY) // assert!(idx < CAPACITY)
+    check(idx < CAPACITY) // assert(idx < CAPACITY)
     setLen(idx + 1)
     // SAFETY: idx < CAPACITY (asserted above) and idx + 1 <= CAPACITY.
     this.writeKeyArea(idx, key)
@@ -827,14 +827,14 @@ internal fun <BorrowType, K, V> NodeRef<BorrowType, K, V, Marker.LeafOrInternal>
 /** Unsafely asserts to the compiler the static information that this node is a `Leaf`. */
 internal fun <K, V> NodeRef<Marker.Mut, K, V, Marker.LeafOrInternal>.castToLeafUnchecked():
     NodeRef<Marker.Mut, K, V, Marker.Leaf> {
-    check(height == 0) // debug_assert!(self.height == 0)
+    check(height == 0) // debugAssert(self.height == 0)
     return NodeRef(height = height, node = node)
 }
 
 /** Unsafely asserts to the compiler the static information that this node is an `Internal`. */
 internal fun <K, V> NodeRef<Marker.Mut, K, V, Marker.LeafOrInternal>.castToInternalUnchecked():
     NodeRef<Marker.Mut, K, V, Marker.Internal> {
-    check(height > 0) // debug_assert!(self.height > 0)
+    check(height > 0) // debugAssert(self.height > 0)
     return NodeRef(height = height, node = node)
 }
 
@@ -881,7 +881,7 @@ internal class Handle<Node, Type> internal constructor(
             node: NodeRef<BorrowType, K, V, NodeType>,
             idx: Int,
         ): Handle<NodeRef<BorrowType, K, V, NodeType>, Marker.KV> {
-            check(idx < node.len()) // debug_assert!(idx < node.len())
+            check(idx < node.len()) // debugAssert(idx < node.len())
             return Handle(node, idx)
         }
 
@@ -895,7 +895,7 @@ internal class Handle<Node, Type> internal constructor(
             node: NodeRef<BorrowType, K, V, NodeType>,
             idx: Int,
         ): Handle<NodeRef<BorrowType, K, V, NodeType>, Marker.Edge> {
-            check(idx <= node.len()) // debug_assert!(idx <= node.len())
+            check(idx <= node.len()) // debugAssert(idx <= node.len())
             return Handle(node, idx)
         }
     }
@@ -914,7 +914,7 @@ internal fun <BorrowType, K, V, NodeType> Handle<NodeRef<BorrowType, K, V, NodeT
 }
 
 /**
- * Structural equality for handles. Upstream is `impl PartialEq` on
+ * Structural equality for handles. Upstream is `implementation PartialEq` on
  * `Handle<NodeRef<...>, ...>`. We expose this as an extension function
  * rather than overriding [Object.equals] so we don't impose equality on
  * generic [Handle] (whose `Node` may not itself be a [NodeRef]).
@@ -953,7 +953,7 @@ Handle<NodeRef<Marker.DormantMut, K, V, NodeType>, HandleType>.awaken():
     return Handle(node.awaken(), idx)
 }
 
-// ---- Handle Edge: left_kv / right_kv ------------------------------------
+// ---- Handle Edge: leftKv / rightKv ------------------------------------
 
 /**
  * Upstream returns `Result<Handle<..., KV>, Self>`. We translate as a sealed
@@ -1005,7 +1005,7 @@ internal sealed class LeftOrRight<T> {
  * computes a sensible KV index of a split point and where to perform the insertion.
  */
 internal fun splitpoint(edgeIdx: Int): Pair<Int, LeftOrRight<Int>> {
-    check(edgeIdx <= CAPACITY) // debug_assert!(edge_idx <= CAPACITY)
+    check(edgeIdx <= CAPACITY) // debugAssert(edgeIdx <= CAPACITY)
     return when {
         edgeIdx < EDGE_IDX_LEFT_OF_CENTER -> Pair(KV_IDX_CENTER - 1, LeftOrRight.Left(edgeIdx))
         edgeIdx == EDGE_IDX_LEFT_OF_CENTER -> Pair(KV_IDX_CENTER, LeftOrRight.Left(edgeIdx))
@@ -1015,7 +1015,7 @@ internal fun splitpoint(edgeIdx: Int): Pair<Int, LeftOrRight<Int>> {
 }
 
 // =====================================================================
-// Handle Mut Leaf Edge: insert_fit / insert
+// Handle Mut Leaf Edge: insertFit / insert
 // =====================================================================
 
 /**
@@ -1026,10 +1026,10 @@ private fun <K, V> Handle<NodeRef<Marker.Mut, K, V, Marker.Leaf>, Marker.Edge>.i
     key: K,
     value: V,
 ): Handle<NodeRef<Marker.Mut, K, V, Marker.Leaf>, Marker.KV> {
-    check(node.len() < CAPACITY) // debug_assert!(self.node.len() < CAPACITY)
+    check(node.len() < CAPACITY) // debugAssert(self.node.len() < CAPACITY)
     val newLen = node.len() + 1
 
-    // SAFETY: caller ensured there is space; idx <= len() < CAPACITY = newLen-? — see slice_insert contract.
+    // SAFETY: caller ensured there is space; idx <= len() < CAPACITY = newLen-? — see sliceInsert contract.
     sliceInsert(node.asLeafMut().keys, newLen, idx, key as Any?)
     sliceInsert(node.asLeafMut().vals, newLen, idx, value as Any?)
     node.setLen(newLen)
@@ -1074,7 +1074,7 @@ private fun <K, V> Handle<NodeRef<Marker.Mut, K, V, Marker.Leaf>, Marker.Edge>.i
 }
 
 // =====================================================================
-// Handle Mut Internal Edge: correct_parent_link, insert_fit, insert
+// Handle Mut Internal Edge: correctParentLink, insertFit, insert
 // =====================================================================
 
 /**
@@ -1099,8 +1099,8 @@ private fun <K, V> Handle<NodeRef<Marker.Mut, K, V, Marker.Internal>, Marker.Edg
     value: V,
     edge: Root<K, V>,
 ) {
-    check(node.len() < CAPACITY) // debug_assert!(self.node.len() < CAPACITY)
-    check(edge.height == node.height - 1) // debug_assert!(edge.height == self.node.height - 1)
+    check(node.len() < CAPACITY) // debugAssert(self.node.len() < CAPACITY)
+    check(edge.height == node.height - 1) // debugAssert(edge.height == self.node.height - 1)
     val newLen = node.len() + 1
 
     val internal = node.asInternalMut()
@@ -1123,7 +1123,7 @@ private fun <K, V> Handle<NodeRef<Marker.Mut, K, V, Marker.Internal>, Marker.Edg
     value: V,
     edge: Root<K, V>,
 ): SplitResult<K, V, Marker.Internal>? {
-    check(edge.height == node.height - 1) // assert!(edge.height == self.node.height - 1)
+    check(edge.height == node.height - 1) // assert(edge.height == self.node.height - 1)
 
     return if (node.len() < CAPACITY) {
         this.insertFit(key, value, edge)
@@ -1149,7 +1149,7 @@ private fun <K, V> Handle<NodeRef<Marker.Mut, K, V, Marker.Internal>, Marker.Edg
 }
 
 // =====================================================================
-// Handle Mut Leaf Edge: insert_recursing
+// Handle Mut Leaf Edge: insertRecursing
 // =====================================================================
 
 /**
@@ -1206,7 +1206,7 @@ internal fun <K, V> Handle<NodeRef<Marker.Mut, K, V, Marker.Leaf>, Marker.Edge>.
 internal fun <BorrowType : Marker.BorrowType, K, V>
 Handle<NodeRef<BorrowType, K, V, Marker.Internal>, Marker.Edge>.descend():
     NodeRef<BorrowType, K, V, Marker.LeafOrInternal> {
-    // const { assert!(BorrowType::TRAVERSAL_PERMIT) } — see ascend() note.
+    // const { assert(BorrowType::TRAVERSAL_PERMIT) } — see ascend() note.
     val parentPtr: InternalNode<K, V> = node.node as InternalNode<K, V>
     // SAFETY: idx <= len, so edges[idx] is initialised.
     val childNode = parentPtr.edges[idx]!!
@@ -1214,12 +1214,12 @@ Handle<NodeRef<BorrowType, K, V, Marker.Internal>, Marker.Edge>.descend():
 }
 
 // =====================================================================
-// Handle Immut KV: into_kv
+// Handle Immut KV: intoKv
 // =====================================================================
 
 @Suppress("UNCHECKED_CAST")
 internal fun <K, V, NodeType> Handle<NodeRef<Marker.Immut, K, V, NodeType>, Marker.KV>.intoKv(): Pair<K, V> {
-    check(idx < node.len()) // debug_assert!(self.idx < self.node.len())
+    check(idx < node.len()) // debugAssert(self.idx < self.node.len())
     val leaf = node.node
     // SAFETY: idx < len, slots are initialised.
     val k = leaf.keys[idx] as K
@@ -1228,7 +1228,7 @@ internal fun <K, V, NodeType> Handle<NodeRef<Marker.Immut, K, V, NodeType>, Mark
 }
 
 // =====================================================================
-// Handle Mut KV: key_mut, into_val_mut, into_kv_mut, kv_mut, replace_kv
+// Handle Mut KV: keyMut, intoValMut, intoKvMut, kvMut, replaceKv
 // =====================================================================
 
 @Suppress("UNCHECKED_CAST")
@@ -1244,7 +1244,7 @@ internal fun <K, V, NodeType> Handle<NodeRef<Marker.Mut, K, V, NodeType>, Marker
 
 @Suppress("UNCHECKED_CAST")
 internal fun <K, V, NodeType> Handle<NodeRef<Marker.Mut, K, V, NodeType>, Marker.KV>.intoValMut(): V {
-    check(idx < node.len()) // debug_assert!(self.idx < self.node.len())
+    check(idx < node.len()) // debugAssert(self.idx < self.node.len())
     val leaf = node.intoLeafMut()
     // SAFETY: idx < len, slot initialised.
     return leaf.vals[idx] as V
@@ -1257,7 +1257,7 @@ internal fun <K, V, NodeType> Handle<NodeRef<Marker.Mut, K, V, NodeType>, Marker
 
 @Suppress("UNCHECKED_CAST")
 internal fun <K, V, NodeType> Handle<NodeRef<Marker.Mut, K, V, NodeType>, Marker.KV>.intoKvMut(): Pair<K, V> {
-    check(idx < node.len()) // debug_assert!(self.idx < self.node.len())
+    check(idx < node.len()) // debugAssert(self.idx < self.node.len())
     val leaf = node.intoLeafMut()
     // SAFETY: idx < len, slots initialised.
     val k = leaf.keys[idx] as K
@@ -1267,7 +1267,7 @@ internal fun <K, V, NodeType> Handle<NodeRef<Marker.Mut, K, V, NodeType>, Marker
 
 @Suppress("UNCHECKED_CAST")
 internal fun <K, V, NodeType> Handle<NodeRef<Marker.Mut, K, V, NodeType>, Marker.KV>.kvMut(): Pair<K, V> {
-    check(idx < node.len()) // debug_assert!(self.idx < self.node.len())
+    check(idx < node.len()) // debugAssert(self.idx < self.node.len())
     // SAFETY: idx < len, slots initialised.
     val leaf = node.asLeafMut()
     val key = leaf.keys[idx] as K
@@ -1291,7 +1291,7 @@ internal fun <K, V, NodeType> Handle<NodeRef<Marker.Mut, K, V, NodeType>, Marker
 }
 
 // =====================================================================
-// Handle ValMut KV: into_kv_valmut
+// Handle ValMut KV: intoKvValmut
 // =====================================================================
 
 internal fun <K, V, NodeType> Handle<NodeRef<Marker.ValMut, K, V, NodeType>, Marker.KV>.intoKvValmut():
@@ -1300,13 +1300,13 @@ internal fun <K, V, NodeType> Handle<NodeRef<Marker.ValMut, K, V, NodeType>, Mar
 }
 
 // =====================================================================
-// Handle Dying KV: into_key_val, drop_key_val
+// Handle Dying KV: intoKeyVal, dropKeyVal
 // =====================================================================
 
 /**
  * Extracts the key and value that the KV handle refers to.
  *
- * Naming: upstream is `into_key_val` already (no `dying_` prefix to drop).
+ * Naming: upstream is `intoKeyVal` already (no `dying_` prefix to drop).
  *
  * # Safety
  * The node that the handle refers to must not yet have been deallocated.
@@ -1314,7 +1314,7 @@ internal fun <K, V, NodeType> Handle<NodeRef<Marker.ValMut, K, V, NodeType>, Mar
 @Suppress("UNCHECKED_CAST")
 internal fun <K, V, NodeType> Handle<NodeRef<Marker.Dying, K, V, NodeType>, Marker.KV>.intoKeyVal():
     Pair<K, V> {
-    check(idx < node.len()) // debug_assert!(self.idx < self.node.len())
+    check(idx < node.len()) // debugAssert(self.idx < self.node.len())
     val leaf = node.asLeafDying()
     // SAFETY: idx < len, slots initialised.
     val key = leaf.keys[idx] as K
@@ -1336,11 +1336,11 @@ internal fun <K, V, NodeType> Handle<NodeRef<Marker.Dying, K, V, NodeType>, Mark
 internal fun <K, V, NodeType> Handle<NodeRef<Marker.Dying, K, V, NodeType>, Marker.KV>.dropKeyVal() {
     // Run the destructor of the value even if the destructor of the key panics.
     // SAFETY: GC supersedes manual drop; the entire body dissolves.
-    check(idx < node.len()) // debug_assert!(self.idx < self.node.len())
+    check(idx < node.len()) // debugAssert(self.idx < self.node.len())
 }
 
 // =====================================================================
-// Handle Mut KV: split_leaf_data
+// Handle Mut KV: splitLeafData
 // =====================================================================
 
 /**
@@ -1351,7 +1351,7 @@ internal fun <K, V, NodeType> Handle<NodeRef<Marker.Dying, K, V, NodeType>, Mark
 private fun <K, V, NodeType> Handle<NodeRef<Marker.Mut, K, V, NodeType>, Marker.KV>.splitLeafData(
     newNode: LeafNode<K, V>,
 ): Pair<K, V> {
-    check(idx < node.len()) // debug_assert!(self.idx < self.node.len())
+    check(idx < node.len()) // debugAssert(self.idx < self.node.len())
     val oldLen = node.len()
     val newLen = oldLen - idx - 1
     newNode.len = newLen
@@ -1488,7 +1488,7 @@ internal fun <K, V> NodeRef<Marker.Mut, K, V, Marker.LeafOrInternal>.chooseParen
             when (val left = parentEdge.leftKv()) {
                 is EdgeKvResult.Ok -> {
                     val leftParentKv = left.handle
-                    // ptr::read(&left_parent_kv): construct a sibling handle aliasing the same node.
+                    // ptr::read(&leftParentKv): construct a sibling handle aliasing the same node.
                     val parentForCtx = Handle<NodeRef<Marker.Mut, K, V, Marker.Internal>, Marker.KV>(
                         node = NodeRef(leftParentKv.node.height, leftParentKv.node.node),
                         idx = leftParentKv.idx,
@@ -1552,7 +1552,7 @@ internal fun <K, V> BalancingContext<K, V>.canMerge(): Boolean {
     return leftChild.len() + 1 + rightChild.len() <= CAPACITY
 }
 
-// ---- BalancingContext: do_merge ----------------------------------------
+// ---- BalancingContext: doMerge ----------------------------------------
 
 /**
  * Performs a merge and lets a closure decide what to return.
@@ -1563,7 +1563,7 @@ private inline fun <K, V, R> BalancingContext<K, V>.doMerge(
         NodeRef<Marker.Mut, K, V, Marker.LeafOrInternal>,
     ) -> R,
 ): R {
-    // Destructure parent: { node: parent_node, idx: parent_idx, _marker }
+    // Destructure parent: { node: parentNode, idx: parentIdx, _marker }
     val parentNode = parent.node
     val parentIdx = parent.idx
     val oldParentLen = parentNode.len()
@@ -1573,7 +1573,7 @@ private inline fun <K, V, R> BalancingContext<K, V>.doMerge(
     val rightLen = rightNode.len()
     val newLeftLen = oldLeftLen + 1 + rightLen
 
-    check(newLeftLen <= CAPACITY) // assert!(new_left_len <= CAPACITY)
+    check(newLeftLen <= CAPACITY) // assert(newLeftLen <= CAPACITY)
 
     leftNode.setLen(newLeftLen)
 
@@ -1614,9 +1614,9 @@ private inline fun <K, V, R> BalancingContext<K, V>.doMerge(
         )
         leftInternal.correctChildrensParentLinks(oldLeftLen + 1..newLeftLen)
 
-        // alloc.deallocate(right_node, Layout::new::<InternalNode>()) — dissolved (GC).
+        // alloc.deallocate(rightNode, Layout::new::<InternalNode>()) — dissolved (GC).
     } else {
-        // alloc.deallocate(right_node, Layout::new::<LeafNode>()) — dissolved (GC).
+        // alloc.deallocate(rightNode, Layout::new::<LeafNode>()) — dissolved (GC).
     }
 
     return result(parentNode, leftNode)
@@ -1664,7 +1664,7 @@ internal fun <K, V> BalancingContext<K, V>.mergeTrackingChildEdge(
     return Handle.newEdge(child, newIdx)
 }
 
-// ---- BalancingContext: steal_left / steal_right ------------------------
+// ---- BalancingContext: stealLeft / stealRight ------------------------
 
 /**
  * Removes a key-value pair from the left child and places it in the key-value storage
@@ -1694,15 +1694,15 @@ internal fun <K, V> BalancingContext<K, V>.stealRight(
 
 /** Bulk steal `count` entries from the left child into the right child. */
 internal fun <K, V> BalancingContext<K, V>.bulkStealLeft(count: Int) {
-    check(count > 0) // assert!(count > 0)
+    check(count > 0) // assert(count > 0)
     val leftNode = leftChild
     val oldLeftLen = leftNode.len()
     val rightNode = rightChild
     val oldRightLen = rightNode.len()
 
     // Make sure that we may steal safely.
-    check(oldRightLen + count <= CAPACITY) // assert!(old_right_len + count <= CAPACITY)
-    check(oldLeftLen >= count) // assert!(old_left_len >= count)
+    check(oldRightLen + count <= CAPACITY) // assert(oldRightLen + count <= CAPACITY)
+    check(oldLeftLen >= count) // assert(oldLeftLen >= count)
 
     val newLeftLen = oldLeftLen - count
     val newRightLen = oldRightLen + count
@@ -1769,15 +1769,15 @@ internal fun <K, V> BalancingContext<K, V>.bulkStealLeft(count: Int) {
 
 /** The symmetric clone of [bulkStealLeft]. */
 internal fun <K, V> BalancingContext<K, V>.bulkStealRight(count: Int) {
-    check(count > 0) // assert!(count > 0)
+    check(count > 0) // assert(count > 0)
     val leftNode = leftChild
     val oldLeftLen = leftNode.len()
     val rightNode = rightChild
     val oldRightLen = rightNode.len()
 
     // Make sure that we may steal safely.
-    check(oldLeftLen + count <= CAPACITY) // assert!(old_left_len + count <= CAPACITY)
-    check(oldRightLen >= count) // assert!(old_right_len >= count)
+    check(oldLeftLen + count <= CAPACITY) // assert(oldLeftLen + count <= CAPACITY)
+    check(oldRightLen >= count) // assert(oldRightLen >= count)
 
     val newLeftLen = oldLeftLen + count
     val newRightLen = oldRightLen - count
@@ -1844,7 +1844,7 @@ internal fun <K, V> BalancingContext<K, V>.bulkStealRight(count: Int) {
 }
 
 // =====================================================================
-// Handle forget_node_type (Leaf Edge / Internal Edge / Leaf KV)
+// Handle forgetNodeType (Leaf Edge / Internal Edge / Leaf KV)
 // =====================================================================
 
 internal fun <BorrowType, K, V>
@@ -1866,7 +1866,7 @@ Handle<NodeRef<BorrowType, K, V, Marker.Leaf>, Marker.KV>.forgetNodeTypeKv():
 }
 
 // =====================================================================
-// Handle LeafOrInternal: force, cast_to_leaf_unchecked
+// Handle LeafOrInternal: force, castToLeafUnchecked
 // =====================================================================
 
 /** Checks whether the underlying node is an `Internal` node or a `Leaf` node. */
@@ -1891,7 +1891,7 @@ Handle<NodeRef<Marker.Mut, K, V, Marker.LeafOrInternal>, Type>.castToLeafUncheck
 }
 
 // =====================================================================
-// Handle Mut LeafOrInternal Edge: move_suffix
+// Handle Mut LeafOrInternal Edge: moveSuffix
 // =====================================================================
 
 /**
@@ -1908,8 +1908,8 @@ internal fun <K, V> Handle<NodeRef<Marker.Mut, K, V, Marker.LeafOrInternal>, Mar
     val newRightLen = oldLeftLen - newLeftLen
     val rightNode = right.reborrowMut()
 
-    check(rightNode.len() == 0) // assert!(right_node.len() == 0)
-    check(leftNode.height == rightNode.height) // assert!(left_node.height == right_node.height)
+    check(rightNode.len() == 0) // assert(rightNode.len() == 0)
+    check(leftNode.height == rightNode.height) // assert(leftNode.height == rightNode.height)
 
     if (newRightLen > 0) {
         leftNode.setLen(newLeftLen)
@@ -1969,7 +1969,7 @@ internal class SplitResult<K, V, NodeType>(
     val right: NodeRef<Marker.Owned, K, V, NodeType>,
 )
 
-/** Specialised `forget_node_type` for `SplitResult<..., Leaf>`. */
+/** Specialised `forgetNodeType` for `SplitResult<..., Leaf>`. */
 internal fun <K, V> SplitResult<K, V, Marker.Leaf>.forgetNodeTypeLeaf():
     SplitResult<K, V, Marker.LeafOrInternal> {
     return SplitResult(
@@ -1979,7 +1979,7 @@ internal fun <K, V> SplitResult<K, V, Marker.Leaf>.forgetNodeTypeLeaf():
     )
 }
 
-/** Specialised `forget_node_type` for `SplitResult<..., Internal>`. */
+/** Specialised `forgetNodeType` for `SplitResult<..., Internal>`. */
 internal fun <K, V> SplitResult<K, V, Marker.Internal>.forgetNodeTypeInternal():
     SplitResult<K, V, Marker.LeafOrInternal> {
     return SplitResult(
@@ -1994,7 +1994,7 @@ internal fun <K, V> SplitResult<K, V, Marker.Internal>.forgetNodeTypeInternal():
 // =====================================================================
 
 /**
- * Phantom-type tag namespace. Mirrors `pub(super) mod marker` upstream.
+ * Phantom-type tag namespace. Mirrors `public(super) mod marker` upstream.
  *
  * The Rust types are `enum`s with no variants (uninhabited zero-sized
  * markers); we render them as empty Kotlin classes.
@@ -2071,9 +2071,9 @@ internal object Marker {
  * The slice has more than `idx` elements (i.e. `idx < sliceLen`).
  */
 private fun sliceInsert(slice: Array<Any?>, sliceLen: Int, idx: Int, value: Any?) {
-    check(sliceLen > idx) // debug_assert!(len > idx)
+    check(sliceLen > idx) // debugAssert(len > idx)
     if (sliceLen > idx + 1) {
-        // ptr::copy(slice_ptr.add(idx), slice_ptr.add(idx + 1), len - idx - 1)
+        // ptr::copy(slicePtr.add(idx), slicePtr.add(idx + 1), len - idx - 1)
         // overlapping move toward higher indices: iterate from high end.
         for (i in sliceLen - 1 downTo idx + 1) {
             slice[i] = slice[i - 1]
@@ -2090,9 +2090,9 @@ private fun sliceInsert(slice: Array<Any?>, sliceLen: Int, idx: Int, value: Any?
  * The slice has more than `idx` elements (i.e. `idx < sliceLen`).
  */
 private fun sliceRemove(slice: Array<Any?>, sliceLen: Int, idx: Int): Any? {
-    check(idx < sliceLen) // debug_assert!(idx < len)
+    check(idx < sliceLen) // debugAssert(idx < len)
     val ret = slice[idx]
-    // ptr::copy(slice_ptr.add(idx + 1), slice_ptr.add(idx), len - idx - 1)
+    // ptr::copy(slicePtr.add(idx + 1), slicePtr.add(idx), len - idx - 1)
     // overlapping move toward lower indices: iterate from low end.
     for (i in idx until sliceLen - 1) {
         slice[i] = slice[i + 1]
@@ -2108,7 +2108,7 @@ private fun sliceRemove(slice: Array<Any?>, sliceLen: Int, idx: Int): Any? {
  * The slice has at least `distance` elements (`distance <= sliceLen`).
  */
 private fun sliceShl(slice: Array<Any?>, sliceLen: Int, distance: Int) {
-    // ptr::copy(slice_ptr.add(distance), slice_ptr, slice.len() - distance)
+    // ptr::copy(slicePtr.add(distance), slicePtr, slice.len() - distance)
     // overlapping copy toward lower indices: iterate from low end.
     for (i in 0 until sliceLen - distance) {
         slice[i] = slice[i + distance]
@@ -2122,7 +2122,7 @@ private fun sliceShl(slice: Array<Any?>, sliceLen: Int, distance: Int) {
  * The slice has at least `distance` elements (`distance <= sliceLen`).
  */
 private fun sliceShr(slice: Array<Any?>, sliceLen: Int, distance: Int) {
-    // ptr::copy(slice_ptr, slice_ptr.add(distance), slice.len() - distance)
+    // ptr::copy(slicePtr, slicePtr.add(distance), slice.len() - distance)
     // overlapping copy toward higher indices: iterate from high end.
     for (i in sliceLen - 1 downTo distance) {
         slice[i] = slice[i - distance]
@@ -2133,7 +2133,7 @@ private fun sliceShr(slice: Array<Any?>, sliceLen: Int, distance: Int) {
  * Moves all values from a slice of initialized elements to a slice
  * of uninitialized elements, leaving behind `src` as all uninitialized.
  *
- * Upstream is non-overlapping (copy_nonoverlapping); this Kotlin port works
+ * Upstream is non-overlapping (copyNonoverlapping); this Kotlin port works
  * for non-overlapping spans of the same or different arrays. The caller is
  * responsible for the non-overlap precondition.
  */
@@ -2144,7 +2144,7 @@ private fun moveToSlice(
     dstOffset: Int,
     count: Int,
 ) {
-    // assert!(src.len() == dst.len()) — caller passes matching lengths via `count`.
+    // assert(src.len() == dst.len()) — caller passes matching lengths via `count`.
     for (i in 0 until count) {
         dst[dstOffset + i] = src[srcOffset + i]
         src[srcOffset + i] = null

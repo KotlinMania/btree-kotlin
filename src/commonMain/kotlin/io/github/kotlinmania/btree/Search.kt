@@ -159,7 +159,7 @@ internal fun <BorrowType : Marker.BorrowType, K, V, Q : Comparable<Q>> NodeRef<B
  * The result is meaningful only if the tree is ordered by key.
  *
  * `inline` + `reified V` is required so the [isSetVal] static-dispatch
- * overload (matching Rust's `V::is_set_val()`) resolves at the call
+ * overload (matching the Rust isSetVal-trait method on V) resolves at the call
  * site rather than needing a sample `V` from the receiver. This
  * cascades to callers; once Phase-4 map.rs lands its callers must also
  * be `inline reified V`.
@@ -234,7 +234,7 @@ internal fun <BorrowType : Marker.BorrowType, K, V, Q : Comparable<Q>, R : Range
                 ),
             )
         }
-        check(lowerEdgeIdx == upperEdgeIdx) // debug_assert_eq!(lower_edge_idx, upper_edge_idx);
+        check(lowerEdgeIdx == upperEdgeIdx) // upstream debugAssertEq on lowerEdgeIdx vs upperEdgeIdx
         // SAFETY: `lowerEdgeIdx` is a valid edge index for `self`.
         val commonEdge = Handle.newEdge(self, lowerEdgeIdx)
         when (val forced = commonEdge.force()) {
@@ -314,9 +314,9 @@ private fun <BorrowType, K, V, Type, Q : Comparable<Q>> NodeRef<BorrowType, K, V
     where K : Comparable<Q> {
     val node = this.reborrow()
     val keys = node.keys()
-    check(startIndex <= keys.size) // debug_assert!(start_index <= keys.len());
+    check(startIndex <= keys.size) // upstream debugAssert that startIndex is within keys length
     // SAFETY: `startIndex <= keys.size`, so the slice from `startIndex` is in bounds.
-    // Iterate by index rather than allocating a sublist; matches `keys.get_unchecked(start..)`.
+    // Iterate by index rather than allocating a sublist; matches the upstream unchecked-slice access on `keys` from start.
     for (offset in 0 until (keys.size - startIndex)) {
         val k = keys[startIndex + offset]
         // `key.cmp(k.borrow())` -> `key.compareTo(k)`, with the convention that
