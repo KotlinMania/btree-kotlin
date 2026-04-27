@@ -4,10 +4,13 @@
 
 This is **btree-kotlin**, a line-by-line port of `std::collections::BTreeMap`
 and `BTreeSet` from the Rust standard library to Kotlin Multiplatform.
-The vendored Rust sources live in `tmp/rust-stdlib-collections-btree/`
-(unchanged copies of upstream `library/alloc/src/collections/btree/`)
-and the Kotlin port lives in
-`src/commonMain/kotlin/io/github/kotlinmania/btree_kotlin/`.
+
+The Kotlin port lives in
+`src/commonMain/kotlin/io/github/kotlinmania/btree_kotlin/`. The
+upstream Rust source it was translated from is **not tracked** in this
+repo — fetch it into `tmp/rust-stdlib-collections-btree/` by running
+`./tools/fetch-rust-source.sh` after cloning. CI does this
+automatically as a setup step before running ast_distance scans.
 
 The port exists because Kotlin's stdlib has no `commonMain` sorted-by-key
 map and the kotlinx ecosystem's options force foreign API shapes on

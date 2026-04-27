@@ -48,10 +48,11 @@ src/commonMain/kotlin/io/github/kotlinmania/btree_kotlin/
 └── DedupSortedIter.kt   ← dedup_sorted_iter.rs
 ```
 
-The vendored Rust source lives unchanged at
-`tmp/rust-stdlib-collections-btree/` so each `.kt` file's
-`// port-lint: source ...` header pinpoints exactly which lines it was
-translated from.
+Each `.kt` file's `// port-lint: source ...` header pinpoints which
+upstream line it was translated from. The vendored Rust source itself
+is **not** tracked in this repo — it's fetched into `tmp/` per clone
+by `tools/fetch-rust-source.sh` (CI does this automatically; local
+devs run it once after cloning).
 
 ## License
 
@@ -59,6 +60,15 @@ Dual-licensed under Apache-2.0 OR MIT, mirroring the upstream Rust
 licensing. See `LICENSE-APACHE`, `LICENSE-MIT`, and `NOTICE`.
 
 ## Build
+
+After cloning, rehydrate the vendored Rust source so port-lint and
+ast_distance verification can run:
+
+```
+./tools/fetch-rust-source.sh
+```
+
+Then:
 
 ```
 ./gradlew compileKotlinMacosArm64

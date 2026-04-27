@@ -16,11 +16,9 @@ build/
 .idea/
 *.iml
 out/
-# Ignore everything under tmp/ EXCEPT the vendored Rust standard
-# library source — port-lint relies on the locked snapshot being
-# checked in for byte-level provenance verification.
-tmp/*
-!tmp/rust-stdlib-collections-btree/
+# Working dir for the vendored Rust source and any other ephemera.
+# Not tracked — fetch with `tools/fetch-rust-source.sh` after cloning.
+tmp/
 
 # AST distance tool reports
 port_status_report.md

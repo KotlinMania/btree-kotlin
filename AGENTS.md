@@ -2,10 +2,13 @@
 
 Line-by-line Kotlin Multiplatform port of `std::collections::BTreeMap`
 and `BTreeSet` from the Rust standard library
-(`library/alloc/src/collections/btree/`). The vendored Rust source lives
-at `tmp/rust-stdlib-collections-btree/` and is the **only** authority
-on what each function should do; never edit the upstream source to make
-a port easier.
+(`library/alloc/src/collections/btree/`).
+
+The upstream Rust source is **not tracked** in this repo — run
+`./tools/fetch-rust-source.sh` once after cloning to populate
+`tmp/rust-stdlib-collections-btree/`. That fetched tree is the only
+authority on what each function should do; never edit it to make a
+port easier.
 
 ## General Porting Principles
 

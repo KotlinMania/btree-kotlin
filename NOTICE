@@ -13,8 +13,9 @@ order 6, the Handle/NodeRef cursor scheme, the underflow-handling
 fixup logic, the iterator state machines — belongs to the upstream
 contributors.
 
-Vendored Rust source under `tmp/rust-stdlib-collections-btree/` is
-unchanged from upstream. The Kotlin port lives at
+Vendored Rust source is fetched into `tmp/rust-stdlib-collections-btree/`
+by `tools/fetch-rust-source.sh` and is not tracked in this repo
+(see `.gitignore`). The Kotlin port lives at
 `src/commonMain/kotlin/io/github/kotlinmania/btree_kotlin/`. Each
 ported `.kt` file carries a `// port-lint:` header pointing at the
 specific Rust source path it was translated from, plus a short

@@ -21,6 +21,9 @@ jobs:
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
 
+      - name: Fetch vendored Rust source (untracked, rehydrated per-clone)
+        run: ./tools/fetch-rust-source.sh
+
       - name: Compile commonMain (macosArm64)
         run: ./gradlew compileKotlinMacosArm64 --no-daemon
 
@@ -70,6 +73,9 @@ jobs:
 
       - name: Install build deps
         run: sudo apt-get update && sudo apt-get install -y cmake ninja-build
+
+      - name: Fetch vendored Rust source
+        run: ./tools/fetch-rust-source.sh
 
       - name: Build ast_distance
         working-directory: tools/ast_distance
