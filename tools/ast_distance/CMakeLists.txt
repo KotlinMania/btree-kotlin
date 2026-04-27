@@ -38,7 +38,13 @@ FetchContent_Declare(
     GIT_TAG v0.21.0
 )
 
-FetchContent_MakeAvailable(tree-sitter tree-sitter-rust tree-sitter-kotlin tree-sitter-cpp tree-sitter-python)
+FetchContent_Declare(
+    tree-sitter-typescript
+    GIT_REPOSITORY https://github.com/tree-sitter/tree-sitter-typescript.git
+    GIT_TAG v0.21.2
+)
+
+FetchContent_MakeAvailable(tree-sitter tree-sitter-rust tree-sitter-kotlin tree-sitter-cpp tree-sitter-python tree-sitter-typescript)
 
 # Build tree-sitter core as a library
 # Disable warnings for third-party C code (they use old-style prototypes)
@@ -95,6 +101,17 @@ target_include_directories(tree-sitter-python-parser PUBLIC
 )
 target_compile_options(tree-sitter-python-parser PRIVATE -w)
 
+# Build tree-sitter-typescript parser
+add_library(tree-sitter-typescript-parser STATIC
+    ${tree-sitter-typescript_SOURCE_DIR}/typescript/src/parser.c
+    ${tree-sitter-typescript_SOURCE_DIR}/typescript/src/scanner.c
+)
+target_include_directories(tree-sitter-typescript-parser PUBLIC
+    ${tree-sitter_SOURCE_DIR}/lib/include
+    ${tree-sitter-typescript_SOURCE_DIR}/typescript/src
+)
+target_compile_options(tree-sitter-typescript-parser PRIVATE -w)
+
 # Main executable
 add_executable(ast_distance
     src/main.cpp
@@ -117,7 +134,31 @@ target_link_libraries(ast_distance PRIVATE
     tree-sitter-kotlin-parser
     tree-sitter-cpp-parser
     tree-sitter-python-parser
+    tree-sitter-typescript-parser
 )
+
+add_custom_command(TARGET ast_distance POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E rm -f ${CMAKE_CURRENT_SOURCE_DIR}/ast_distance
+    COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:ast_distance> ${CMAKE_CURRENT_SOURCE_DIR}/ast_distance
+    COMMENT "Refreshing source-tree ast_distance executable"
+)
+
+# ----------------------------
+# Tests (CTEST)
+# ----------------------------
+include(CTest)
+
+find_package(Python3 COMPONENTS Interpreter)
+if (Python3_Interpreter_FOUND)
+    add_test(
+        NAME doc_comment_parsing
+        COMMAND
+            "${Python3_EXECUTABLE}"
+            "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_doc_comment_parsing.py"
+            "$<TARGET_FILE:ast_distance>"
+            "${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/kotlin_doc_comments.kt"
+    )
+endif()
 
 # Install
 install(TARGETS ast_distance RUNTIME DESTINATION bin)
