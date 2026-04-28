@@ -5,50 +5,6 @@
 
 package io.github.kotlinmania.btree
 
-// File-level translation notes
-// =============================
-//
-// - Upstream `BTreeMap<K, V, A: Allocator + Clone = Global>` -> `BTreeMap<K, V>`.
-//   The allocator parameter `A` is dropped on every type and method — Kotlin's
-//   GC supersedes manual deallocation, matching the convention established
-//   throughout Phases 1-3.
-// - `'a` lifetime parameters drop on every iterator and entry type.
-// - `K: Ord` -> `K : Comparable<K>` on the class parameter; per-method `Q`
-//   bounds import the AGENTS.md "Borrow" pattern (`K : Comparable<Q>`,
-//   `Q : Comparable<Q>`).
-// - `BTreeMap<K, V>` implements [MutableMap] for Kotlin-side ergonomics; that
-//   wires `entries`, `keys`, `values`, `get`, `put`, `remove`, etc. into the
-//   stdlib's collection contract for free, and downstream `BTreeSet` can lean
-//   on the Kotlin Set interface in turn.
-// - Public iterator types ([Iter], [IterMut], [Keys], [Values], [ValuesMut],
-//   [IntoIter], [IntoKeys], [IntoValues], [Range], [RangeMut]) are nested
-//   classes implementing [Iterator] / [MutableIterator] over the right Kotlin
-//   shape: `MutableMap.MutableEntry<K, V>` for the entry-shaped iterators,
-//   plain `K` / `V` for the projection ones. Drop semantics dissolve (GC).
-// - The `mem::replace(&mut self.length, 0)` pattern in `clear` translates to
-//   direct field reset — Kotlin has no moved-out-state to hide.
-// - `Cursor` / `CursorMut` / `CursorMutKey` are kept as separate classes
-//   matching upstream so consumers spell them the same. The `unsafe`
-//   methods translate to plain methods with `// SAFETY:` comments
-//   preserving the upstream invariants.
-// - `extractIf` / `ExtractIf` / `ExtractIfInner`: the `Drop` implementation on
-//   `ExtractIf` upstream re-walks the iterator on panic. In Kotlin we rely
-//   on GC and document that consumers must consume the iterator if they
-//   care about removal happening atomically with iteration progress.
-// - `range` / `rangeMut` are `inline reified V` because they thread into
-//   Search.kt's `searchTreeForBifurcation`; this cascades from Phase 3.
-// - `Index<&Q>` (Rust's `map[&q]`) translates to Kotlin's `operator get`,
-//   which throws `NoSuchElementException` on a missing key (matching
-//   `expect("no entry found for key")`).
-// - `BTreeMap<K, SetValZst>` overloads `replace` and `getOrInsertWith` per
-//   upstream's set-internal helpers; these are `internal` so Set.kt (Phase 5)
-//   can call them.
-// - `Hash`, `PartialEq`/`Eq`, `PartialOrd`/`Ord`, `Debug` impls become
-//   `hashCode` / `equals` / `compareTo` / `toString` overrides on
-//   `BTreeMap`. `Comparable<BTreeMap<K, V>>` is implemented when callers
-//   want lexicographic compare; the `K: Ord, V: Ord` bound from upstream
-//   becomes a runtime check (no Kotlin equivalent of conditional impls).
-
 // ============================================================================
 // Constants
 // ============================================================================
@@ -57,7 +13,7 @@ package io.github.kotlinmania.btree
  * Minimum number of elements in a node that is not a root.
  * We might temporarily have fewer elements during methods.
  *
- * Mirrors upstream `public(super) const MIN_LEN: usize = node::MIN_LEN_AFTER_SPLIT;`.
+ * Mirrors upstream `public(super) const MIN_LEN: Int = node.MIN_LEN_AFTER_SPLIT;`.
  * Imported by Fix.kt and Remove.kt through the flat `btree` package.
  */
 internal const val MIN_LEN: Int = MIN_LEN_AFTER_SPLIT
@@ -69,8 +25,7 @@ internal const val MIN_LEN: Int = MIN_LEN_AFTER_SPLIT
 /**
  * An ordered map based on a B-Tree.
  *
- * Translation of upstream `class BTreeMap<K, V, A: Allocator + Clone = Global>`.
- * The allocator parameter is dropped (GC supersedes manual deallocation).
+ * Translation of upstream `class BTreeMap<K, V>`.
  *
  * Implements [MutableMap] so consumers can import the Kotlin collections idioms
  * for free; instance methods that mirror upstream's surface (e.g. [insert],
@@ -107,12 +62,6 @@ class BTreeMap<K : Comparable<K>, V> : MutableMap<K, V> {
      */
     constructor()
 
-    // ---- Drop semantics -----------------------------------------------------
-    //
-    // Upstream's `unsafe implementation Drop for BTreeMap { function drop ... }` walks the
-    // tree via IntoIter to drop K and V instances in order. Kotlin's GC
-    // supersedes that; nothing to do.
-
     // ---- size / isEmpty / clear --------------------------------------------
 
     override val size: Int get() = length
@@ -121,9 +70,6 @@ class BTreeMap<K : Comparable<K>, V> : MutableMap<K, V> {
 
     /** Clears the map, removing all elements. */
     override fun clear() {
-        // Upstream uses `drop(BTreeMap { root: mem::replace(&mut self.root, None), ... })`
-        // to defer deallocation to the temporary's Drop. Kotlin GC handles
-        // the dropped tree; we simply null out the fields.
         root = null
         length = 0
     }
@@ -363,8 +309,8 @@ class BTreeMap<K : Comparable<K>, V> : MutableMap<K, V> {
                         val (k, v) = removed
                         val newV = conflict(k, v, firstOtherVal)
                         // SAFETY: we remove the K, V out of the next entry,
-                        // apply 'f' to get a new (K, V), and insert it back
-                        // into the next entry that the cursor is pointing at
+                        // apply `conflict` to get a new (K, V), and insert it
+                        // back into the next entry that the cursor is pointing at
                         selfCursor.insertAfterUnchecked(k, newV)
                     }
                 }
@@ -931,8 +877,7 @@ internal class MutEntry<K : Comparable<K>, V>(
 
 /**
  * An owning iterator over the entries of a `BTreeMap`, sorted by key. Walks
- * a dying tree, deallocating nodes (in Rust) as it goes; in Kotlin GC
- * supersedes the deallocation but the traversal pattern is identical.
+ * a dying tree, dropping the link to each node as it advances.
  */
 class IntoIter<K, V> internal constructor(
     internal var range: LazyLeafRange<Marker.Dying, K, V>,
@@ -1109,8 +1054,8 @@ class RangeMut<K, V> internal constructor(
  *
  * Removed elements are yielded in ascending key order; non-removed elements
  * remain in the map. If iteration short-circuits, the remaining matching
- * elements stay in the map. (Upstream's `Drop` implementation re-walks; Kotlin GC
- * supersedes that, and the user is expected to consume the iterator.)
+ * elements stay in the map; consumers must drive the iterator to completion
+ * if they want every match removed.
  */
 class ExtractIf<K : Comparable<K>, V, Q : Comparable<Q>> internal constructor(
     internal val inner: ExtractIfInner<K, V, Q>,
@@ -1445,7 +1390,6 @@ class CursorMutKey<K : Comparable<K>, V> internal constructor(
             cur
         }
         val handle = edge.insertRecursing(key, value) { ins ->
-            // drop(ins.left) — Kotlin GC, nothing to do.
             // SAFETY: The handle to the newly inserted value is always on a
             // leaf node, so adding a new root node doesn't invalidate it.
             val map = dormantMap.reborrow()

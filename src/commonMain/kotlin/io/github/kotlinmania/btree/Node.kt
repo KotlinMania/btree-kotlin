@@ -193,7 +193,6 @@ internal class NodeRef<BorrowType, K, V, Type> internal constructor(
         }
 
         private fun <K, V> fromNewLeaf(leaf: LeafNode<K, V>): NodeRef<Marker.Owned, K, V, Marker.Leaf> {
-            // The allocator must be dropped, not leaked. (No allocator in Kotlin; GC handles it.)
             return NodeRef(height = 0, node = leaf)
         }
 
@@ -211,7 +210,6 @@ internal class NodeRef<BorrowType, K, V, Type> internal constructor(
             internal: InternalNode<K, V>,
             height: Int,
         ): NodeRef<Marker.Owned, K, V, Marker.Internal> {
-            // The allocator must be dropped, not leaked. (No allocator in Kotlin; GC handles it.)
             val self = NodeRef<Marker.Owned, K, V, Marker.Internal>(height = height, node = internal)
             self.borrowMut().correctAllChildrensParentLinks()
             return self
@@ -390,11 +388,6 @@ internal fun <BorrowType : Marker.BorrowType, K, V, Type> NodeRef<BorrowType, K,
 /**
  * Similar to `ascend`, gets a reference to a node's parent node, but also
  * drops the link to the current node in the process.
- *
- * Naming: the rename `dying_*` -> bare name doesn't apply here because the
- * function is already named `deallocateAndAscend` upstream (no leading
- * `dying_`). The body, however, has its `alloc.deallocate(...)` call
- * dissolved (GC supersedes manual deallocation).
  */
 internal fun <K, V> NodeRef<Marker.Dying, K, V, Marker.LeafOrInternal>.deallocateAndAscend():
     Handle<NodeRef<Marker.Dying, K, V, Marker.Internal>, Marker.Edge>? {
@@ -402,7 +395,6 @@ internal fun <K, V> NodeRef<Marker.Dying, K, V, Marker.LeafOrInternal>.deallocat
         is AscendResult.Ok -> r.handle
         is AscendResult.Err -> null
     }
-    // SAFETY: alloc.deallocate(...) — dissolved; GC handles deallocation.
     return ret
 }
 
@@ -1270,16 +1262,10 @@ internal fun <K, V, NodeType> Handle<NodeRef<Marker.Dying, K, V, NodeType>, Mark
 /**
  * Drops the key and value that the KV handle refers to.
  *
- * In Kotlin GC handles deallocation, so the body is empty. The function is
- * preserved (rather than removed) so that downstream code that mirrors
- * upstream's drop sequencing has a slot to call.
- *
  * # Safety
  * The node that the handle refers to must not yet have been deallocated.
  */
 internal fun <K, V, NodeType> Handle<NodeRef<Marker.Dying, K, V, NodeType>, Marker.KV>.dropKeyVal() {
-    // Run the destructor of the value even if the destructor of the key panics.
-    // SAFETY: GC supersedes manual drop; the entire body dissolves.
     check(idx < node.len()) // debugAssert(self.idx < self.node.len())
 }
 

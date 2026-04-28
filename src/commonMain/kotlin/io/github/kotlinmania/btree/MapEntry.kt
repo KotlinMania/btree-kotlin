@@ -146,7 +146,6 @@ class VacantEntry<K : Comparable<K>, V> internal constructor(
                 pushed.forgetNodeTypeKv()
             } else {
                 h.insertRecursing(this.key, value) { ins ->
-                    // drop(ins.left) — Kotlin GC; nothing to do.
                     // SAFETY: Pushing a new root node doesn't invalidate
                     // handles to existing nodes.
                     val map = dormantMap.reborrow()

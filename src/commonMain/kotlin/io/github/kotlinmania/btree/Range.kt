@@ -269,18 +269,11 @@ sealed class Bound<out T> {
 
 /**
  * Map a `Bound<T>` to a `Bound<T>` by cloning the contents of the bound.
- *
- * Translates Rust's `Bound<&T>::cloned`. Under Kotlin's GC there is no
- * borrow distinction so this is the identity (the contained `T` is shared
- * by reference in both the source and result Bound).
  */
 fun <T> Bound<T>.cloned(): Bound<T> = this
 
 /**
  * Map a `Bound<T>` to a `Bound<T>` by copying the contents of the bound.
- *
- * Translates Rust's `Bound<&T>::copied`. Under Kotlin's GC there is no
- * copy/borrow distinction so this is the identity.
  */
 fun <T> Bound<T>.copied(): Bound<T> = this
 

@@ -12,28 +12,13 @@ package io.github.kotlinmania.btree
 // SearchBound, BifurcationResult, Bifurcation, findLowerBoundEdge,
 // findUpperBoundEdge, searchTreeForBifurcation from Search.kt.
 //
-// Allocator translation: upstream's `A: Allocator + Clone` parameter on
-// `deallocatingNext*` / `deallocatingEnd` exists solely so manual
-// deallocation can be plumbed down the stack. Kotlin's GC supersedes
-// manual deallocation, so the parameter is dropped at every call site
-// (matching the dissolution already done in Node.kt's
-// `deallocateAndAscend`). Upstream `# Safety` clauses about not visiting
-// the same KV twice are preserved verbatim in KDoc — they remain
-// callers' obligations even though the GC can no longer help if violated.
+// Upstream `# Safety` clauses about not visiting the same KV twice are
+// preserved verbatim in KDoc -- callers must respect them.
 //
-// `mem::replace(&mut slot, |old| (new, ret))` translation: where the
-// upstream code threads `&mut self` into `mem::replace`, the Kotlin port
-// follows AGENTS.md's "return-the-new-value" pattern — the function
-// returns `Pair<NewState, Ret>` and the caller (always a
-// `LeafRange`/`LazyLeafRange` slot here) writes the new state back into
-// its field.
-//
-// `inline reified V` cascade: [findLeafEdgesSpanningRange] /
-// [rangeSearchImmut] / [rangeSearchValMut] call into Search.kt's
-// `searchTreeForBifurcation`, which requires `reified V` so the
-// `isSetVal<V>()` static-dispatch overload resolves at the call site.
-// All the entry-point range-search functions in this file therefore
-// have to be `inline reified V` themselves and cascade to Phase-4 callers.
+// [findLeafEdgesSpanningRange] / [rangeSearchImmut] / [rangeSearchValMut]
+// are `inline reified V` because Search.kt's `searchTreeForBifurcation`
+// uses an `isSetVal<V>()` static-dispatch overload that resolves at the
+// call site.
 
 // ============================================================================
 // LeafRange
@@ -282,8 +267,6 @@ internal class LazyLeafRange<BorrowType, K, V>(
     }
 
     /**
-     * The allocator parameter is dropped (GC supersedes). All other semantics preserved.
-     *
      * SAFETY: caller has previously primed `front` to non-null; that
      * invariant is re-checked here as a debug assertion.
      */
@@ -307,9 +290,6 @@ internal class LazyLeafRange<BorrowType, K, V>(
         return kv
     }
 
-    /**
-     * The allocator parameter is dropped (GC supersedes manual deallocation).
-     */
     internal fun deallocatingEndDying() {
         val self = this as LazyLeafRange<Marker.Dying, K, V>
         val front = self.takeFrontDying()
@@ -665,8 +645,6 @@ internal fun <BorrowType : Marker.BorrowType, K, V>
  * This implies that if no more key-value pair follows, the entire tree
  * will have been deallocated and there is nothing left to return.
  *
- * The `alloc` parameter from upstream is dropped: GC supersedes manual deallocation.
- *
  * # Safety
  * - The given edge must not have been previously returned by counterpart
  *   `deallocatingNextBack`.
@@ -737,8 +715,6 @@ internal fun <K, V>
  * both sides of the tree, and have hit the same edge. As it is intended
  * only to be called when all keys and values have been returned,
  * no cleanup is done on any of the keys or values.
- *
- * The `alloc` parameter from upstream is dropped: GC supersedes manual deallocation.
  */
 internal fun <K, V>
     Handle<NodeRef<Marker.Dying, K, V, Marker.Leaf>, Marker.Edge>.deallocatingEnd() {
@@ -835,8 +811,6 @@ internal fun <K, V>
 // ============================================================================
 
 /**
- * The allocator parameter is dropped (GC supersedes).
- *
  * SAFETY:
  * - There must be another KV in the direction travelled.
  * - That KV was not previously returned by counterpart

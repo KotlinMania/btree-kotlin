@@ -28,10 +28,6 @@ package io.github.kotlinmania.btree
 // is permitted per AGENTS.md "compile-time-incomplete files are OK in
 // early phases".
 //
-// Allocator parameter: upstream `A: Allocator + Clone` is dropped — Kotlin's
-// GC supersedes manual deallocation, matching the convention already
-// established in Node.kt (e.g. `mergeTrackingChildEdge` has no `alloc`).
-
 /**
  * Removes a key-value pair from the tree, and returns that pair, as well as
  * the leaf edge corresponding to that former pair. It's possible this empties

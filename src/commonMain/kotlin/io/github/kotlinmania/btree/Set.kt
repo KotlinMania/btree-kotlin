@@ -65,8 +65,7 @@ class BTreeSet<T : Comparable<T>> : MutableSet<T> {
     /**
      * Makes a new `BTreeSet` with a reasonable choice of B.
      *
-     * Mirrors `public const function newIn(alloc: A) -> BTreeSet<T, A>`. The allocator
-     * parameter is dropped (Kotlin GC supersedes).
+     * Mirrors `public const function newIn() -> BTreeSet<T>`.
      */
     companion object {
         fun <T : Comparable<T>> newIn(): BTreeSet<T> = BTreeSet()
