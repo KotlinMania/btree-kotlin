@@ -5,7 +5,7 @@ package io.github.kotlinmania.btree
 // Cross-iterator state machines:
 //   - `DifferenceInner` / `IntersectionInner` translate as private sealed
 //     classes (`Stitch` / `Search` / `Iterate` / `Answer`).
-//   - `Peekable<Iter<'a, T>>` in `DifferenceInner::Stitch` inlines a small
+//   - `Peekable<Iter<T>>` in `DifferenceInner.Stitch` inlines a small
 //     one-element-buffer adapter (`PeekableSetIter`), since Kotlin stdlib has
 //     no `Peekable` (mirrors `DedupSortedIter.kt`'s adapter).
 
@@ -85,7 +85,7 @@ class BTreeSet<T : Comparable<T>> : MutableSet<T> {
 
         /**
          * Constructs a `BTreeSet` from a vararg of values. Mirrors upstream's
-         * `implementation<T: Ord, const N: usize> From<[T; N]> for BTreeSet<T>`.
+         * `implementation<T : Comparable<T>> From<Array<T>> for BTreeSet<T>`.
          */
         fun <T : Comparable<T>> of(vararg values: T): BTreeSet<T> = fromIterable(values.asIterable())
 
@@ -411,7 +411,7 @@ class BTreeSet<T : Comparable<T>> : MutableSet<T> {
      */
     fun iter(): Iter<T> = Iter(map.iter())
 
-    /** Mirrors upstream `public const function len(&self) -> usize`. */
+    /** Mirrors upstream `public const function len(&self) -> Int`. */
     fun len(): Int = map.size
 
     /** Returns `true` if the set contains no elements. */
@@ -518,7 +518,7 @@ class BTreeSet<T : Comparable<T>> : MutableSet<T> {
      * An iterator over the items of a `BTreeSet`. Created by [iter].
      *
      * Wraps Map's iterator and projects `entry.key`. Upstream uses
-     * `Keys<'a, T, SetValZST>` for the same effect; we import Map's full `Iter`
+     * `Keys<T, SetValZST>` for the same effect; we import Map's full `Iter`
      * because it carries the `nextBack` and `len` accessors directly.
      */
     class Iter<T> internal constructor(
@@ -900,7 +900,7 @@ class BTreeSet<T : Comparable<T>> : MutableSet<T> {
 
 /**
  * State for [BTreeSet.Difference]. Mirrors upstream
- * `enum DifferenceInner<'a, T: 'a, A: Allocator + Clone>`.
+ * `enum DifferenceInner<T : Comparable<T>>`.
  */
 internal sealed class DifferenceInner<T : Comparable<T>> {
     /** Iterate all of `self` and some of `other`, spotting matches along the way. */
@@ -927,7 +927,7 @@ internal sealed class DifferenceInner<T : Comparable<T>> {
 
 /**
  * State for [BTreeSet.Intersection]. Mirrors upstream
- * `enum IntersectionInner<'a, T: 'a, A: Allocator + Clone>`.
+ * `enum IntersectionInner<T : Comparable<T>>`.
  */
 internal sealed class IntersectionInner<T : Comparable<T>> {
     /** Iterate similarly sized sets jointly, spotting matches along the way. */
@@ -954,7 +954,7 @@ internal sealed class IntersectionInner<T : Comparable<T>> {
 
 /**
  * One-element-buffer adapter over a [BTreeSet.Iter], emulating Rust's
- * `Peekable<Iter<'a, T>>`. Inlined per AGENTS.md "Peekable translation"
+ * `Peekable<Iter<T>>`. Inlined per AGENTS.md "Peekable translation"
  * pattern (Kotlin stdlib has no `Peekable`).
  */
 internal class PeekableSetIter<T>(private val source: BTreeSet.Iter<T>) {
