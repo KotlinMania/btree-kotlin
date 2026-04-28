@@ -1036,18 +1036,31 @@ public:
         std::vector<std::string> reasons;
         std::string code = strip_kotlin_comments_and_strings(source);
         std::string comments = extract_kotlin_comments(source);
-        // Ported Kotlin files must begin with a provenance marker like:
-        //   // port-lint: source src/foo_bar.rs
-        // This header is required for port tracking and may legitimately contain
-        // snake_case segments from upstream Rust filenames. Exclude it from the
-        // cheat detection scan.
+        // Drop the canonical port-lint provenance header from the comment scan.
+        //
+        //     // port-lint: source <relative-path-to-rust-file>
+        //     // port-lint: tests  <relative-path-to-rust-file>
+        //
+        // The header is REQUIRED for port tracking and may legitimately contain
+        // snake_case segments from upstream Rust filenames (`parse_tree.rs`,
+        // `dedup_sorted_iter.rs`, etc.). Without this filter the header itself
+        // trips the snake_case cheat detector below.
+        //
+        // The regex is strict: the WHOLE line (after `//` stripping by
+        // extract_kotlin_comments) must be `<ws>port-lint:<ws>(source|tests)<ws><path><ws>`.
+        // Anything trailing the path -- including `fn cheat(){}` riding the
+        // same physical line -- fails the match and the line is scanned
+        // normally. This closes the obvious bypass of letting attackers
+        // smuggle Rust syntax onto a port-lint line.
         {
+            static const std::regex port_lint_header_re(
+                R"(^\s*port-lint:\s*(?:source|tests)\s+\S+\s*$)");
             std::istringstream in(comments);
             std::ostringstream out;
             std::string line;
             bool first = true;
             while (std::getline(in, line)) {
-                if (line.find("port-lint: source") != std::string::npos) {
+                if (std::regex_match(line, port_lint_header_re)) {
                     continue;
                 }
                 if (!first) out << "\n";
@@ -1128,13 +1141,18 @@ public:
             //   - apostrophe-prefixed lifetime annotations (`'a`, `'static`,
             //     `'_`, etc.) -- pure Rust syntax with no Kotlin meaning
             //
-            // The apostrophe pattern uses a leading non-word-char alternation
-            // (`(^|[^A-Za-z0-9_])`) instead of negative lookbehind because
-            // std::regex's ECMAScript flavor rejects lookbehind in some
-            // builds. Without that anchor, English contractions like
-            // "wasn't"/"can't"/"it's" false-match (the `'t`/`'s` look like
-            // one-letter lifetimes).
-            {std::regex(R"(\b(lifetime|lifetimes)\b|(^|[^A-Za-z0-9_])'[A-Za-z_][A-Za-z0-9_]*\b)",
+            // To distinguish real Rust lifetimes from English contractions
+            // (wasn't, it's, VacantEntry's) and from KDoc inline-code spans
+            // ending in possessive (`Foo`'s), require the apostrophe to be
+            // anchored at start-of-string OR preceded by a Rust-typeish
+            // context character (whitespace, `&`, `:`, `<`, `,`, `(`, `;`).
+            // Letters, digits, underscore, and backtick before the
+            // apostrophe all indicate prose / KDoc, not Rust syntax.
+            //
+            // Lookbehind is avoided because std::regex's ECMAScript flavor
+            // rejects it in some builds; the leading alternation captures
+            // the preceding character explicitly.
+            {std::regex(R"(\b(lifetime|lifetimes)\b|(^|[\s&:<,;(])'[A-Za-z_][A-Za-z0-9_]*\b)",
              std::regex_constants::icase),
              "Rust lifetime explanation in Kotlin comments"},
             {std::regex(R"(\b(dyn|usize|Box|transmute|unsafe)\b)"),
