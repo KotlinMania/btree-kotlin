@@ -240,7 +240,7 @@ internal class LazyLeafRange<BorrowType, K, V>(
     // LazyLeafRange with Dying borrow
     // -------------------------------------------------------------------------
 
-    internal fun takeFrontDying():
+    internal fun takeFront():
         Handle<NodeRef<Marker.Dying, K, V, Marker.Leaf>, Marker.Edge>? {
         val self = this as LazyLeafRange<Marker.Dying, K, V>
         val taken = self.front ?: return null
@@ -255,7 +255,7 @@ internal class LazyLeafRange<BorrowType, K, V>(
      * SAFETY: caller has previously primed `front` to non-null; that
      * invariant is re-checked here as a debug assertion.
      */
-    internal fun deallocatingNextUncheckedDying():
+    internal fun deallocatingNextUnchecked():
         Handle<NodeRef<Marker.Dying, K, V, Marker.LeafOrInternal>, Marker.KV> {
         val self = this as LazyLeafRange<Marker.Dying, K, V>
         check(self.front != null) // debugAssert(self.front.isSome())
@@ -265,7 +265,7 @@ internal class LazyLeafRange<BorrowType, K, V>(
         return kv
     }
 
-    internal fun deallocatingNextBackUncheckedDying():
+    internal fun deallocatingNextBackUnchecked():
         Handle<NodeRef<Marker.Dying, K, V, Marker.LeafOrInternal>, Marker.KV> {
         val self = this as LazyLeafRange<Marker.Dying, K, V>
         check(self.back != null) // debugAssert(self.back.isSome())
@@ -275,9 +275,9 @@ internal class LazyLeafRange<BorrowType, K, V>(
         return kv
     }
 
-    internal fun deallocatingEndDying() {
+    internal fun deallocatingEnd() {
         val self = this as LazyLeafRange<Marker.Dying, K, V>
-        val front = self.takeFrontDying()
+        val front = self.takeFront()
         front?.deallocatingEnd()
     }
 }
