@@ -32,7 +32,7 @@ Kotlin port:
   Fork:       https://github.com/KotlinMania/btree-kotlin
   License:    LICENSE-APACHE OR LICENSE-MIT (your choice; matches upstream)
 
-Translation rules — see CLAUDE.md and PORTING.md. The short version:
+Translation rules — see CLAUDE.md and AGENTS.md. The short version:
 line-by-line transliteration; `MaybeUninit<T>` becomes nullable Kotlin
 storage; raw pointers / `NonNull<T>` become regular references;
 `unsafe` boundaries are marked but otherwise dissolve under the
