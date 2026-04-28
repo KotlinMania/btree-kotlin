@@ -519,7 +519,35 @@ class BTreeMap<K : Comparable<K>, V> : MutableMap<K, V> {
 
     // ---- bulkBuildFromSortedIter -------------------------------------------
 
+    /** Returns the number of elements in the map. */
+    fun len(): Int = length
+
+    /**
+     * Inserts every entry from [iter] into this map. Existing keys are
+     * overwritten.
+     */
+    fun extend(iter: Iterable<Pair<K, V>>) {
+        for ((k, v) in iter) {
+            insert(k, v)
+        }
+    }
+
+    /** Inserts a single entry into this map. */
+    fun extendOne(entry: Pair<K, V>) {
+        insert(entry.first, entry.second)
+    }
+
     companion object {
+        /** Makes a new, empty `BTreeMap`. Does not allocate anything on its own. */
+        fun <K : Comparable<K>, V> new(): BTreeMap<K, V> {
+            return BTreeMap()
+        }
+
+        /** Creates an empty `BTreeMap`. */
+        fun <K : Comparable<K>, V> default(): BTreeMap<K, V> {
+            return BTreeMap()
+        }
+
         /**
          * Makes a `BTreeMap` from a sorted iterator. Mirrors upstream's
          * `public(crate) function bulkBuildFromSortedIter<I>`.
@@ -534,6 +562,11 @@ class BTreeMap<K : Comparable<K>, V> : MutableMap<K, V> {
             out.root = root
             out.length = length[0]
             return out
+        }
+
+        /** Constructs a `BTreeMap` from any source of `(K, V)` pairs. */
+        fun <K : Comparable<K>, V> fromIter(iter: Iterable<Pair<K, V>>): BTreeMap<K, V> {
+            return fromIterable(iter)
         }
 
         /** Constructs a `BTreeMap` from an iterable of pairs. */
