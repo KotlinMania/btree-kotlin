@@ -26,8 +26,7 @@ a drop-in `MutableMap<K, V>` / `MutableSet<T>` that orders by
 
 ## Status
 
-Phase 1 — early days. See `PORTING.md` for the phase plan and which
-files have landed.
+Run `tools/ast_distance/ast_distance --deep tmp/rust-stdlib-collections-btree rust src/commonMain/kotlin/io/github/kotlinmania/btree kotlin` for the current parity numbers and per-file gaps. `ast_distance` is the sole oracle for port progress.
 
 ## Layout
 
