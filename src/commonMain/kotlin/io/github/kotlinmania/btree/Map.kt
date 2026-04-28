@@ -259,9 +259,8 @@ class BTreeMap<K : Comparable<K>, V> : MutableMap<K, V> {
      * from [other].
      */
     fun append(other: BTreeMap<K, V>) {
-        // Upstream: `let other = mem::replace(other, Self::newIn(...))`. We
-        // empty `other` after taking its contents, mirroring the consumed-by-
-        // value semantics.
+        // Empty `other` after taking its contents, mirroring upstream's
+        // consumed-by-value semantics.
         val taken = BTreeMap<K, V>()
         taken.root = other.root
         taken.length = other.length
@@ -349,7 +348,6 @@ class BTreeMap<K : Comparable<K>, V> : MutableMap<K, V> {
                             break
                         }
                         else -> {
-                            // FIXME (upstream): linear search. Preserved verbatim.
                             selfCursor.next()
                         }
                     }
@@ -926,7 +924,7 @@ class IntoIter<K, V> internal constructor(
 
     /**
      * Returns an immutable iterator of references over the remaining items.
-     * Mirrors upstream `public(super) function iter(&self) -> Iter<'_, K, V>`.
+     * Mirrors upstream `public(super) function iter() -> Iter<K, V>`.
      *
      * Note: yields `ReadOnlyEntry` views over the still-walked tree; the
      * dying tree must not be mutated through this view, only read.
@@ -1242,8 +1240,8 @@ class Cursor<K : Comparable<K>, V> internal constructor(
  *
  * Wraps a [CursorMutKey] so that [insertAfter] / [insertBefore] /
  * [removeNext] / [removeBefore] preserve the upstream BTreeMap invariants
- * (ascending key order). [CursorMutKey] is the unsafe variant that allows
- * mutating keys directly.
+ * (ascending key order). [CursorMutKey] is the lower-level variant that
+ * allows mutating keys directly with the additional caller obligation.
  */
 class CursorMut<K : Comparable<K>, V> internal constructor(
     internal val inner: CursorMutKey<K, V>,
