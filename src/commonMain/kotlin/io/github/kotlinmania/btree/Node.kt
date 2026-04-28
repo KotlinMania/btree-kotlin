@@ -5,29 +5,30 @@
 
 package io.github.kotlinmania.btree
 
-// This is an attempt at an implementation following the ideal
+// The data layout is an array-backed B-tree node modelled as a class
+// hierarchy:
 //
-// ```
-// struct BTreeMap<K, V> {
-//     height: usize,
-//     root: Option<Box<Node<K, V, height>>>
+// ```kotlin
+// class BTreeMap<K, V> {
+//     var height: Int
+//     var root: Node<K, V>?
 // }
 //
-// struct Node<K, V, height: usize> {
-//     keys: [K; 2 * B - 1],
-//     vals: [V; 2 * B - 1],
-//     edges: [if height > 0 { Box<Node<K, V, height - 1>> } else { () }; 2 * B],
-//     parent: Option<(NonNull<Node<K, V, height + 1>>, u16)>,
-//     len: u16,
+// open class LeafNode<K, V> {
+//     val keys: Array<K?> = arrayOfNulls(2 * B - 1)
+//     val vals: Array<V?> = arrayOfNulls(2 * B - 1)
+//     var parent: Pair<Node<K, V>, Int>?
+//     var len: Int
+// }
+//
+// class InternalNode<K, V> : LeafNode<K, V>() {
+//     val edges: Array<Node<K, V>?> = arrayOfNulls(2 * B)
 // }
 // ```
 //
-// Since Rust doesn't actually have dependent types and polymorphic recursion,
-// we make do with lots of unsafety. The Kotlin port is even more dynamic:
-// it represents `LeafNode` and `InternalNode` as a class hierarchy, with
-// `InternalNode` extending `LeafNode`. That mirrors the upstream
-// `(repr(C))` trick — the upstream cast `*mut InternalNode -> *mut LeafNode`
-// is, in Kotlin, the implicit upcast that comes for free with subclassing.
+// `InternalNode` extending `LeafNode` mirrors the upstream `(repr(C))` trick —
+// the upstream cast from `InternalNode` pointer to `LeafNode` pointer is, in
+// Kotlin, the implicit upcast that comes for free with subclassing.
 //
 // A major goal of this module is to avoid complexity by treating the tree as a generic (if
 // weirdly shaped) container and avoiding dealing with most of the B-Tree invariants. As such,
@@ -90,8 +91,7 @@ internal open class LeafNode<K, V> {
          * default constructor, since `parent`, `len`, `keys`, and `vals` are
          * initialised by the field initialisers above.
          *
-         * Creates a new `LeafNode`. Upstream returns `Box<Self, A>`; in Kotlin
-         * the GC handles the heap and we just construct the object.
+         * Creates a new `LeafNode`.
          */
         fun <K, V> new(): LeafNode<K, V> = LeafNode()
     }
@@ -144,7 +144,7 @@ internal typealias BoxedNode<K, V> = LeafNode<K, V>
  * A reference to a node.
  *
  * This type has a number of parameters that control how it acts:
- * - `BorrowType`: A dummy type that describes the kind of borrow and carries a lifetime.
+ * - `BorrowType`: A dummy type that describes the kind of borrow and carries a scope marker.
  *    - When this is `Immut`, the `NodeRef` acts roughly like an immutable reference.
  *    - When this is `ValMut`, the `NodeRef` acts roughly like an immutable reference
  *      with respect to keys and tree structure, but also allows many
@@ -155,7 +155,7 @@ internal typealias BoxedNode<K, V> = LeafNode<K, V>
  *      but does not have a destructor, and must be cleaned up manually.
  *    - When this is `Dying`, the `NodeRef` still acts roughly like an owning pointer,
  *      but has methods to destroy the tree bit by bit, and ordinary methods,
- *      while not marked as unsafe to call, can invoke UB if called incorrectly.
+ *      while not marked as requiring extra caution to call, can invoke UB if called incorrectly.
  *   Since any `NodeRef` allows navigating through the tree, `BorrowType`
  *   effectively applies to the entire tree, not just to the node itself.
  * - `K` and `V`: These are the types of keys and values stored in the nodes.
@@ -389,10 +389,7 @@ internal fun <BorrowType : Marker.BorrowType, K, V, Type> NodeRef<BorrowType, K,
 
 /**
  * Similar to `ascend`, gets a reference to a node's parent node, but also
- * deallocates the current node in the process. Upstream is `unsafe` because
- * the current node will still be accessible despite being deallocated; in
- * Kotlin the GC keeps the current node alive as long as anyone holds a
- * reference, so the function is safe — we just drop the link.
+ * drops the link to the current node in the process.
  *
  * Naming: the rename `dying_*` -> bare name doesn't apply here because the
  * function is already named `deallocateAndAscend` upstream (no leading
@@ -432,7 +429,7 @@ internal fun <K, V, Type> NodeRef<Marker.DormantMut, K, V, Type>.awaken():
  */
 internal fun <K, V, Type> NodeRef<Marker.Mut, K, V, Type>.reborrowMut():
     NodeRef<Marker.Mut, K, V, Type> {
-    // SAFETY: caller-enforced uniqueness; upstream marks the function `unsafe`.
+    // SAFETY: caller-enforced uniqueness; upstream requires the same invariant from callers.
     return NodeRef(height = height, node = node)
 }
 
@@ -681,9 +678,9 @@ internal fun <K, V> NodeRef<Marker.Mut, K, V, Marker.Internal>.readEdgeArea(idx:
  * # Safety
  * - The node has more than `idx` initialized elements.
  *
- * Upstream returns `(&'a K, &'a mut V)`. In Kotlin we return [Pair] and the
- * caller can write back via [writeValArea] if desired. Reading the value is
- * the only operation Search.kt-and-below need.
+ * Upstream returns a key/value reference pair. In Kotlin we return [Pair] and
+ * the caller can write back via [writeValArea] if desired. Reading the value
+ * is the only operation Search.kt-and-below need.
  */
 internal fun <K, V, Type> NodeRef<Marker.ValMut, K, V, Type>.intoKeyValMutAt(idx: Int): Pair<K, V> {
     // SAFETY: idx < len, slots are initialised.
@@ -720,8 +717,6 @@ internal fun <K, V> NodeRef<Marker.Mut, K, V, Marker.Internal>.correctAllChildre
  * Adds a key-value pair to the end of the node, and returns
  * a handle to the inserted value.
  *
- * # Safety
- * The returned handle has an unbound lifetime. (Irrelevant in Kotlin; GC.)
  */
 internal fun <K, V> NodeRef<Marker.Mut, K, V, Marker.Leaf>.pushWithHandle(
     key: K,
