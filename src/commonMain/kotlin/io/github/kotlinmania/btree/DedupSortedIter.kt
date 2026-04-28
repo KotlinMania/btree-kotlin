@@ -1,4 +1,4 @@
-// port-lint: source library/alloc/src/collections/btree/dedupSortedIter.rs
+// port-lint: source library/alloc/src/collections/btree/dedup_sorted_iter.rs
 // Derived from the Rust standard library (rust-lang/rust),
 // copyright The Rust Project Developers, dual-licensed Apache-2.0 / MIT.
 package io.github.kotlinmania.btree
@@ -38,6 +38,12 @@ internal class DedupSortedIter<K, V, I : Iterator<Pair<K, V>>>(
     iter: I,
 ) : Iterator<Pair<K, V>> where K : Any {
     private val iter: Peekable<K, V> = Peekable(iter)
+
+    companion object {
+        internal fun <K : Any, V, I : Iterator<Pair<K, V>>> new(iter: I): DedupSortedIter<K, V, I> {
+            return DedupSortedIter(iter)
+        }
+    }
 
     // Kotlin's `Iterator` interface separates `hasNext` from `next`; Rust's
     // `Iterator::next` returns `Option<Item>` in one call. We compute the
