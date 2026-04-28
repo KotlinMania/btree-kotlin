@@ -17,9 +17,11 @@ port easier.
 - Maintain file structure and organization from the Rust source.
 - Translate functions in the same order they appear upstream.
 - Preserve every comment, inline note, and `# Safety`/`# Panics` block —
-  translate the language conventions to KDoc but keep the intent verbatim.
+  translate the language conventions to KDoc but keep the intent verbatim. This means translating Rust concepts in comments (e.g. `traits`, `lifetimes`, `ZSTs`) to their exact Kotlin API equivalents.
+- **NO PORTING NOTES**: Do not add comments explaining Kotlin workarounds, "Rust vs Kotlin" rationale, or any other porting narratives to the source code.
+- **NO RUST IN COMMENTS**: Never leave untranslated Rust code snippets or snake_case identifiers in the Kotlin KDocs. Ensure the documentation accurately describes the Kotlin API.
 - A missing function is preferable to a stub. If you can't translate
-  something, leave the slot empty and flag it in a `PORTING.md` checklist
+  something, leave the slot empty and flag it in a `ast_distance reports` checklist
   entry rather than committing a fake implementation.
 
 ### 2. Provenance markers (REQUIRED)
@@ -27,15 +29,13 @@ port easier.
 Every ported `.kt` file must start with:
 
 ```kotlin
-// port-lint: source library/alloc/src/collections/btree/<file>.rs
+// port-lint: source node.rs
 // Derived from the Rust standard library (rust-lang/rust),
 // copyright The Rust Project Developers, dual-licensed Apache-2.0 / MIT.
 package io.github.kotlinmania.btree
 ```
 
-The `// port-lint:` line is the contract. Path is relative to the
-upstream Rust repo root (so `library/alloc/src/collections/btree/node.rs`,
-not `tmp/...`). The second comment line satisfies Apache-2.0 §4(b)
+The `// port-lint:` line is the contract. Path MUST be relative to the `source.path` defined in the project's `.ast_distance_config.json` (e.g., `node.rs`, `map/tests.rs`). Do NOT use the full upstream `library/alloc/...` path. The second comment line satisfies Apache-2.0 §4(b)
 "preserve copyright notices" and MIT's notice requirement.
 
 ### 3. Copyright header
@@ -232,17 +232,14 @@ from a later-phase file (e.g. Search.kt referencing NodeRef before
 node.rs lands) is fine — but it must not be committed without:
 
 - A header comment listing which phase will resolve the dangling refs.
-- A row in PORTING.md marked `landed (Phase-N dep)` so the phase-N
-  agent knows it has an eager consumer waiting.
 - Zero stubs of the types it depends on. Forward references that fail
   to resolve are preferable to fake placeholder classes that conflict
   with the real implementation when it lands.
 
 ## File-by-file checklist
 
-The phase ordering and which agent owns which file is tracked in
-`PORTING.md`. Agents should consult that file before claiming a slot
-to avoid two agents racing on the same translation.
+ast_distance is the sole oracle. Run `--deep` to see which files have
+landed, which are missing, and what each file's symbol-parity gap is.
 
 ## Out of scope
 
@@ -256,5 +253,5 @@ to avoid two agents racing on the same translation.
 ## TODO policy
 
 No TODO / `unimplemented!()` / stub bodies in committed code. If a
-translation is incomplete, don't commit it; record the gap in
-`PORTING.md` and either finish it or mark the file as not-started.
+translation is incomplete, don't commit it; let ast_distance's
+`--missing` report surface the gap.
