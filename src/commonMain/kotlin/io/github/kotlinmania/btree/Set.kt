@@ -68,12 +68,19 @@ class BTreeSet<T : Comparable<T>> : MutableSet<T> {
      * Mirrors `public const function newIn() -> BTreeSet<T>`.
      */
     companion object {
+        /** Makes a new, empty `BTreeSet`. Does not allocate anything on its own. */
+        fun <T : Comparable<T>> new(): BTreeSet<T> = BTreeSet()
+
+        /** Makes a new, empty `BTreeSet` with a reasonable choice of B. */
         fun <T : Comparable<T>> newIn(): BTreeSet<T> = BTreeSet()
 
-        /**
-         * Constructs a `BTreeSet` from an iterable of values. Mirrors
-         * upstream's `implementation<T: Ord> FromIterator<T> for BTreeSet<T>`.
-         */
+        /** Creates an empty `BTreeSet`. */
+        fun <T : Comparable<T>> default(): BTreeSet<T> = BTreeSet()
+
+        /** Constructs a `BTreeSet` from any source of values. */
+        fun <T : Comparable<T>> fromIter(iter: Iterable<T>): BTreeSet<T> = fromIterable(iter)
+
+        /** Constructs a `BTreeSet` from an iterable of values. */
         fun <T : Comparable<T>> fromIterable(items: Iterable<T>): BTreeSet<T> {
             val list = items.toMutableList()
             if (list.isEmpty()) return BTreeSet()
@@ -394,8 +401,20 @@ class BTreeSet<T : Comparable<T>> : MutableSet<T> {
      */
     fun iter(): Iter<T> = Iter(map.iter())
 
-    /** Mirrors upstream `public const function len(&self) -> Int`. */
+    /** Returns the number of elements in the set. */
     fun len(): Int = map.size
+
+    /** Inserts every value from [iter] into this set, ignoring duplicates. */
+    fun extend(iter: Iterable<T>) {
+        for (v in iter) {
+            insert(v)
+        }
+    }
+
+    /** Inserts a single value into this set. */
+    fun extendOne(value: T) {
+        insert(value)
+    }
 
     /** Returns `true` if the set contains no elements. */
     override fun isEmpty(): Boolean = map.isEmpty()
