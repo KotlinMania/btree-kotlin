@@ -44,8 +44,7 @@ internal fun <K, V> calcSplitLength(
  */
 internal fun <K, V, Q : Comparable<Q>> NodeRef<Marker.Owned, K, V, Marker.LeafOrInternal>.splitOff(
     key: Q,
-): Root<K, V>
-    where K : Comparable<Q> {
+): Root<K, V> where K : Comparable<Q> {
     val leftRoot = this
     val rightRoot = newPillar<K, V>(leftRoot.height())
     var leftNode = leftRoot.borrowMut()

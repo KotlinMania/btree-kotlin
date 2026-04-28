@@ -359,8 +359,7 @@ internal fun <BorrowType : Marker.BorrowType, K, V> LazyLeafRange<BorrowType, K,
 internal inline fun <BorrowType : Marker.BorrowType, K, reified V, Q : Comparable<Q>, R : RangeBounds<Q>>
     NodeRef<BorrowType, K, V, Marker.LeafOrInternal>.findLeafEdgesSpanningRange(
     range: R,
-): LeafRange<BorrowType, K, V>
-    where K : Comparable<Q> = findLeafEdgesSpanningRangeExplicit(range, isSetVal<V>())
+): LeafRange<BorrowType, K, V> where K : Comparable<Q> = findLeafEdgesSpanningRangeExplicit(range, isSetVal<V>())
 
 /**
  * Explicit-`isSet` variant of [findLeafEdgesSpanningRange] for non-reified
@@ -370,8 +369,7 @@ internal fun <BorrowType : Marker.BorrowType, K, V, Q : Comparable<Q>, R : Range
     NodeRef<BorrowType, K, V, Marker.LeafOrInternal>.findLeafEdgesSpanningRangeExplicit(
     range: R,
     isSet: Boolean,
-): LeafRange<BorrowType, K, V>
-    where K : Comparable<Q> {
+): LeafRange<BorrowType, K, V> where K : Comparable<Q> {
     when (val r = this.searchTreeForBifurcationExplicit<BorrowType, K, V, Q, R>(range, isSet)) {
         is BifurcationResult.LeafEdge -> return LeafRange.none()
         is BifurcationResult.Ok -> {
@@ -436,8 +434,7 @@ internal fun <BorrowType : Marker.BorrowType, K, V> fullRange(
 internal inline fun <K, reified V, Q : Comparable<Q>, R : RangeBounds<Q>>
     NodeRef<Marker.Immut, K, V, Marker.LeafOrInternal>.rangeSearchImmut(
     range: R,
-): LeafRange<Marker.Immut, K, V>
-    where K : Comparable<Q> {
+): LeafRange<Marker.Immut, K, V> where K : Comparable<Q> {
     // SAFETY: our borrow type is immutable.
     return this.findLeafEdgesSpanningRange<Marker.Immut, K, V, Q, R>(range)
 }
@@ -447,8 +444,7 @@ internal fun <K, V, Q : Comparable<Q>, R : RangeBounds<Q>>
     NodeRef<Marker.Immut, K, V, Marker.LeafOrInternal>.rangeSearchImmutExplicit(
     range: R,
     isSet: Boolean,
-): LeafRange<Marker.Immut, K, V>
-    where K : Comparable<Q> {
+): LeafRange<Marker.Immut, K, V> where K : Comparable<Q> {
     return this.findLeafEdgesSpanningRangeExplicit<Marker.Immut, K, V, Q, R>(range, isSet)
 }
 
@@ -475,8 +471,7 @@ internal fun <K, V> NodeRef<Marker.Immut, K, V, Marker.LeafOrInternal>.fullRange
 internal inline fun <K, reified V, Q : Comparable<Q>, R : RangeBounds<Q>>
     NodeRef<Marker.ValMut, K, V, Marker.LeafOrInternal>.rangeSearchValMut(
     range: R,
-): LeafRange<Marker.ValMut, K, V>
-    where K : Comparable<Q> {
+): LeafRange<Marker.ValMut, K, V> where K : Comparable<Q> {
     return this.findLeafEdgesSpanningRange<Marker.ValMut, K, V, Q, R>(range)
 }
 
@@ -485,8 +480,7 @@ internal fun <K, V, Q : Comparable<Q>, R : RangeBounds<Q>>
     NodeRef<Marker.ValMut, K, V, Marker.LeafOrInternal>.rangeSearchValMutExplicit(
     range: R,
     isSet: Boolean,
-): LeafRange<Marker.ValMut, K, V>
-    where K : Comparable<Q> {
+): LeafRange<Marker.ValMut, K, V> where K : Comparable<Q> {
     return this.findLeafEdgesSpanningRangeExplicit<Marker.ValMut, K, V, Q, R>(range, isSet)
 }
 
@@ -994,8 +988,7 @@ internal fun <BorrowType : Marker.BorrowType, K, V>
 internal fun <BorrowType : Marker.BorrowType, K, V, Q : Comparable<Q>>
     NodeRef<BorrowType, K, V, Marker.LeafOrInternal>.lowerBound(
     bound: SearchBound<Q>,
-): Handle<NodeRef<BorrowType, K, V, Marker.Leaf>, Marker.Edge>
-    where K : Comparable<Q> {
+): Handle<NodeRef<BorrowType, K, V, Marker.Leaf>, Marker.Edge> where K : Comparable<Q> {
     var node = this
     var b = bound
     while (true) {
@@ -1017,8 +1010,7 @@ internal fun <BorrowType : Marker.BorrowType, K, V, Q : Comparable<Q>>
 internal fun <BorrowType : Marker.BorrowType, K, V, Q : Comparable<Q>>
     NodeRef<BorrowType, K, V, Marker.LeafOrInternal>.upperBound(
     bound: SearchBound<Q>,
-): Handle<NodeRef<BorrowType, K, V, Marker.Leaf>, Marker.Edge>
-    where K : Comparable<Q> {
+): Handle<NodeRef<BorrowType, K, V, Marker.Leaf>, Marker.Edge> where K : Comparable<Q> {
     var node = this
     var b = bound
     while (true) {
