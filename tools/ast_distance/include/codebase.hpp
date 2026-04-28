@@ -1036,6 +1036,26 @@ public:
         std::vector<std::string> reasons;
         std::string code = strip_kotlin_comments_and_strings(source);
         std::string comments = extract_kotlin_comments(source);
+        // Ported Kotlin files must begin with a provenance marker like:
+        //   // port-lint: source src/foo_bar.rs
+        // This header is required for port tracking and may legitimately contain
+        // snake_case segments from upstream Rust filenames. Exclude it from the
+        // cheat detection scan.
+        {
+            std::istringstream in(comments);
+            std::ostringstream out;
+            std::string line;
+            bool first = true;
+            while (std::getline(in, line)) {
+                if (line.find("port-lint: source") != std::string::npos) {
+                    continue;
+                }
+                if (!first) out << "\n";
+                first = false;
+                out << line;
+            }
+            comments = out.str();
+        }
 
         auto add_reason = [&](const std::string& reason) {
             if (std::find(reasons.begin(), reasons.end(), reason) == reasons.end()) {
@@ -1102,7 +1122,20 @@ public:
              "translator-note comment (`Kotlin:`) in Kotlin comments"},
             {std::regex(R"(\(\s*from\s+impl\b[^)]*\))", std::regex_constants::icase),
              "Rust impl provenance note in Kotlin comments"},
-            {std::regex(R"(\b(lifetime|lifetimes|'[A-Za-z_][A-Za-z0-9_]*)\b)", std::regex_constants::icase),
+            // Rust lifetime references in Kotlin comments:
+            //   - bare words `lifetime`/`lifetimes` (Rust concept must be
+            //     translated to Kotlin idiom -- "scope", "reference", etc.)
+            //   - apostrophe-prefixed lifetime annotations (`'a`, `'static`,
+            //     `'_`, etc.) -- pure Rust syntax with no Kotlin meaning
+            //
+            // The apostrophe pattern uses a leading non-word-char alternation
+            // (`(^|[^A-Za-z0-9_])`) instead of negative lookbehind because
+            // std::regex's ECMAScript flavor rejects lookbehind in some
+            // builds. Without that anchor, English contractions like
+            // "wasn't"/"can't"/"it's" false-match (the `'t`/`'s` look like
+            // one-letter lifetimes).
+            {std::regex(R"(\b(lifetime|lifetimes)\b|(^|[^A-Za-z0-9_])'[A-Za-z_][A-Za-z0-9_]*\b)",
+             std::regex_constants::icase),
              "Rust lifetime explanation in Kotlin comments"},
             {std::regex(R"(\b(dyn|usize|Box|transmute|unsafe)\b)"),
              "Rust-only type/unsafe terminology in Kotlin comments"},
@@ -1297,6 +1330,34 @@ public:
                 return result;
             }
         }
+
+        // Basename fallback: when the header carries a path prefix that
+        // isn't present in the configured source root (e.g. btree-kotlin's
+        // `library/alloc/src/collections/btree/borrow.rs` against a source
+        // root `tmp/rust-stdlib-collections-btree/` containing flat
+        // `borrow.rs`), the prefix-strip variants above can't reach the
+        // source path. Fall through to a lower-scored basename match so
+        // those files still pair. Score 0.85 keeps this strictly below
+        // the prefix-strip fallback (0.99) and the exact match (1.0), so
+        // disambiguation between e.g. `lr1/mod.rs` vs `grammar/mod.rs`
+        // still picks the exact match when both are candidates.
+        const std::string header_basename =
+            normalized_source_annotation_component(
+                fs::path(header_path).filename().string(), /*is_filename=*/true);
+        const std::string source_basename =
+            normalized_source_annotation_component(
+                fs::path(source_rel).filename().string(), /*is_filename=*/true);
+        if (!header_basename.empty() && header_basename == source_basename) {
+            result.score = 0.85f;
+            result.normalized_fallback = true;
+            result.warning =
+                "port-lint provenance header matched only by basename: `" +
+                tgt_file.transliterated_from + "` vs expected `" +
+                canonical_source_annotation_path(src_file.relative_path) + "`";
+            result.proposal = provenance_proposal_for_header(src_file, tgt_file, result.warning);
+            return result;
+        }
+
         return result;
     }
 
