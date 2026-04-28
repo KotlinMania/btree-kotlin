@@ -110,9 +110,7 @@ internal class MergeIterInner<T>(
     }
 
     /**
-     * Mirrors Rust's `implementation Debug for MergeIterInner`. The peeked slot is rendered
-     * as `null`, `A(<value>)`, or `B(<value>)` to match the upstream
-     * `Option<Peeked<I>>` discriminator.
+     * The peeked slot is rendered as `null`, `A(<value>)`, or `B(<value>)`.
      */
     override fun toString(): String {
         val peekedRepr = when (peekedSide) {
