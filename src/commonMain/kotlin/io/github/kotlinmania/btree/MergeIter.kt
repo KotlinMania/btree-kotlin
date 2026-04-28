@@ -1,4 +1,4 @@
-// port-lint: source library/alloc/src/collections/btree/mergeIter.rs
+// port-lint: source library/alloc/src/collections/btree/merge_iter.rs
 // Derived from the Rust standard library (rust-lang/rust),
 // copyright The Rust Project Developers, dual-licensed Apache-2.0 / MIT.
 package io.github.kotlinmania.btree
@@ -6,29 +6,28 @@ package io.github.kotlinmania.btree
 /**
  * Core of an iterator that merges the output of two strictly ascending iterators,
  * for instance a union or a symmetric difference.
- *
- * Translated from `MergeIterInner<I: Iterator>` in upstream `mergeIter.rs`. Rust
- * stores a single peeked value of either origin in an `Option<Peeked<I>>`; we
- * encode the same state with two nullable fields plus a tag, since Kotlin lacks
- * a free-standing tagged union for this small a state machine.
- *
- * Rust's `implementation Clone` is omitted: cloning a Kotlin `Iterator<T>` is not generally
- * possible, so the bound `I: Clone` has no portable analogue. Callers that need
- * to fork iteration must construct two `MergeIterInner` instances over freshly
- * obtained iterators.
  */
 internal class MergeIterInner<T>(
     private val a: Iterator<T>,
     private val b: Iterator<T>,
 ) {
-    /** Peeked-from-A slot. Non-null iff [peekedSide] == [PeekSide.A]. */
-    private var peekedA: T? = null
-    /** Peeked-from-B slot. Non-null iff [peekedSide] == [PeekSide.B]. */
-    private var peekedB: T? = null
-    /** Which (if any) side the most-recently-peeked-but-not-yielded item came from. */
-    private var peekedSide: PeekSide = PeekSide.NONE
+    private var peeked: Peeked<T>? = null
 
-    private enum class PeekSide { NONE, A, B }
+    /**
+     * Benchmarks faster than wrapping both iterators in a Peekable,
+     * probably because we can afford to impose a FusedIterator bound.
+     */
+    internal sealed class Peeked<out T> {
+        data class A<out T>(val item: T) : Peeked<T>()
+        data class B<out T>(val item: T) : Peeked<T>()
+    }
+
+    companion object {
+        /** Creates a new core for an iterator merging a pair of sources. */
+        internal fun <T> new(a: Iterator<T>, b: Iterator<T>): MergeIterInner<T> {
+            return MergeIterInner(a, b)
+        }
+    }
 
     /**
      * Returns the next pair of items stemming from the pair of sources
@@ -38,86 +37,55 @@ internal class MergeIterInner<T>(
      * the sources are not strictly ascending). If neither returned option
      * contains a value, iteration has finished and subsequent calls will
      * return the same empty pair.
-     *
-     * The [cmp] callback must obey the [Comparator.compare] contract:
-     * negative when its first argument precedes the second, zero when they
-     * are equal, positive when the first follows. This matches Rust's
-     * `Ordering::{Less, Equal, Greater}` mapping.
-     *
-     * The Rust signature requires `I: FusedIterator`; Kotlin iterators are
-     * effectively fused once `hasNext()` returns `false`, which is the
-     * idiom this method relies on.
      */
-    fun nexts(cmp: (T, T) -> Int): Pair<T?, T?> {
+    internal fun nexts(cmp: (T, T) -> Int): Pair<T?, T?> {
         var aNext: T?
         var bNext: T?
-        when (peekedSide) {
-            PeekSide.A -> {
-                aNext = peekedA
+        val taken = peeked
+        peeked = null
+        when (taken) {
+            is Peeked.A -> {
+                aNext = taken.item
                 bNext = if (b.hasNext()) b.next() else null
             }
-            PeekSide.B -> {
-                bNext = peekedB
+            is Peeked.B -> {
+                bNext = taken.item
                 aNext = if (a.hasNext()) a.next() else null
             }
-            PeekSide.NONE -> {
+            null -> {
                 aNext = if (a.hasNext()) a.next() else null
                 bNext = if (b.hasNext()) b.next() else null
             }
         }
-        // Clear the peeked slot now that we've moved its contents into a/bNext;
-        // mirrors `self.peeked.take()` in the Rust source.
-        peekedA = null
-        peekedB = null
-        peekedSide = PeekSide.NONE
         val a1 = aNext
         val b1 = bNext
         if (a1 != null && b1 != null) {
             val ord = cmp(a1, b1)
             when {
                 ord < 0 -> {
-                    // Ordering::Less => self.peeked = bNext.take().map(Peeked::B)
-                    peekedB = bNext
-                    peekedSide = PeekSide.B
+                    peeked = bNext?.let { Peeked.B(it) }
                     bNext = null
                 }
                 ord > 0 -> {
-                    // Ordering::Greater => self.peeked = aNext.take().map(Peeked::A)
-                    peekedA = aNext
-                    peekedSide = PeekSide.A
+                    peeked = aNext?.let { Peeked.A(it) }
                     aNext = null
                 }
-                else -> {
-                    // Ordering::Equal => ()
-                }
+                else -> Unit
             }
         }
         return Pair(aNext, bNext)
     }
 
-    /**
-     * Returns a pair of upper bounds for the `sizeHint` of the final iterator.
-     *
-     * Rust constrains this method with `I: ExactSizeIterator`; Kotlin's
-     * `Iterator<T>` has no length, so callers must supply the remaining
-     * length of each underlying iterator via [aLen] and [bLen]. The peeked
-     * item, if any, is added on top — matching the Rust body verbatim.
-     */
-    fun lens(aLen: Int, bLen: Int): Pair<Int, Int> = when (peekedSide) {
-        PeekSide.A -> Pair(1 + aLen, bLen)
-        PeekSide.B -> Pair(aLen, 1 + bLen)
-        PeekSide.NONE -> Pair(aLen, bLen)
+    /** Returns a pair of upper bounds for the `sizeHint` of the final iterator. */
+    internal fun lens(aLen: Int, bLen: Int): Pair<Int, Int> = when (peeked) {
+        is Peeked.A -> Pair(1 + aLen, bLen)
+        is Peeked.B -> Pair(aLen, 1 + bLen)
+        null -> Pair(aLen, bLen)
     }
+}
 
-    /**
-     * The peeked slot is rendered as `null`, `A(<value>)`, or `B(<value>)`.
-     */
-    override fun toString(): String {
-        val peekedRepr = when (peekedSide) {
-            PeekSide.NONE -> "null"
-            PeekSide.A -> "A($peekedA)"
-            PeekSide.B -> "B($peekedB)"
-        }
-        return "MergeIterInner($a, $b, $peekedRepr)"
+private object DebugForMergeIterInner {
+    fun fmt(self: MergeIterInner<*>, f: StringBuilder) {
+        f.append("MergeIterInner(").append(self).append(")")
     }
 }
