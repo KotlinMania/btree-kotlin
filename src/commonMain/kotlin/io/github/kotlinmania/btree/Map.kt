@@ -869,23 +869,23 @@ class IntoIter<K, V> internal constructor(
      */
     private fun dyingNext(): Handle<NodeRef<Marker.Dying, K, V, Marker.LeafOrInternal>, Marker.KV>? {
         return if (length == 0) {
-            range.deallocatingEndDying()
+            range.deallocatingEnd()
             null
         } else {
             length -= 1
             // SAFETY: length > 0 implies there is another KV.
-            range.deallocatingNextUncheckedDying()
+            range.deallocatingNextUnchecked()
         }
     }
 
     /** Counterpart to [dyingNext]. */
     private fun dyingNextBack(): Handle<NodeRef<Marker.Dying, K, V, Marker.LeafOrInternal>, Marker.KV>? {
         return if (length == 0) {
-            range.deallocatingEndDying()
+            range.deallocatingEnd()
             null
         } else {
             length -= 1
-            range.deallocatingNextBackUncheckedDying()
+            range.deallocatingNextBackUnchecked()
         }
     }
 
