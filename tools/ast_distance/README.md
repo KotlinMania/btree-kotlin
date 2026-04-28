@@ -4,8 +4,8 @@ Cross-language AST similarity tool used to verify the Kotlin port stays
 faithful to the upstream Rust source. Every Kotlin file that lands in
 `src/commonMain/kotlin/io/github/kotlinmania/btree/` should be
 compared against its `library/alloc/src/collections/btree/` counterpart
-under `tmp/rust-stdlib-collections-btree/`, and the resulting AST
-cosine score recorded in `PORTING.md`.
+under `tmp/rust-stdlib-collections-btree/`. ast_distance is the sole
+oracle for port progress.
 
 ## Build
 
@@ -35,8 +35,7 @@ each clone.
 
 Reports per-function name parity, AST cosine, and identifier-cosine
 between the upstream Rust and the Kotlin port. Each agent porting a
-file MUST run this after their port lands and record the cosine in
-`PORTING.md`.
+file MUST run this after their port lands.
 
 ### Whole-directory deep scan
 
