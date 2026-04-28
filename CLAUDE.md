@@ -53,9 +53,8 @@ After porting a file, verify with:
 ./gradlew macosArm64Test --offline
 ```
 
-The phase plan in `PORTING.md` says which files are expected to compile
-at which phase boundary; don't expect everything to compile until all
-phases land.
+Compilation is disabled until ast_distance similarity passes honestly.
+Run `./tools/ast_distance/ast_distance --deep tmp/rust-stdlib-collections-btree rust src/commonMain/kotlin/io/github/kotlinmania/btree kotlin` to see current parity. ast_distance is the sole oracle.
 
 ## Build Commands
 
@@ -89,8 +88,8 @@ hierarchy. Read the corresponding Rust file and translate faithfully.
 
 No empty bodies, no `TODO()`, no `error("not implemented")`, no
 `unimplemented!()`-equivalent placeholders. If you can't fully translate
-a file, don't create it — leave the slot empty and mark it not-started
-in `PORTING.md`.
+a file, don't create it — leave the slot empty. ast_distance's
+`--missing` report is how the gap is tracked.
 
 ### No third-party dependencies.
 
@@ -127,10 +126,10 @@ After every file lands, run:
     src/commonMain/kotlin/io/github/kotlinmania/btree/<File>.kt kotlin
 ```
 
-This is **mandatory** for porting discipline — record the AST cosine
-score in `PORTING.md` for every file you port. CI also runs a
+This is **mandatory** for porting discipline. CI also runs a
 whole-tree `--deep` scan and fails the build if any port-lint header
-is missing.
+is missing. ast_distance is the sole oracle for port progress; do
+not maintain a parallel status file.
 
 ## Translation Mappings (short reference)
 
@@ -165,7 +164,7 @@ Ask the user for clarification if:
 **DO NOT add TODO comments.** No exceptions in this project. The
 upstream Rust source is fully implemented; the Kotlin port should be
 too. If you can't translate something, don't commit a stub — leave the
-file unwritten and record the gap in `PORTING.md`.
+file unwritten and let ast_distance's `--missing` report surface the gap.
 
 ## Commit Messages
 
