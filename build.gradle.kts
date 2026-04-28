@@ -10,11 +10,18 @@ plugins {
 }
 
 group = "io.github.kotlinmania"
-version = "0.1.1"
+version = "0.1.2"
 
 val androidSdkDir: String? =
     providers.environmentVariable("ANDROID_SDK_ROOT").orNull
         ?: providers.environmentVariable("ANDROID_HOME").orNull
+        ?: listOf(
+            rootProject.file(".android-sdk"),
+            // Workspace convenience: reuse a sibling repo's checked-in SDK if present.
+            rootProject.file("../crossterm-kotlin/.android-sdk"),
+            rootProject.file("../ratatui-kotlin/.android-sdk"),
+            rootProject.file("../starlark-kotlin/.android-sdk"),
+        ).firstOrNull { it.exists() }?.absolutePath
 
 if (androidSdkDir != null && file(androidSdkDir).exists()) {
     val localProperties = rootProject.file("local.properties")
@@ -93,7 +100,13 @@ kotlin {
 
 mavenPublishing {
     publishToMavenCentral(SonatypeHost.CENTRAL_PORTAL)
-    signAllPublications()
+    val signingConfigured =
+        providers.gradleProperty("signingInMemoryKey").isPresent ||
+            providers.gradleProperty("signing.keyId").isPresent ||
+            providers.environmentVariable("SIGNING_KEY").isPresent
+    if (signingConfigured) {
+        signAllPublications()
+    }
 
     coordinates(group.toString(), "btree-kotlin", version.toString())
 

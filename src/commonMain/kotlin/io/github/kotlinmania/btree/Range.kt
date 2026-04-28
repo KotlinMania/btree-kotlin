@@ -3,24 +3,6 @@
 // copyright The Rust Project Developers, dual-licensed Apache-2.0 / MIT.
 package io.github.kotlinmania.btree
 
-// Translation notes (per AGENTS.md):
-//
-// * Rust's `Bound<&T>` shared-borrow view collapses to `Bound<T>` in Kotlin —
-//   there is no separate "borrow" vocabulary. `startBound()` / `endBound()`
-//   therefore return `Bound<T>` rather than `Bound<&T>`.
-// * Rust's `(Bound<T>, Bound<T>)` tuple `RangeBounds` implementation is reified as the
-//   [BoundsPair] wrapper class because Kotlin's stdlib `Pair` cannot be made
-//   to implement a foreign interface retroactively.
-// * Rust's `?Sized` bound on the `T` type parameter of `RangeBounds`/`IntoBounds`
-//   is irrelevant under JVM/Kotlin's type system and is dropped.
-// * Cross-type `PartialOrd<U>` ordering (`function contains<U>(&self, item: &U)`) has
-//   no Kotlin equivalent. The port narrows U to T and requires `Comparable<T>`,
-//   matching the BTreeMap call sites which always invoke with the homogeneous
-//   `T` parameter.
-// * Rust's `RangeInclusive` slice helper uses `usize + 1`. Kotlin lacks an
-//   unsigned `usize`; the slice helper translates to `Int` because
-//   `BTreeMap`-side callers only ever feed it container indices.
-
 /**
  * An unbounded range (`..`).
  *
@@ -41,7 +23,7 @@ data object RangeFull : RangeBounds<Nothing> {
  * The range `start..end` contains all values with `start <= x < end`.
  * It is empty if `start >= end`.
  */
-data class Range<Idx>(
+data class OpsRange<Idx>(
     /** The lower bound of the range (inclusive). */
     val start: Idx,
     /** The upper bound of the range (exclusive). */
@@ -55,7 +37,7 @@ data class Range<Idx>(
     /**
      * Returns `true` if `item` is contained in the range.
      */
-    fun contains(item: Idx): Boolean = (this as RangeBounds<Idx>).contains(item)
+    override fun contains(item: Idx): Boolean = (this as RangeBounds<Idx>).contains(item)
 
     /**
      * Returns `true` if the range contains no items.
@@ -63,8 +45,7 @@ data class Range<Idx>(
      * The range is empty if `start >= end`. Translates Rust's
      * `!(self.start < self.end)`.
      */
-    @Suppress("UNCHECKED_CAST")
-    fun isEmpty(): Boolean {
+    override fun isEmpty(): Boolean {
         val s = start as Comparable<Idx>
         return !(s.compareTo(end) < 0)
     }
@@ -91,7 +72,7 @@ data class RangeFrom<Idx>(
     override fun endBound(): Bound<Idx> = Bound.Unbounded
 
     /** Returns `true` if `item` is contained in the range. */
-    fun contains(item: Idx): Boolean = (this as RangeBounds<Idx>).contains(item)
+    override fun contains(item: Idx): Boolean = (this as RangeBounds<Idx>).contains(item)
 }
 
 /**
@@ -110,7 +91,7 @@ data class RangeTo<Idx>(
     override fun endBound(): Bound<Idx> = Bound.Excluded(end)
 
     /** Returns `true` if `item` is contained in the range. */
-    fun contains(item: Idx): Boolean = (this as RangeBounds<Idx>).contains(item)
+    override fun contains(item: Idx): Boolean = (this as RangeBounds<Idx>).contains(item)
 }
 
 /**
@@ -179,11 +160,10 @@ class RangeInclusive<Idx>(
         }
 
     /** Returns `true` if `item` is contained in the range. */
-    fun contains(item: Idx): Boolean = (this as RangeBounds<Idx>).contains(item)
+    override fun contains(item: Idx): Boolean = (this as RangeBounds<Idx>).contains(item)
 
     /** Returns `true` if the range contains no items. */
-    @Suppress("UNCHECKED_CAST")
-    fun isEmpty(): Boolean {
+    override fun isEmpty(): Boolean {
         if (exhausted) return true
         val s = start as Comparable<Idx>
         return !(s.compareTo(end) <= 0)
@@ -203,13 +183,13 @@ class RangeInclusive<Idx>(
  * `Int` because BTreeMap's slice consumers only feed it container
  * indices.
  */
-internal fun RangeInclusive<Int>.intoSliceRange(): Range<Int> {
+internal fun RangeInclusive<Int>.intoSliceRange(): OpsRange<Int> {
     // If we're not exhausted, we want to simply slice `start..end + 1`.
     // If we are exhausted, then slicing with `end + 1..end + 1` gives us an
     // empty range that is still subject to bounds-checks for that endpoint.
     val exclusiveEnd = end + 1
     val rangeStart = if (exhausted) exclusiveEnd else start
-    return Range(rangeStart, exclusiveEnd)
+    return OpsRange(rangeStart, exclusiveEnd)
 }
 
 /**
@@ -228,7 +208,7 @@ data class RangeToInclusive<Idx>(
     override fun endBound(): Bound<Idx> = Bound.Included(end)
 
     /** Returns `true` if `item` is contained in the range. */
-    fun contains(item: Idx): Boolean = (this as RangeBounds<Idx>).contains(item)
+    override fun contains(item: Idx): Boolean = (this as RangeBounds<Idx>).contains(item)
 }
 
 // RangeToInclusive<Idx> cannot implementation From<RangeTo<Idx>>
@@ -331,7 +311,6 @@ interface RangeBounds<T> {
      * partial ordering has no Kotlin equivalent.
      */
     fun contains(item: T): Boolean {
-        @Suppress("UNCHECKED_CAST")
         val cmpItem = item as Comparable<T>
         val startOk = when (val s = startBound()) {
             is Bound.Included -> cmpItem.compareTo(s.value) >= 0
@@ -350,31 +329,27 @@ interface RangeBounds<T> {
      * Returns `true` if the range contains no items.
      * One-sided ranges (`RangeFrom`, etc) always return `false`.
      */
-    @Suppress("UNCHECKED_CAST")
     fun isEmpty(): Boolean {
         val s = startBound()
         val e = endBound()
         if (s is Bound.Unbounded || e is Bound.Unbounded) return false
-        return when {
-            s is Bound.Included && e is Bound.Included -> {
-                val a = s.value as Comparable<T>
-                !(a.compareTo(e.value) <= 0)
-            }
-            else -> {
-                val sv: T = when (s) {
-                    is Bound.Included -> s.value
-                    is Bound.Excluded -> s.value
-                    Bound.Unbounded -> return false
-                }
-                val ev: T = when (e) {
-                    is Bound.Included -> e.value
-                    is Bound.Excluded -> e.value
-                    Bound.Unbounded -> return false
-                }
-                val a = sv as Comparable<T>
-                !(a.compareTo(ev) < 0)
-            }
+        if (s is Bound.Included && e is Bound.Included) {
+            val a = s.value as Comparable<T>
+            return !(a.compareTo(e.value) <= 0)
         }
+
+        val sv: T = when (s) {
+            is Bound.Included -> s.value
+            is Bound.Excluded -> s.value
+            Bound.Unbounded -> return false
+        }
+        val ev: T = when (e) {
+            is Bound.Included -> e.value
+            is Bound.Excluded -> e.value
+            Bound.Unbounded -> return false
+        }
+        val a = sv as Comparable<T>
+        return !(a.compareTo(ev) < 0)
     }
 }
 
@@ -395,7 +370,6 @@ interface IntoBounds<T> : RangeBounds<T> {
     /**
      * Compute the intersection of `self` and `other`.
      */
-    @Suppress("UNCHECKED_CAST")
     fun intersect(other: IntoBounds<T>): Pair<Bound<T>, Bound<T>> {
         val (selfStart, selfEnd) = this.intoBounds()
         val (otherStart, otherEnd) = other.intoBounds()
@@ -491,7 +465,7 @@ fun <T> RangeTo<T>.intoBounds(): Pair<Bound<T>, Bound<T>> = Pair(Bound.Unbounded
 /**
  * `IntoBounds` implementation for [Range].
  */
-fun <T> Range<T>.intoBounds(): Pair<Bound<T>, Bound<T>> = Pair(Bound.Included(start), Bound.Excluded(end))
+fun <T> OpsRange<T>.intoBounds(): Pair<Bound<T>, Bound<T>> = Pair(Bound.Included(start), Bound.Excluded(end))
 
 /**
  * `IntoBounds` implementation for [RangeInclusive].

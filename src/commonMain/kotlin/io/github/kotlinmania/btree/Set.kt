@@ -2,42 +2,6 @@
 // Derived from the Rust standard library (rust-lang/rust),
 // copyright The Rust Project Developers, dual-licensed Apache-2.0 / MIT.
 package io.github.kotlinmania.btree
-
-// Translation notes (binding for downstream consumers):
-//   - `BTreeSet<T>` is a thin wrapper over a `BTreeMap<T, SetValZst>` whose
-//     `internalIsSet` flag is set at construction so range-bound errors render
-//     as "BTreeSet" rather than "BTreeMap".
-//   - Allocator parameter `A: Allocator + Clone = Global` is dropped on every
-//     type and method (Kotlin GC supersedes; matches Map.kt's convention).
-//   - `mod entry` is `(unstable(btreeSetEntry))` and not part of the stable
-//     surface; we don't port the `set/entry.rs` shim. The Map's `Entry` API is
-//     directly available for callers who want it through `BTreeSet.map`-level
-//     gymnastics, but the user-visible Set surface omits it intentionally.
-//   - The set iterator types collide by name with Map.kt's top-level `Iter`,
-//     `IntoIter`, `Range`, `ExtractIf`. Per AGENTS.md "no typealias re-export",
-//     we nest the set iterators inside `BTreeSet` itself; callers spell
-//     `BTreeSet.Iter<T>`, mirroring Rust's `btreeSet::Iter` namespacing. The
-//     `Cursor` / `CursorMut` / `CursorMutKey` types are likewise nested.
-//   - `Drop`, `Clone` (on iterators), `IntoIterator`, `Default`, `Hash`,
-//     `PartialOrd`, `Ord`, `Extend`, `From<[T; N]>`, `FromIterator<T>`, and the
-//     `BitAnd`/`BitOr`/`BitXor`/`Sub` operator overloads either dissolve or
-//     translate to factory methods / Kotlin-side stdlib idioms.
-//   - `Debug` impls render as `toString()`.
-//   - `T : Comparable<T>` mirrors `where T: Ord` at the class level, the same
-//     decision Map.kt makes for `K`. Per-method `Q : ?Sized + Ord` cross-type-
-//     borrow constraints specialise to `Q == T` (Kotlin's bound system rejects
-//     adding a separate `T : Comparable<Q>` to a method when the class already
-//     bounds `T : Comparable<T>`); the upstream Q-borrow surface still
-//     compiles by simply requiring callers to spell their query as a `T`.
-//
-// Iterator translation:
-//   - Kotlin's `Iterator<T>` / `MutableIterator<T>` is the base interface; the
-//     `nextBack` / `len` methods translate to plain methods (no
-//     `DoubleEndedIterator` / `ExactSizeIterator` interface in Kotlin stdlib).
-//   - Rust's `FusedIterator` is implicit — Kotlin iterators stay exhausted
-//     once `hasNext()` returns false.
-//   - `TrustedLen` has no Kotlin equivalent; dropped.
-//
 // Cross-iterator state machines:
 //   - `DifferenceInner` / `IntersectionInner` translate as private sealed
 //     classes (`Stitch` / `Search` / `Iterate` / `Answer`).
@@ -520,7 +484,6 @@ class BTreeSet<T : Comparable<T>> : MutableSet<T> {
         if (other !is BTreeSet<*>) return false
         if (this.size != other.size) return false
         val itA = this.iter()
-        @Suppress("UNCHECKED_CAST")
         val itB = (other as BTreeSet<T>).iter()
         while (itA.hasNext() && itB.hasNext()) {
             if (itA.next() != itB.next()) return false
@@ -638,14 +601,14 @@ class BTreeSet<T : Comparable<T>> : MutableSet<T> {
                             }
                         }
                     }
-                    @Suppress("UNREACHABLE_CODE") null
+                    null
                 }
                 is DifferenceInner.Search -> {
                     while (true) {
                         val selfNext = inner.selfIter.advance() ?: return null
                         if (!inner.otherSet.contains(selfNext)) return selfNext
                     }
-                    @Suppress("UNREACHABLE_CODE") null
+                    null
                 }
                 is DifferenceInner.Iterate -> inner.iter.advance()
             }
@@ -723,14 +686,14 @@ class BTreeSet<T : Comparable<T>> : MutableSet<T> {
                             else -> return aNext
                         }
                     }
-                    @Suppress("UNREACHABLE_CODE") null
+                    null
                 }
                 is IntersectionInner.Search -> {
                     while (true) {
                         val smallNext = inner.smallIter.advance() ?: return null
                         if (inner.largeSet.contains(smallNext)) return smallNext
                     }
-                    @Suppress("UNREACHABLE_CODE") null
+                    null
                 }
                 is IntersectionInner.Answer -> {
                     val answer = inner.value

@@ -164,15 +164,6 @@ internal typealias BoxedNode<K, V> = LeafNode<K, V>
  *   `NodeRef` points to an internal node, and when this is `LeafOrInternal` the
  *   `NodeRef` could be pointing to either type of node.
  *   `Type` is named `NodeType` when used outside `NodeRef`.
- *
- * Translation notes:
- * - The `'a` lifetime parameter from upstream drops; Kotlin uses GC and has no
- *   borrow checker to satisfy.
- * - Both type parameters are kept as phantom-style markers (no `PhantomData`
- *   needed; Kotlin variance handles what `PhantomData` was conveying).
- * - Where upstream `force()` discriminates between Leaf and Internal at the
- *   type level (selecting Leaf when height is 0 and Internal otherwise),
- *   the Kotlin port discriminates at runtime via the same `height` field.
  */
 internal class NodeRef<BorrowType, K, V, Type> internal constructor(
     /**
@@ -374,29 +365,6 @@ internal fun <BorrowType : Marker.BorrowType, K, V, Type> NodeRef<BorrowType, K,
     return Handle.newKv(this, len - 1)
 }
 
-// ---- NodeRef<Immut, ..., Type> ------------------------------------------
-
-/**
- * Borrows a view into the keys stored in the node.
- *
- * Upstream returns `&[K]`; in Kotlin we return a [List] view backed by the
- * internal storage. This list has size `len()` and indexed access reads
- * the (initialised) slot. `Search.kt` calls this method.
- */
-internal fun <K, V, Type> NodeRef<Marker.Immut, K, V, Type>.keys(): List<K> {
-    val n = node.len
-    // SAFETY: `keys[0..len]` are all initialised by node-shape invariants.
-    return object : AbstractList<K>() {
-        override val size: Int get() = n
-        override fun get(index: Int): K {
-            if (index < 0 || index >= n) throw IndexOutOfBoundsException("index $index out of bounds [0, $n)")
-            // SAFETY: index is in 0..len, slot is initialised.
-            @Suppress("UNCHECKED_CAST")
-            return node.keys[index] as K
-        }
-    }
-}
-
 /**
  * Generic `keys` accessor — the upstream `public(super) function keys(&self) -> &[K]`
  * is restricted to `Immut`, but Search.kt calls `keys()` on
@@ -405,14 +373,13 @@ internal fun <K, V, Type> NodeRef<Marker.Immut, K, V, Type>.keys(): List<K> {
  * BorrowType so Search.kt's `node.reborrow().keys()` resolves identically
  * to upstream.
  */
-internal fun <BorrowType, K, V, Type> NodeRef<BorrowType, K, V, Type>.keys(): List<K> {
+internal fun <BorrowType : Marker.BorrowType, K, V, Type> NodeRef<BorrowType, K, V, Type>.keys(): List<K> {
     val n = node.len
     return object : AbstractList<K>() {
         override val size: Int get() = n
         override fun get(index: Int): K {
             if (index < 0 || index >= n) throw IndexOutOfBoundsException("index $index out of bounds [0, $n)")
             // SAFETY: index is in 0..len, slot is initialised.
-            @Suppress("UNCHECKED_CAST")
             return node.keys[index] as K
         }
     }
@@ -674,13 +641,10 @@ internal fun <K, V, Type> NodeRef<Marker.Mut, K, V, Type>.writeValArea(idx: Int,
  * # Safety
  * `idx` is in bounds of `0..len`, slot is initialised.
  */
-@Suppress("UNCHECKED_CAST")
 internal fun <K, V, Type> NodeRef<Marker.Mut, K, V, Type>.readKeyArea(idx: Int): K {
     // SAFETY: caller ensures idx < len so slot is initialised.
     return asLeafMut().keys[idx] as K
 }
-
-@Suppress("UNCHECKED_CAST")
 internal fun <K, V, Type> NodeRef<Marker.Mut, K, V, Type>.readValArea(idx: Int): V {
     // SAFETY: caller ensures idx < len so slot is initialised.
     return asLeafMut().vals[idx] as V
@@ -721,7 +685,6 @@ internal fun <K, V> NodeRef<Marker.Mut, K, V, Marker.Internal>.readEdgeArea(idx:
  * caller can write back via [writeValArea] if desired. Reading the value is
  * the only operation Search.kt-and-below need.
  */
-@Suppress("UNCHECKED_CAST")
 internal fun <K, V, Type> NodeRef<Marker.ValMut, K, V, Type>.intoKeyValMutAt(idx: Int): Pair<K, V> {
     // SAFETY: idx < len, slots are initialised.
     val key = node.keys[idx] as K
@@ -1056,7 +1019,7 @@ private fun <K, V> Handle<NodeRef<Marker.Mut, K, V, Marker.Leaf>, Marker.Edge>.i
         val (middleKvIdx, insertion) = splitpoint(idx)
         // SAFETY: middleKvIdx < node.len() == CAPACITY.
         val middle = Handle.newKv(node, middleKvIdx)
-        val result = middle.split()
+        val result = middle.split(SplitTag.Leaf)
         val insertionEdge = when (insertion) {
             is LeftOrRight.Left -> {
                 // SAFETY: insertion index from splitpoint is bounds-checked there.
@@ -1106,7 +1069,6 @@ private fun <K, V> Handle<NodeRef<Marker.Mut, K, V, Marker.Internal>, Marker.Edg
     val internal = node.asInternalMut()
     sliceInsert(internal.keys, newLen, idx, key as Any?)
     sliceInsert(internal.vals, newLen, idx, value as Any?)
-    @Suppress("UNCHECKED_CAST")
     sliceInsert(internal.edges as Array<Any?>, newLen + 1, idx + 1, edge.node as Any?)
     node.setLen(newLen)
 
@@ -1132,7 +1094,7 @@ private fun <K, V> Handle<NodeRef<Marker.Mut, K, V, Marker.Internal>, Marker.Edg
         val (middleKvIdx, insertion) = splitpoint(idx)
         // SAFETY: middleKvIdx < node.len() == CAPACITY.
         val middle = Handle.newKv(node, middleKvIdx)
-        val result = middle.split()
+        val result = middle.split(SplitTag.Internal)
         val insertionEdge = when (insertion) {
             is LeftOrRight.Left -> {
                 // SAFETY: insertion index from splitpoint is bounds-checked there.
@@ -1216,8 +1178,6 @@ Handle<NodeRef<BorrowType, K, V, Marker.Internal>, Marker.Edge>.descend():
 // =====================================================================
 // Handle Immut KV: intoKv
 // =====================================================================
-
-@Suppress("UNCHECKED_CAST")
 internal fun <K, V, NodeType> Handle<NodeRef<Marker.Immut, K, V, NodeType>, Marker.KV>.intoKv(): Pair<K, V> {
     check(idx < node.len()) // debugAssert(self.idx < self.node.len())
     val leaf = node.node
@@ -1230,8 +1190,6 @@ internal fun <K, V, NodeType> Handle<NodeRef<Marker.Immut, K, V, NodeType>, Mark
 // =====================================================================
 // Handle Mut KV: keyMut, intoValMut, intoKvMut, kvMut, replaceKv
 // =====================================================================
-
-@Suppress("UNCHECKED_CAST")
 internal fun <K, V, NodeType> Handle<NodeRef<Marker.Mut, K, V, NodeType>, Marker.KV>.keyMut(): K {
     // SAFETY: idx < len by Handle invariant; slot initialised.
     return node.asLeafMut().keys[idx] as K
@@ -1241,8 +1199,6 @@ internal fun <K, V, NodeType> Handle<NodeRef<Marker.Mut, K, V, NodeType>, Marker
     // SAFETY: idx < len by Handle invariant.
     node.asLeafMut().keys[idx] = value
 }
-
-@Suppress("UNCHECKED_CAST")
 internal fun <K, V, NodeType> Handle<NodeRef<Marker.Mut, K, V, NodeType>, Marker.KV>.intoValMut(): V {
     check(idx < node.len()) // debugAssert(self.idx < self.node.len())
     val leaf = node.intoLeafMut()
@@ -1254,8 +1210,6 @@ internal fun <K, V, NodeType> Handle<NodeRef<Marker.Mut, K, V, NodeType>, Marker
     // SAFETY: idx < len by Handle invariant.
     node.asLeafMut().vals[idx] = value
 }
-
-@Suppress("UNCHECKED_CAST")
 internal fun <K, V, NodeType> Handle<NodeRef<Marker.Mut, K, V, NodeType>, Marker.KV>.intoKvMut(): Pair<K, V> {
     check(idx < node.len()) // debugAssert(self.idx < self.node.len())
     val leaf = node.intoLeafMut()
@@ -1264,8 +1218,6 @@ internal fun <K, V, NodeType> Handle<NodeRef<Marker.Mut, K, V, NodeType>, Marker
     val v = leaf.vals[idx] as V
     return Pair(k, v)
 }
-
-@Suppress("UNCHECKED_CAST")
 internal fun <K, V, NodeType> Handle<NodeRef<Marker.Mut, K, V, NodeType>, Marker.KV>.kvMut(): Pair<K, V> {
     check(idx < node.len()) // debugAssert(self.idx < self.node.len())
     // SAFETY: idx < len, slots initialised.
@@ -1276,7 +1228,6 @@ internal fun <K, V, NodeType> Handle<NodeRef<Marker.Mut, K, V, NodeType>, Marker
 }
 
 /** Replaces the key and value that the KV handle refers to. */
-@Suppress("UNCHECKED_CAST")
 internal fun <K, V, NodeType> Handle<NodeRef<Marker.Mut, K, V, NodeType>, Marker.KV>.replaceKv(
     k: K,
     v: V,
@@ -1311,7 +1262,6 @@ internal fun <K, V, NodeType> Handle<NodeRef<Marker.ValMut, K, V, NodeType>, Mar
  * # Safety
  * The node that the handle refers to must not yet have been deallocated.
  */
-@Suppress("UNCHECKED_CAST")
 internal fun <K, V, NodeType> Handle<NodeRef<Marker.Dying, K, V, NodeType>, Marker.KV>.intoKeyVal():
     Pair<K, V> {
     check(idx < node.len()) // debugAssert(self.idx < self.node.len())
@@ -1332,7 +1282,6 @@ internal fun <K, V, NodeType> Handle<NodeRef<Marker.Dying, K, V, NodeType>, Mark
  * # Safety
  * The node that the handle refers to must not yet have been deallocated.
  */
-@Suppress("UNUSED_PARAMETER")
 internal fun <K, V, NodeType> Handle<NodeRef<Marker.Dying, K, V, NodeType>, Marker.KV>.dropKeyVal() {
     // Run the destructor of the value even if the destructor of the key panics.
     // SAFETY: GC supersedes manual drop; the entire body dissolves.
@@ -1347,7 +1296,6 @@ internal fun <K, V, NodeType> Handle<NodeRef<Marker.Dying, K, V, NodeType>, Mark
  * Helps implementations of `split` for a particular `NodeType`,
  * by taking care of leaf data.
  */
-@Suppress("UNCHECKED_CAST")
 private fun <K, V, NodeType> Handle<NodeRef<Marker.Mut, K, V, NodeType>, Marker.KV>.splitLeafData(
     newNode: LeafNode<K, V>,
 ): Pair<K, V> {
@@ -1377,7 +1325,7 @@ private fun <K, V, NodeType> Handle<NodeRef<Marker.Mut, K, V, NodeType>, Marker.
  * - The key and value pointed to by this handle are extracted.
  * - All the key-value pairs to the right of this handle are put into a newly allocated node.
  */
-internal fun <K, V> Handle<NodeRef<Marker.Mut, K, V, Marker.Leaf>, Marker.KV>.split():
+internal fun <K, V> Handle<NodeRef<Marker.Mut, K, V, Marker.Leaf>, Marker.KV>.split(tag: SplitTag.Leaf):
     SplitResult<K, V, Marker.Leaf> {
     val newNode = LeafNode.new<K, V>()
     val kv = this.splitLeafData(newNode)
@@ -1393,9 +1341,7 @@ internal fun <K, V> Handle<NodeRef<Marker.Mut, K, V, Marker.Leaf>, Marker.KV>.re
     Pair<Pair<K, V>, Handle<NodeRef<Marker.Mut, K, V, Marker.Leaf>, Marker.Edge>> {
     val oldLen = node.len()
     val leaf = node.asLeafMut()
-    @Suppress("UNCHECKED_CAST")
     val k = sliceRemove(leaf.keys, oldLen, idx) as K
-    @Suppress("UNCHECKED_CAST")
     val v = sliceRemove(leaf.vals, oldLen, idx) as V
     node.setLen(oldLen - 1)
     return Pair(Pair(k, v), this.leftEdge())
@@ -1413,14 +1359,13 @@ internal fun <K, V> Handle<NodeRef<Marker.Mut, K, V, Marker.Leaf>, Marker.KV>.re
  * - All the edges and key-value pairs to the right of this handle are put into
  *   a newly allocated node.
  */
-internal fun <K, V> Handle<NodeRef<Marker.Mut, K, V, Marker.Internal>, Marker.KV>.split():
+internal fun <K, V> Handle<NodeRef<Marker.Mut, K, V, Marker.Internal>, Marker.KV>.split(tag: SplitTag.Internal):
     SplitResult<K, V, Marker.Internal> {
     val oldLen = node.len()
     val newNode = InternalNode.new<K, V>()
     val kv = this.splitLeafData(newNode)
     val newLen = newNode.len
     val srcInternal = node.asInternalMut()
-    @Suppress("UNCHECKED_CAST")
     moveToSlice(
         srcInternal.edges as Array<Any?>, idx + 1,
         newNode.edges as Array<Any?>, 0,
@@ -1432,6 +1377,11 @@ internal fun <K, V> Handle<NodeRef<Marker.Mut, K, V, Marker.Internal>, Marker.KV
     val right = NodeRef<Marker.Owned, K, V, Marker.Internal>(height = height, node = newNode)
     right.borrowMut().correctAllChildrensParentLinks()
     return SplitResult(left = node, kv = kv, right = right)
+}
+
+internal sealed interface SplitTag {
+    data object Leaf : SplitTag
+    data object Internal : SplitTag
 }
 
 // =====================================================================
@@ -1578,7 +1528,6 @@ private inline fun <K, V, R> BalancingContext<K, V>.doMerge(
     leftNode.setLen(newLeftLen)
 
     val parentKey = sliceRemove(parentNode.asLeafMut().keys, oldParentLen, parentIdx)
-    @Suppress("UNCHECKED_CAST")
     leftNode.writeKeyArea(oldLeftLen, parentKey as K)
     moveToSlice(
         rightNode.asLeafMut().keys, 0,
@@ -1587,7 +1536,6 @@ private inline fun <K, V, R> BalancingContext<K, V>.doMerge(
     )
 
     val parentVal = sliceRemove(parentNode.asLeafMut().vals, oldParentLen, parentIdx)
-    @Suppress("UNCHECKED_CAST")
     leftNode.writeValArea(oldLeftLen, parentVal as V)
     moveToSlice(
         rightNode.asLeafMut().vals, 0,
@@ -1596,7 +1544,6 @@ private inline fun <K, V, R> BalancingContext<K, V>.doMerge(
     )
 
     val parentInternal = parentNode.asInternalMut()
-    @Suppress("UNCHECKED_CAST")
     sliceRemove(parentInternal.edges as Array<Any?>, oldParentLen + 1, parentIdx + 1)
     parentNode.correctChildrensParentLinks(parentIdx + 1 until oldParentLen)
     parentNode.setLen(oldParentLen - 1)
@@ -1606,7 +1553,6 @@ private inline fun <K, V, R> BalancingContext<K, V>.doMerge(
         // of the node of this edge, thus above zero, so they are internal.
         val leftInternal = leftNode.reborrowMut().castToInternalUnchecked()
         val rightInternal = rightNode.castToInternalUnchecked()
-        @Suppress("UNCHECKED_CAST")
         moveToSlice(
             rightInternal.asInternalMut().edges as Array<Any?>, 0,
             leftInternal.asInternalMut().edges as Array<Any?>, oldLeftLen + 1,
@@ -1722,9 +1668,7 @@ internal fun <K, V> BalancingContext<K, V>.bulkStealLeft(count: Int) {
         moveToSlice(leftLeaf.vals, newLeftLen + 1, rightLeaf.vals, 0, count - 1)
 
         // Move the leftmost stolen pair to the parent.
-        @Suppress("UNCHECKED_CAST")
         val k = leftLeaf.keys[newLeftLen] as K
-        @Suppress("UNCHECKED_CAST")
         val v = leftLeaf.vals[newLeftLen] as V
         val (pk, pv) = parent.replaceKv(k, v)
 
@@ -1742,11 +1686,9 @@ internal fun <K, V> BalancingContext<K, V>.bulkStealLeft(count: Int) {
                     val leftEdges = left.asInternalMut().edges
                     val rightEdges = right.asInternalMut().edges
                     // Make room for stolen edges.
-                    @Suppress("UNCHECKED_CAST")
                     sliceShr(rightEdges as Array<Any?>, newRightLen + 1, count)
 
                     // Steal edges.
-                    @Suppress("UNCHECKED_CAST")
                     moveToSlice(
                         leftEdges as Array<Any?>, newLeftLen + 1,
                         rightEdges as Array<Any?>, 0,
@@ -1789,9 +1731,7 @@ internal fun <K, V> BalancingContext<K, V>.bulkStealRight(count: Int) {
         val leftLeaf = leftNode.asLeafMut()
         val rightLeaf = rightNode.asLeafMut()
         // Move the rightmost stolen pair to the parent.
-        @Suppress("UNCHECKED_CAST")
         val k = rightLeaf.keys[count - 1] as K
-        @Suppress("UNCHECKED_CAST")
         val v = rightLeaf.vals[count - 1] as V
         val (pk, pv) = parent.replaceKv(k, v)
 
@@ -1817,7 +1757,6 @@ internal fun <K, V> BalancingContext<K, V>.bulkStealRight(count: Int) {
                     val leftEdges = left.asInternalMut().edges
                     val rightEdges = right.asInternalMut().edges
                     // Steal edges.
-                    @Suppress("UNCHECKED_CAST")
                     moveToSlice(
                         rightEdges as Array<Any?>, 0,
                         leftEdges as Array<Any?>, oldLeftLen + 1,
@@ -1825,7 +1764,6 @@ internal fun <K, V> BalancingContext<K, V>.bulkStealRight(count: Int) {
                     )
 
                     // Fill gap where stolen edges used to be.
-                    @Suppress("UNCHECKED_CAST")
                     sliceShl(rightEdges as Array<Any?>, oldRightLen + 1, count)
 
                     left.correctChildrensParentLinks(oldLeftLen + 1..newLeftLen)
@@ -1930,7 +1868,6 @@ internal fun <K, V> Handle<NodeRef<Marker.Mut, K, V, Marker.LeafOrInternal>, Mar
                 is ForceResult.Internal -> {
                     val left = lf.value
                     val rightI = rf.value
-                    @Suppress("UNCHECKED_CAST")
                     moveToSlice(
                         left.asInternalMut().edges as Array<Any?>, newLeftLen + 1,
                         rightI.asInternalMut().edges as Array<Any?>, 1,

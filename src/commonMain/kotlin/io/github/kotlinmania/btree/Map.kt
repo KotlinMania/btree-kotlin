@@ -137,7 +137,6 @@ class BTreeMap<K : Comparable<K>, V> : MutableMap<K, V> {
      * accepts `Any?`; we narrow to `K` via `as? K` so non-matching types
      * return `null` rather than triggering a class cast inside `searchTree`.
      */
-    @Suppress("UNCHECKED_CAST")
     override operator fun get(key: K): V? {
         val rootNode = root?.reborrow() ?: return null
         return when (val r = rootNode.searchTree(key)) {
@@ -748,7 +747,6 @@ class BTreeMap<K : Comparable<K>, V> : MutableMap<K, V> {
  *
  * Not on the public surface; called from `BTreeSet::replace` once Phase 5 lands.
  */
-@Suppress("UNCHECKED_CAST")
 internal fun <K : Comparable<K>> BTreeMap<K, SetValZst>.replaceSetVal(key: K): K? {
     val (mapRef, dormantMap) = DormantMutRef.new(this)
     if (mapRef.root == null) {
@@ -782,7 +780,6 @@ internal fun <K : Comparable<K>> BTreeMap<K, SetValZst>.replaceSetVal(key: K): K
  * `K : Comparable<K>` constraint. Set.kt's wrapper can rebox `Q` -> `K` at
  * the call site if it wants the cross-type form back.
  */
-@Suppress("UNCHECKED_CAST")
 internal fun <K : Comparable<K>> BTreeMap<K, SetValZst>.getOrInsertWithSetVal(
     q: K,
     f: (K) -> K,
@@ -1186,7 +1183,6 @@ internal class ExtractIfInner<K : Comparable<K>, V, Q : Comparable<Q>>(
             // type parameter to be re-bounded against a method-level Q).
             // The cast `(end.value as Comparable<Any?>).compareTo(k)` would
             // also work; we import the K-side compareTo via an unchecked cast.
-            @Suppress("UNCHECKED_CAST")
             val withinRange = when (val end = range.endBound()) {
                 is Bound.Included -> (k as Comparable<Q>).compareTo(end.value) <= 0
                 is Bound.Excluded -> (k as Comparable<Q>).compareTo(end.value) < 0

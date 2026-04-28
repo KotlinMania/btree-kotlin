@@ -3,37 +3,10 @@
 // copyright The Rust Project Developers, dual-licensed Apache-2.0 / MIT.
 package io.github.kotlinmania.btree
 
-// Forward reference resolved by a sibling phase:
-//   - `lastLeafEdge` on a `NodeRef<Marker.Mut, ..., LeafOrInternal>` lives
-//     in Navigate.kt (port of navigate.rs). Until that file lands the two
-//     call-sites below are unresolved; this is the documented
-//     "Compile-time-incomplete files are OK" pattern from AGENTS.md.
-//   - `fixRightBorderOfPlentiful` on `Root<K, V>` lives in Fix.kt (port of
-//     fix.rs); already landed.
-// (PORTING.md tracks this cross-file dependency.)
-//
-// Translation notes:
-//   - The upstream `implementation<K, V> Root<K, V> { function bulkPush... }` becomes a
-//     Kotlin extension function on the `Root<K, V>` typealias from Node.kt
-//     (`Root<K, V> = NodeRef<Marker.Owned, K, V, Marker.LeafOrInternal>`).
-//   - The `length: &mut usize` out-parameter is preserved as an `IntArray`
-//     of size 1 — Kotlin can't pass a primitive by reference, and the
-//     caller (Map.kt's `append`) needs the side-effect of "increment per
-//     iteration so a panicking iterator doesn't leak the appended pairs".
-//     A single-element IntArray is the smallest faithful translation; the
-//     caller reads `length[0]` after the call.
-//   - The `alloc: A` parameter dissolves: Kotlin's heap is GC-managed and
-//     the `pushInternalLevel` / `Root::new` ports take no allocator.
-//   - `unsafe { ... }` blocks (none in this file upstream) would dissolve
-//     to `// SAFETY:` comments.
-
 /**
  * Pushes all key-value pairs to the end of the tree, incrementing a
  * `length` variable along the way. The latter makes it easier for the
  * caller to avoid a leak when the iterator panicks.
- *
- * `length` is a single-element `IntArray` used as a mutable out-parameter
- * (see file-level translation notes for the rationale).
  */
 internal fun <K, V> NodeRef<Marker.Owned, K, V, Marker.LeafOrInternal>.bulkPush(
     iter: Iterator<Pair<K, V>>,

@@ -795,6 +795,42 @@ static std::vector<RustModReexportHint> rust_mod_reexport_hints(
     return hints;
 }
 
+// Read whole file contents, returning empty string on failure.
+static std::string read_file_to_string(const std::filesystem::path& path) {
+    std::ifstream in(path);
+    if (!in.is_open()) return std::string();
+    return std::string(
+        (std::istreambuf_iterator<char>(in)),
+        std::istreambuf_iterator<char>());
+}
+
+// Extract the names of all type-alias declarations in a Rust source file.
+// Matches `pub type X = ...`, `pub(crate) type X = ...`, and `type X = ...`.
+// Used to verify that Kotlin typealiases mirror an actual Rust `pub type`,
+// so faithful 1:1 ports stop tripping the "Kotlin-only typealias" warning.
+static std::vector<std::string> extract_rust_type_alias_names(const std::string& content) {
+    std::vector<std::string> names;
+    std::regex pattern(R"(\b(?:pub(?:\s*\([^)]+\))?\s+)?type\s+([A-Za-z_][A-Za-z0-9_]*))");
+    auto begin = std::sregex_iterator(content.begin(), content.end(), pattern);
+    auto end = std::sregex_iterator();
+    for (auto it = begin; it != end; ++it) {
+        names.push_back((*it)[1].str());
+    }
+    return names;
+}
+
+// Extract the names of all `typealias X = ...` declarations in a Kotlin file.
+static std::vector<std::string> extract_kotlin_typealias_names(const std::string& content) {
+    std::vector<std::string> names;
+    std::regex pattern(R"(\btypealias\s+([A-Za-z_][A-Za-z0-9_]*))");
+    auto begin = std::sregex_iterator(content.begin(), content.end(), pattern);
+    auto end = std::sregex_iterator();
+    for (auto it = begin; it != end; ++it) {
+        names.push_back((*it)[1].str());
+    }
+    return names;
+}
+
 static void warn_kotlin_suspicious_constructs(
     const std::filesystem::path& source_path,
     Language source_lang,
@@ -805,16 +841,12 @@ static void warn_kotlin_suspicious_constructs(
         return;
     }
 
-    std::ifstream in(target_path);
-    if (!in.is_open()) {
+    std::string content = read_file_to_string(target_path);
+    if (content.empty()) {
         return;
     }
 
-    std::string content(
-        (std::istreambuf_iterator<char>(in)),
-        std::istreambuf_iterator<char>());
-
-    auto warn = [&](const char* what) {
+    auto warn = [&](const std::string& what) {
         std::cerr
             << "Warning: Kotlin-only " << what << " detected in target file: "
             << target_path.string() << "\n"
@@ -828,10 +860,31 @@ static void warn_kotlin_suspicious_constructs(
         warn("suppression annotation (@Suppress/@file:Suppress/SuppressWarnings)");
     }
 
-    if (content.find("typealias ") != std::string::npos ||
-        content.find("typealias\t") != std::string::npos ||
-        content.find("\ntypealias") != std::string::npos) {
-        warn("typealias");
+    // Match Kotlin typealiases against Rust `pub type` declarations.
+    // A Kotlin `typealias X = Y` paired with Rust `pub type X = Y` is the
+    // faithful 1:1 port of a Rust type alias and should not warn. Only warn
+    // for Kotlin typealiases that have no matching name on the Rust side --
+    // those are Kotlin-only inventions that hide unfinished transliteration
+    // (or worse, are wrapper-class shims rebranded as typealiases).
+    //
+    // Matching is by canonicalized name (snake_case <-> camelCase via
+    // IdentifierStats::canonicalize), per the rest of the parity logic.
+    std::vector<std::string> kotlin_aliases = extract_kotlin_typealias_names(content);
+    if (!kotlin_aliases.empty()) {
+        std::string source_content = read_file_to_string(source_path);
+        std::vector<std::string> rust_aliases = extract_rust_type_alias_names(source_content);
+
+        std::set<std::string> rust_canon;
+        for (const auto& n : rust_aliases) {
+            rust_canon.insert(IdentifierStats::canonicalize(n));
+        }
+
+        for (const auto& kotlin_name : kotlin_aliases) {
+            std::string canon = IdentifierStats::canonicalize(kotlin_name);
+            if (rust_canon.find(canon) == rust_canon.end()) {
+                warn("typealias `" + kotlin_name + "` (no matching `pub type` in Rust source)");
+            }
+        }
     }
 }
 
@@ -4982,6 +5035,47 @@ int main(int argc, char* argv[]) {
                 }
             }
 
+            // Iterator-trait equivalence (Rust impl Iterator <-> Kotlin : Iterator).
+            //
+            // Kotlin's kotlin.collections.Iterator interface forces a `hasNext():
+            // Boolean` method that has no Rust counterpart -- Rust's
+            // `Iterator::next() -> Option<T>` folds the "is there a next?"
+            // question into the return value. When a Kotlin class is the
+            // faithful port of a Rust `impl Iterator for X`, the forced
+            // `hasNext` should not count as an unmatched Kotlin-only extra.
+            //
+            // Laser-focused rule: suppress `hasNext` from unmatched-target
+            // ONLY when:
+            //   - Rust source contains at least one `impl Iterator for ...`
+            //     (or `impl<...> Iterator for ...`)
+            //   - Kotlin target declares a class implementing Iterator<...>
+            //     or MutableIterator<...>
+            //
+            // Both sides must show the iterator pattern. A unilateral Kotlin
+            // Iterator extension without a Rust counterpart is still a
+            // Kotlin-only invention and is reported as before.
+            const bool both_sides_have_iterator_pattern = [&]() -> bool {
+                if (lang1 != Language::RUST || lang2 != Language::KOTLIN) {
+                    return false;
+                }
+                static const std::regex rust_impl_iter(
+                    R"(\bimpl(?:\s*<[^{>]*>)?\s+(?:[A-Za-z0-9_:]+\s*::\s*)?Iterator\b\s+for\b)");
+                static const std::regex kotlin_extends_iter(
+                    R"(:\s*(?:[A-Za-z_][A-Za-z0-9_.]*\s*\.)?(?:Mutable)?Iterator\s*<)");
+                return std::regex_search(file1_text, rust_impl_iter)
+                    && std::regex_search(file2_text, kotlin_extends_iter);
+            }();
+
+            int suppressed_hasnext = 0;
+            if (both_sides_have_iterator_pattern) {
+                for (int j = 0; j < static_cast<int>(funcs2.size()); ++j) {
+                    if (!target_used[j] && funcs2[j].name == "hasNext") {
+                        target_used[j] = true;
+                        ++suppressed_hasnext;
+                    }
+                }
+            }
+
             int unmatched_source = 0;
             int unmatched_target = 0;
             for (bool used : source_used) {
@@ -5073,6 +5167,13 @@ int main(int argc, char* argv[]) {
                                   << " (" << funcs2[j].line_count << " lines)\n";
                     }
                 }
+            }
+            if (suppressed_hasnext > 0) {
+                std::cout << "\nIterator-trait equivalence: suppressed "
+                          << suppressed_hasnext
+                          << " forced `hasNext` method(s) (Kotlin Iterator interface "
+                             "requires it; Rust's Iterator::next folds the check into "
+                             "Option<T>).\n";
             }
 
             auto line_reports = reports;

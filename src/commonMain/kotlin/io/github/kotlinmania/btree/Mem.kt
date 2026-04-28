@@ -17,7 +17,7 @@ package io.github.kotlinmania.btree
  * the caller's binding keeps its previous value, which is the safe outcome
  * the panic-guard was simulating.
  */
-@Suppress("unused") // keep as illustration and for future use
+// keep as illustration and for future use
 internal inline fun <T> takeMut(v: T, change: (T) -> T): T {
     return replace(v) { value -> Pair(change(value), Unit) }.first
 }

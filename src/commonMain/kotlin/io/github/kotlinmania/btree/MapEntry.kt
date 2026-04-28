@@ -3,31 +3,6 @@
 // copyright The Rust Project Developers, dual-licensed Apache-2.0 / MIT.
 package io.github.kotlinmania.btree
 
-// Translation notes:
-//   - Upstream `enum Entry<'a, K, V, A> { Vacant(...), Occupied(...) }` is
-//     rendered as a sealed class with two subclass shapes (data classes
-//     would discard the per-subclass `toString()` mandate from AGENTS.md).
-//   - The allocator parameter `A: Allocator + Clone = Global` is dropped on
-//     all three of `Entry`, `VacantEntry`, `OccupiedEntry`, and `OccupiedError`
-//     — Kotlin's GC supersedes manual deallocation, matching the convention
-//     established in Node.kt / Navigate.kt for the rest of the port.
-//   - `'a` lifetime parameters drop entirely.
-//   - `DormantMutRef<BTreeMap<K, V, A>>` survives 1:1: it just holds a regular
-//     reference, with the awaken/reborrow methods spelling out the borrow
-//     gymnastics that Kotlin's GC otherwise hides.
-//   - `OccupiedError` is `(unstable)` (`mapTryInsert` feature) but is
-//     reachable through the also-unstable `BTreeMap::tryInsert` which we do
-//     port for completeness; both sit behind comments noting their unstable
-//     upstream status.
-//   - `mem::replace(self.getMut(), value)` in `OccupiedEntry::insert`
-//     translates per the AGENTS.md "return-the-new-value" pattern, except
-//     here we have direct write access to the slot, so the whole helper
-//     dissolves to a read-then-write.
-//   - `Default::default()` for `Entry::orDefault` requires a `V: Default`
-//     bound. Kotlin has no `Default` trait — the public surface accepts a
-//     `default: () -> V` factory instead, matching how callers usually phrase
-//     this on the JVM.
-
 /**
  * A view into a single entry in a map, which may either be vacant or occupied.
  *
@@ -49,12 +24,6 @@ sealed class Entry<K : Comparable<K>, V> {
     /**
      * Ensures a value is in the entry by inserting [default] if empty, and
      * returns the value in the entry.
-     *
-     * Upstream returns `&'a mut V`; the Kotlin port returns the value `V`
-     * (the caller can mutate it through the value reference if `V` is a
-     * mutable type, e.g. `MutableList`). For primitive-flavoured uses the
-     * idiomatic Kotlin equivalent is to read-modify-write through
-     * [BTreeMap.put] or to use [andModify] before [orInsert].
      */
     fun orInsert(default: V): V = when (this) {
         is Occupied -> entry.intoMut()
@@ -171,7 +140,7 @@ class VacantEntry<K : Comparable<K>, V> internal constructor(
                 }
                 val root = map.root!!
                 // SAFETY: We *just* created the root as a leaf, and we're
-                // stacking the new handle on the original borrow lifetime.
+                // stacking the new handle on the original borrow.
                 val leaf = root.borrowMut().castToLeafUnchecked()
                 val pushed = leaf.pushWithHandle(this.key, value)
                 pushed.forgetNodeTypeKv()
