@@ -107,13 +107,7 @@ class BTreeSet<T : Comparable<T>> : MutableSet<T> {
 
     /**
      * Constructs a double-ended iterator over a sub-range of elements in the
-     * set. The simplest way is to import the Kotlin `RangeBounds<T>` interface,
-     * with [Bound] endpoints.
-     *
-     * Translation note: upstream's `K: Borrow<Q>` plus `R: RangeBounds<K>` is
-     * specialised here to `RangeBounds<T>` directly — the cross-type-borrow
-     * form is not representable on a class with a `T : Comparable<T>`
-     * invariant.
+     * set, taking a `RangeBounds<T>` with [Bound] endpoints.
      *
      * @throws IllegalArgumentException if `range start > end`, or if start
      *   and end are equal and both excluded.
@@ -209,11 +203,7 @@ class BTreeSet<T : Comparable<T>> : MutableSet<T> {
 
     /**
      * Returns a reference to the element in the set, if any, that is equal
-     * to [value]. Mirrors upstream `fun get<Q>(&self, value: &Q) -> Option<&T>`.
-     *
-     * Translation note: the cross-type-borrow form `Q : ?Sized + Ord` is
-     * specialised to `Q == T` for the same constraint-clash reason as
-     * elsewhere on this class.
+     * to [value]. Mirrors upstream `fun get(value: T) -> Option<T>`.
      */
     fun get(value: T): T? = map.getKeyValue(value)?.first
 
@@ -343,12 +333,6 @@ class BTreeSet<T : Comparable<T>> : MutableSet<T> {
     /**
      * Inserts a value computed from [f] into the set if the given [value] is
      * not present, then returns the value in the set.
-     *
-     * Translation note: upstream takes a `Q : ?Sized + Ord` query type with
-     * `T : Borrow<Q>` and `f: FnOnce(&Q) -> T`. The Kotlin port specialises
-     * Q to T (the cross-type-borrow form clashes with the class-level
-     * `T : Comparable<T>` invariant). Callers needing the full cross-type
-     * form can rebox: read with [get], fall back to [insert] on miss.
      */
     fun getOrInsertWith(value: T, f: (T) -> T): T = map.getOrInsertWithSetVal(value, f)
 
@@ -953,8 +937,7 @@ internal sealed class IntersectionInner<T : Comparable<T>> {
 
 /**
  * One-element-buffer adapter over a [BTreeSet.Iter], emulating Rust's
- * `Peekable<Iter<T>>`. Inlined per AGENTS.md "Peekable translation"
- * pattern (Kotlin stdlib has no `Peekable`).
+ * `Peekable<Iter<T>>` (Kotlin stdlib has no `Peekable`).
  */
 internal class PeekableSetIter<T>(private val source: BTreeSet.Iter<T>) {
     private var buffered: T? = null

@@ -77,10 +77,6 @@ internal open class LeafNode<K, V> {
     /**
      * The arrays storing the actual data of the node. Only the first `len` elements of each
      * array are initialized and valid.
-     *
-     * Translation note: Rust uses `[MaybeUninit<K>; CAPACITY]`. In Kotlin this is an
-     * `arrayOfNulls<K>(CAPACITY)`. Indexed access in code paths that "know" the slot is
-     * initialised uses `!!` with a `// SAFETY: <invariant>` comment immediately above.
      */
     val keys: Array<Any?> = arrayOfNulls<Any?>(CAPACITY)
     val vals: Array<Any?> = arrayOfNulls<Any?>(CAPACITY)
@@ -274,14 +270,6 @@ internal class NodeRef<BorrowType, K, V, Type> internal constructor(
 // =====================================================================
 // NodeRef: methods restricted by BorrowType / Type
 // =====================================================================
-//
-// Upstream achieves the static restrictions via `implementation<...> NodeRef<...>`
-// blocks; in Kotlin we import top-level extension functions guarded by
-// generic constraints (when applicable) or by relying on the call site
-// to pick the right type-parameter instantiation. The type system here
-// is weaker than Rust's: methods that upstream restricts to e.g.
-// `BorrowType: marker::BorrowType` are exposed as extension functions
-// that take the runtime constraint as a generic bound where possible.
 
 /**
  * Finds the parent of the current node. Returns the handle if the current
@@ -295,10 +283,8 @@ internal class NodeRef<BorrowType, K, V, Type> internal constructor(
  * `edge.descend().ascend().unwrap()` and `node.ascend().unwrap().descend()` should
  * both, upon success, do nothing.
  *
- * Translation note: upstream signature is
- * `function ascend(self) -> Result<Handle<...>, Self>`. We return a Kotlin sealed
- * class `AscendResult` so the caller can recover `self` on the failure
- * branch (mirrors the `Err(self)` shape).
+ * Returns [AscendResult] — `Ok(handle)` on success, `Err(self)` if the
+ * current node is the root.
  */
 internal sealed class AscendResult<BorrowType, K, V> {
     data class Ok<BorrowType, K, V>(
@@ -472,8 +458,7 @@ internal fun <K, V> newOwnedTree(): Root<K, V> {
  */
 internal fun <K, V> NodeRef<Marker.Owned, K, V, Marker.LeafOrInternal>.pushInternalLevel():
     NodeRef<Marker.Mut, K, V, Marker.Internal> {
-    // takeMut(self, |oldRoot| NodeRef::newInternal(oldRoot, alloc).forgetType())
-    // In Kotlin we read self, build the new root, and write back fields.
+    // takeMut(self, |oldRoot| NodeRef.newInternal(oldRoot).forgetType())
     val oldRoot: Root<K, V> = NodeRef(height = height, node = node)
     val newRoot = NodeRef.newInternal(oldRoot).forgetType()
     height = newRoot.height
@@ -535,11 +520,8 @@ internal fun <K, V> NodeRef<Marker.Mut, K, V, Marker.LeafOrInternal>.setParentLi
 /**
  * Borrows exclusive access to the data of an internal node.
  *
- * Upstream returns `&mut InternalNode<K, V>`; in Kotlin we return the
- * `InternalNode` reference directly. The `as` downcast mirrors the upstream
- * `asInternalPtr` cast (which is sound by the static type guarantee that
- * the node is `Marker.Internal`, i.e. the runtime instance is an
- * `InternalNode`).
+ * The `as` downcast is sound by the static type guarantee that the node is
+ * `Marker.Internal`, i.e. the runtime instance is an `InternalNode`.
  */
 internal fun <K, V> NodeRef<Marker.Mut, K, V, Marker.Internal>.asInternalMut(): InternalNode<K, V> {
     // SAFETY: the static node type is `Internal`, so the runtime instance is an InternalNode.
@@ -556,20 +538,14 @@ internal fun <K, V, Type> NodeRef<Marker.Mut, K, V, Type>.asLeafMut(): LeafNode<
 
 /**
  * Offers exclusive access to the leaf portion of a leaf or internal node.
- * Upstream `intoLeafMut` consumed `self`; in Kotlin we just return the
- * underlying node reference.
  */
 internal fun <K, V, Type> NodeRef<Marker.Mut, K, V, Type>.intoLeafMut(): LeafNode<K, V> {
     return node
 }
 
 /**
- * Borrows exclusive access to the length of the node. Upstream returns
- * `&mut u16`; in Kotlin there's no equivalent of a mutable reference to a
- * field — we expose getter/setter helpers instead. Callers do
- * `setLen(getLen() + 1)` where Rust does `*len += 1`.
- *
- * For ergonomics we provide [setLen] / [incLen].
+ * Borrows exclusive access to the length of the node, exposed as
+ * getter/setter helpers ([setLen] / [incLen]).
  */
 internal fun <K, V, Type> NodeRef<Marker.Mut, K, V, Type>.setLen(newLen: Int) {
     asLeafMut().len = newLen
@@ -670,9 +646,8 @@ internal fun <K, V> NodeRef<Marker.Mut, K, V, Marker.Internal>.readEdgeArea(idx:
  * # Safety
  * - The node has more than `idx` initialized elements.
  *
- * Upstream returns a key/value reference pair. In Kotlin we return [Pair] and
- * the caller can write back via [writeValArea] if desired. Reading the value
- * is the only operation Search.kt-and-below need.
+ * The caller can write back via [writeValArea] if desired. Reading the
+ * value is the only operation Search.kt-and-below need.
  */
 internal fun <K, V, Type> NodeRef<Marker.ValMut, K, V, Type>.intoKeyValMutAt(idx: Int): Pair<K, V> {
     // SAFETY: idx < len, slots are initialised.
@@ -760,10 +735,8 @@ internal fun <K, V> NodeRef<Marker.Mut, K, V, Marker.Internal>.push(
 // ---- NodeRef<...>: force --------------------------------------------------
 
 /**
- * Checks whether a node is an `Internal` node or a `Leaf` node.
- *
- * Upstream uses static type-tag dispatch encoded in the height field; the
- * Kotlin port does the same — height==0 → Leaf, height>0 → Internal.
+ * Checks whether a node is an `Internal` node or a `Leaf` node — height
+ * == 0 → Leaf, height > 0 → Internal.
  */
 internal fun <BorrowType, K, V> NodeRef<BorrowType, K, V, Marker.LeafOrInternal>.force():
     ForceResult<NodeRef<BorrowType, K, V, Marker.Leaf>, NodeRef<BorrowType, K, V, Marker.Internal>> {
@@ -1381,8 +1354,6 @@ internal class BalancingContext<K, V> internal constructor(
 
 internal fun <K, V> Handle<NodeRef<Marker.Mut, K, V, Marker.Internal>, Marker.KV>.considerForBalancing():
     BalancingContext<K, V> {
-    // Upstream uses ptr::read twice to alias `self` for the two .descend() calls.
-    // In Kotlin we just construct sibling Handles that share the same node.
     val leftChild = Handle<NodeRef<Marker.Mut, K, V, Marker.Internal>, Marker.Edge>(
         node = NodeRef(height = node.height, node = node.node),
         idx = idx,
@@ -1410,8 +1381,6 @@ internal sealed class ChooseParentKvResult<K, V> {
 
 internal fun <K, V> NodeRef<Marker.Mut, K, V, Marker.LeafOrInternal>.chooseParentKv():
     ChooseParentKvResult<K, V> {
-    // Upstream uses ptr::read(&self) to copy `self` so that `ascend` can consume it.
-    // In Kotlin we just take the field values; nothing prevents this aliasing.
     val selfCopy: NodeRef<Marker.Mut, K, V, Marker.LeafOrInternal> = NodeRef(height, node)
     return when (val ascended = selfCopy.ascend()) {
         is AscendResult.Ok -> {
@@ -1954,16 +1923,9 @@ internal object Marker {
     class Edge private constructor()
 
     /**
-     * Constraint trait for the `BorrowType` parameter. Mirrors the upstream
-     * `marker::BorrowType` trait, including its `TRAVERSAL_PERMIT` constant.
-     *
-     * Translation: Kotlin lacks Rust's compile-time `const` items in traits,
-     * so the constant becomes an instance property. Because the markers are
-     * uninstantiable (zero-sized; private constructor), no value of these
-     * types ever exists at runtime — the types serve purely as type tags
-     * and the property is never queried. The body of `ascend()` and
-     * `descend()`, which upstream gates on `BorrowType::TRAVERSAL_PERMIT`,
-     * dissolves to a comment in the Kotlin port.
+     * Constraint trait for the `BorrowType` parameter. Mirrors upstream
+     * `marker::BorrowType`, including its `TRAVERSAL_PERMIT` constant
+     * (rendered as an instance property).
      */
     interface BorrowType {
         val traversalPermit: Boolean get() = true
@@ -2051,9 +2013,8 @@ private fun sliceShr(slice: Array<Any?>, sliceLen: Int, distance: Int) {
  * Moves all values from a slice of initialized elements to a slice
  * of uninitialized elements, leaving behind `src` as all uninitialized.
  *
- * Upstream is non-overlapping (copyNonoverlapping); this Kotlin port works
- * for non-overlapping spans of the same or different arrays. The caller is
- * responsible for the non-overlap precondition.
+ * Works for non-overlapping spans of the same or different arrays. The
+ * caller is responsible for the non-overlap precondition.
  */
 private fun moveToSlice(
     src: Array<Any?>,

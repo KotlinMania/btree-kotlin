@@ -3,15 +3,6 @@
 // copyright The Rust Project Developers, dual-licensed Apache-2.0 / MIT.
 package io.github.kotlinmania.btree
 
-// Forward reference resolved by a sibling phase:
-//   - `calcLength()` on a `NodeRef<Marker.Immut, ..., LeafOrInternal>` lives
-//     in Navigate.kt (port of navigate.rs). Until that file lands the four
-//     call-sites in `calcSplitLength` below are unresolved; this is the
-//     documented "Compile-time-incomplete files are OK" pattern from
-//     AGENTS.md. `fixRightBorder` / `fixLeftBorder` (also `public(super)` on
-//     `Root<K, V>` upstream) already live in Fix.kt and resolve cleanly.
-// (PORTING.md tracks this cross-file dependency.)
-
 /**
  * Calculates the length of both trees that result from splitting up
  * a given number of distinct key-value pairs.

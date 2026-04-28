@@ -3,22 +3,8 @@
 // copyright The Rust Project Developers, dual-licensed Apache-2.0 / MIT.
 package io.github.kotlinmania.btree
 
-// Phase-2 dependencies satisfied by Node.kt: NodeRef, Handle, ForceResult,
-// AscendResult, EdgeKvResult, Marker, descend, ascend, force, firstEdge,
-// lastEdge, leftEdge/rightEdge/leftKv/rightKv, intoKv, intoKvValmut,
-// intoKeyVal, deallocateAndAscend, forgetType, forgetNodeTypeLeafEdge,
-// forgetNodeTypeInternalEdge. Phase-1 dependency satisfied by Mem.kt
-// (`replace`). Phase-1 RangeBounds<T>/Bound<T> from Range.kt. Phase-1
-// SearchBound, BifurcationResult, Bifurcation, findLowerBoundEdge,
-// findUpperBoundEdge, searchTreeForBifurcation from Search.kt.
-//
 // Upstream `# Safety` clauses about not visiting the same KV twice are
 // preserved verbatim in KDoc -- callers must respect them.
-//
-// [findLeafEdgesSpanningRange] / [rangeSearchImmut] / [rangeSearchValMut]
-// are `inline reified V` because Search.kt's `searchTreeForBifurcation`
-// uses an `isSetVal<V>()` static-dispatch overload that resolves at the
-// call site.
 
 // ============================================================================
 // LeafRange
@@ -153,9 +139,8 @@ private fun <BorrowType, K, V> LeafRange<BorrowType, K, V>.isEmptyInternal(): Bo
 // ============================================================================
 
 /**
- * `enum LazyLeafHandle<BorrowType, K, V> { Root(...), Edge(...) }`.
- *
- * Per AGENTS.md "Sum types" guidance, a sealed class with two variants.
+ * `enum LazyLeafHandle<BorrowType, K, V> { Root(...), Edge(...) }`,
+ * rendered as a sealed class with two variants.
  */
 internal sealed class LazyLeafHandle<BorrowType, K, V> {
     /** Not yet descended. */
@@ -353,8 +338,6 @@ internal fun <BorrowType : Marker.BorrowType, K, V> LazyLeafRange<BorrowType, K,
  * # Safety
  * Unless `BorrowType` is `Immut`, do not import the handles to visit the same
  * KV twice.
- *
- * `inline reified V` cascades from [searchTreeForBifurcation].
  */
 internal inline fun <BorrowType : Marker.BorrowType, K, reified V, Q : Comparable<Q>, R : RangeBounds<Q>>
     NodeRef<BorrowType, K, V, Marker.LeafOrInternal>.findLeafEdgesSpanningRange(

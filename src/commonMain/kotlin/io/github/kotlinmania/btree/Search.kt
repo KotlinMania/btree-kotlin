@@ -3,21 +3,6 @@
 // copyright The Rust Project Developers, dual-licensed Apache-2.0 / MIT.
 package io.github.kotlinmania.btree
 
-// Phase-2 dependencies satisfied by Node.kt: NodeRef, Handle, ForceResult,
-// Marker. `Bound<T>` / `RangeBounds<T>` come from sibling Range.kt
-// (subset port of `core::ops::range`). The IsSetVal bridge comes from
-// SetVal.kt — see below for why this file uses the `reified V` overload.
-//
-// Result<T, E> translation choice for [searchTreeForBifurcation]:
-// Upstream returns `Result<Bifurcation<...>, Handle<..., Marker.Leaf, Marker.Edge>>`.
-// AGENTS.md's default is "throw E, return T", but Kotlin/Native disallows
-// type-parameterized subclasses of `Throwable`, and the leaf-edge handle
-// carries three generic parameters (`BorrowType, K, V`). We therefore
-// switch to the closer-to-source pattern: return a sealed [BifurcationResult]
-// with `Ok(value)` and `LeafEdge(handle)` variants, mirroring Rust's
-// `Result::Ok` / `Result::Err`. This is the more transliteration-faithful
-// of the two valid Kotlin/Native workarounds (see PORTING.md row).
-
 /**
  * `SearchBound` mirrors `core::ops::Bound` but adds two unconditional
  * variants used to short-circuit further bound checks once the search has
@@ -78,12 +63,10 @@ internal sealed class IndexResult {
 }
 
 /**
- * Translation of the Rust return type
+ * Sealed-class form of the Rust return type
  * `Result<Bifurcation<...>, Handle<NodeRef<..., Marker.Leaf>, Marker.Edge>>`
- * for [searchTreeForBifurcation]. Kotlin/Native rejects subclasses of
- * `Throwable` that carry type parameters, so the AGENTS.md default
- * (throw `E`, return `T`) doesn't apply here; the next-most-faithful
- * pattern is the sealed-class-of-Ok-or-Err shape Rust itself uses.
+ * for [searchTreeForBifurcation], with `Ok(value)` and `LeafEdge(handle)`
+ * variants matching Rust's `Result::Ok` / `Result::Err`.
  */
 internal sealed class BifurcationResult<BorrowType, K, V, Q> {
     data class Ok<BorrowType, K, V, Q>(
@@ -120,11 +103,6 @@ internal data class Bifurcation<BorrowType, K, V, Q>(
  * The result is meaningful only if the tree is ordered by key, like the tree
  * in a `BTreeMap` is.
  */
-// `BorrowType : Marker.BorrowType` mirrors the upstream `BorrowType: marker::BorrowType` bound.
-// `Q : Comparable<Q>` replaces `Q: ?Sized + Ord`; `?Sized` is irrelevant in Kotlin.
-// `K : Comparable<Q>` replaces the upstream `K: Borrow<Q>` bound: rather than
-// borrow K down to Q and compare, the Kotlin port asks K to compare directly
-// against Q.
 internal fun <BorrowType : Marker.BorrowType, K, V, Q : Comparable<Q>> NodeRef<BorrowType, K, V, Marker.LeafOrInternal>.searchTree(
     key: Q,
 ): SearchResult<BorrowType, K, V, Marker.LeafOrInternal, Marker.Leaf> where K : Comparable<Q> {
@@ -158,10 +136,8 @@ internal fun <BorrowType : Marker.BorrowType, K, V, Q : Comparable<Q>> NodeRef<B
  * The result is meaningful only if the tree is ordered by key.
  *
  * `inline` + `reified V` is required so the [isSetVal] static-dispatch
- * overload (matching the Rust isSetVal-trait method on V) resolves at the call
- * site rather than needing a sample `V` from the receiver. This
- * cascades to callers; once Phase-4 map.rs lands its callers must also
- * be `inline reified V`.
+ * overload (matching the Rust isSetVal-trait method on V) resolves at the
+ * call site rather than needing a sample `V` from the receiver.
  */
 internal inline fun <BorrowType : Marker.BorrowType, K, reified V, Q : Comparable<Q>, R : RangeBounds<Q>> NodeRef<BorrowType, K, V, Marker.LeafOrInternal>.searchTreeForBifurcation(
     range: R,

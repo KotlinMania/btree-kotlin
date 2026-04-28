@@ -3,14 +3,10 @@
 // copyright The Rust Project Developers, dual-licensed Apache-2.0 / MIT.
 package io.github.kotlinmania.btree
 
-// `super::map::MIN_LEN` (upstream `map.rs` line 31) lives in Map.kt now that
-// Phase 4 has landed. Both Fix.kt and Remove.kt import it through the flat
-// package.
-
 /**
- * Translation: upstream `function fixNodeThroughParent` returns
- * `Result<Option<NodeRef<Mut, K, V, Internal>>, Self>` — both branches carry
- * data, so per AGENTS.md we import a sealed result wrapper rather than a throw.
+ * Sealed result wrapper for upstream's
+ * `Result<Option<NodeRef<Mut, K, V, Internal>>, Self>`: both branches carry
+ * data, so the result is rendered as a sealed class rather than a throw.
  */
 private sealed class FixNodeThroughParentResult<K, V> {
     /** `Ok(None)` (no shrunk parent) or `Ok(Some(parent))` (returns shrunk parent). */

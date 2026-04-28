@@ -189,9 +189,6 @@ class OccupiedEntry<K : Comparable<K>, V> internal constructor(
 
     /**
      * Sets the value of the entry, and returns the entry's old value.
-     *
-     * Upstream uses `mem::replace(self.getMut(), value)`. The Kotlin port
-     * dissolves that to a read-then-write since we have direct slot access.
      */
     fun insert(value: V): V {
         val old = handle.intoValMut()

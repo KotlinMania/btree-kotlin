@@ -32,8 +32,7 @@ internal data object SetValZst : Comparable<SetValZst> {
  * Upstream uses Rust trait specialization — a blanket
  * `implementation<V> IsSetVal for V { default function isSetVal() -> bool { false } }`
  * plus a specialized `implementation IsSetVal for SetValZST { function isSetVal() ->
- * bool { true } }`. Kotlin has no trait specialization; per
- * AGENTS.md the equivalent is a runtime `is SetValZst` check.
+ * bool { true } }`. The Kotlin equivalent is a runtime `is SetValZst` check.
  *
  * Two overloads are exposed:
  *

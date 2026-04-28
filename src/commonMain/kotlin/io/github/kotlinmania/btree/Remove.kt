@@ -3,31 +3,6 @@
 // copyright The Rust Project Developers, dual-licensed Apache-2.0 / MIT.
 package io.github.kotlinmania.btree
 
-// Phase-2 dependencies satisfied by Node.kt: NodeRef, Handle, ForceResult,
-// Marker, LeftOrRight, ChooseParentKvResult, EdgeKvResult, AscendResult,
-// BalancingContext, plus the leaf-KV `remove()`, `chooseParentKv()`,
-// `mergeTrackingChildEdge()`, `stealLeft()`, `stealRight()`,
-// `castToLeafUnchecked()`, `replaceKv()`, `forgetType()`, and the Handle
-// `force()` / `leftEdge()`.
-//
-// Sibling-phase dependencies satisfied:
-// - Fix.kt: `MIN_LEN` constant (re-exported from
-//   `MIN_LEN`, mirroring upstream `super::map::MIN_LEN`),
-//   `NodeRef<Marker.Mut, K, V, Marker.LeafOrInternal>.fixNodeAndAffectedAncestors(): Boolean`
-//   (returns `true` if the tree was fixed, `false` if the root became empty).
-//
-// Forward references not yet provided by sibling files:
-// - Navigate.kt: `Handle<...Leaf, Edge>.lastLeafEdge()`,
-//   `Handle<...Leaf, Edge>.nextKv()` (returns Ok(LeafOrInternal-KV) /
-//   Err(LeafOrInternal-NodeRef), shape parallels [EdgeKvResult]),
-//   `Handle<...LeafOrInternal, KV>.nextLeafEdge()`,
-//   `Handle<...Internal, Edge>.descend()` is in Node.kt. Upstream:
-//   library/alloc/src/collections/btree/navigate.rs.
-//
-// Until Navigate.kt lands, this file will not compile in isolation; that
-// is permitted per AGENTS.md "compile-time-incomplete files are OK in
-// early phases".
-//
 /**
  * Removes a key-value pair from the tree, and returns that pair, as well as
  * the leaf edge corresponding to that former pair. It's possible this empties

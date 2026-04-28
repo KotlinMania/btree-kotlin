@@ -217,10 +217,9 @@ data class RangeToInclusive<Idx>(
 /**
  * `Bound<T>` mirrors `core::ops::Bound`. An endpoint of a range of keys.
  *
- * Translates Rust's three-variant enum (Included, Excluded, Unbounded).
- * Per AGENTS.md "Sum types" guidance this is rendered as a sealed class
- * with three variants and per-subclass `toString()` matching the upstream
- * Debug-derive rendering.
+ * Three variants — Included, Excluded, Unbounded — rendered as a sealed
+ * class with per-subclass `toString()` matching upstream's Debug-derive
+ * output.
  *
  * `Bound`s are range endpoints:
  *
@@ -295,13 +294,8 @@ interface RangeBounds<T> {
     /**
      * Returns `true` if `item` is contained in the range.
      *
-     * Translates Rust's
-     * `function contains<U>(&self, item: &U) -> bool where T: PartialOrd<U>, U: ?Sized + PartialOrd<T>`.
-     * The Kotlin port narrows U to T and requires the bound values to be
-     * `Comparable<T>` (asserted via a runtime cast — Kotlin interface
-     * methods cannot impose extra constraints on the interface's own
-     * type parameter beyond what's declared on the interface). Cross-type
-     * partial ordering has no Kotlin equivalent.
+     * Mirrors `function contains(item: T) -> bool where T: Comparable<T>`.
+     * Bound values are asserted to be `Comparable<T>` at the runtime cast.
      */
     fun contains(item: T): Boolean {
         val cmpItem = item as Comparable<T>

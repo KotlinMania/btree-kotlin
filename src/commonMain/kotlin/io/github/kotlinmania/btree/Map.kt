@@ -42,13 +42,7 @@ class BTreeMap<K : Comparable<K>, V> : MutableMap<K, V> {
      * `true` if this map's `V` slot is the [SetValZst] sentinel (i.e. the
      * map is being used as the storage of a `BTreeSet`). Search-bifurcation
      * paths consult this to render error messages with "BTreeSet" rather
-     * than "BTreeMap".
-     *
-     * Translation note: upstream uses Rust trait specialization
-     * (`V::isSetVal()`) to obtain this fact at compile time; the Kotlin
-     * port has no static dispatch on a non-reified type parameter, so we
-     * carry the bit at runtime. Phase-5 `BTreeSet` will set this to `true`
-     * via the [internalIsSet] field at construction.
+     * than "BTreeMap". `BTreeSet` sets it to `true` at construction.
      */
     internal var internalIsSet: Boolean = false
 
@@ -195,11 +189,7 @@ class BTreeMap<K : Comparable<K>, V> : MutableMap<K, V> {
      * value on success, or [Result.failure] containing an [OccupiedError] if
      * the key already existed.
      *
-     * Mirrors the unstable `fun tryInsert(...) -> Result<&mut V, OccupiedError<...>>`.
-     * Translation: Kotlin `Result<V>` for the success path, with the
-     * occupied-error branch threading through `OccupiedError`. `Result<&mut V, ...>`
-     * upstream returns by mutable reference; the Kotlin port returns the
-     * value itself.
+     * Mirrors the unstable `fun tryInsert(...) -> Result<V, OccupiedError<...>>`.
      */
     fun tryInsert(key: K, value: V): Result<V> {
         return when (val e = entry(key)) {
@@ -361,21 +351,9 @@ class BTreeMap<K : Comparable<K>, V> : MutableMap<K, V> {
     }
 
     // ---- range / rangeMut --------------------------------------------------
-    //
-    // Non-reified path: BTreeMap's `V` is a class type parameter and cannot
-    // itself be `reified`. Instead we delegate to Search/Navigate's
-    // `*Explicit` overloads that take the `isSet` flag directly. The flag
-    // comes from [internalIsSet], which Phase-5 `BTreeSet` will set when it
-    // wraps a `BTreeMap<T, SetValZst>`.
 
     /**
      * Constructs a double-ended iterator over a sub-range of elements.
-     *
-     * Translation note: upstream's `R: RangeBounds<T>` where `K: Borrow<T>`
-     * lets the caller pass any borrowed-from-K range type. The Kotlin port
-     * accepts `RangeBounds<K>` directly — no `Borrow` machinery, callers
-     * supply bounds that are concrete `K` instances. This matches the
-     * `K : Comparable<K>` class-level invariant.
      *
      * @throws IllegalArgumentException if `range start > end`, or if start
      *   and end are equal and both excluded.
@@ -516,10 +494,7 @@ class BTreeMap<K : Comparable<K>, V> : MutableMap<K, V> {
     // ---- intoIter / intoKeys / intoValues ----------------------------------
 
     /**
-     * Returns an owning iterator over the entries of the map. Upstream is
-     * implemented through the `IntoIterator` trait; the Kotlin port keeps
-     * it as a regular method since Kotlin's iterator protocol doesn't have
-     * a `IntoIterator`-style consume.
+     * Returns an owning iterator over the entries of the map.
      *
      * After calling, the map is left empty.
      */
@@ -683,13 +658,13 @@ class BTreeMap<K : Comparable<K>, V> : MutableMap<K, V> {
 }
 
 // ============================================================================
-// Internal helpers for BTreeMap<K, SetValZst> (used by Phase-5 BTreeSet)
+// Internal helpers for BTreeMap<K, SetValZst> (used by BTreeSet)
 // ============================================================================
 
 /**
- * Mirrors upstream `implementation<K, A> BTreeMap<K, SetValZST, A> { public(super) function replace(...) }`.
+ * Mirrors upstream `implementation<K> BTreeMap<K, SetValZST> { public(super) function replace(...) }`.
  *
- * Not on the public surface; called from `BTreeSet::replace` once Phase 5 lands.
+ * Not on the public surface; called from `BTreeSet.replace`.
  */
 internal fun <K : Comparable<K>> BTreeMap<K, SetValZst>.replaceSetVal(key: K): K? {
     val (mapRef, dormantMap) = DormantMutRef.new(this)
@@ -712,17 +687,9 @@ internal fun <K : Comparable<K>> BTreeMap<K, SetValZst>.replaceSetVal(key: K): K
 }
 
 /**
- * Mirrors upstream `implementation<K, A> BTreeMap<K, SetValZST, A> { public(super) function getOrInsertWith(...) }`.
+ * Mirrors upstream `implementation<K> BTreeMap<K, SetValZST> { public(super) function getOrInsertWith(...) }`.
  *
- * Not on the public surface; called from `BTreeSet::getOrInsertWith` once
- * Phase 5 lands.
- *
- * Translation note: upstream takes a `Q: ?Sized + Ord` and a `K : Borrow<Q>`
- * key type. The Kotlin port specialises Q to K (the most common case in
- * `BTreeSet`) — the cross-type-borrow form is unrepresentable when Kotlin's
- * `where K : Comparable<Q>` clashes with the receiver's pre-existing
- * `K : Comparable<K>` constraint. Set.kt's wrapper can rebox `Q` -> `K` at
- * the call site if it wants the cross-type form back.
+ * Not on the public surface; called from `BTreeSet.getOrInsertWith`.
  */
 internal fun <K : Comparable<K>> BTreeMap<K, SetValZst>.getOrInsertWithSetVal(
     q: K,
@@ -1086,8 +1053,8 @@ class ExtractIf<K : Comparable<K>, V, Q : Comparable<Q>> internal constructor(
 }
 
 /**
- * State machine of an [ExtractIf]. Internal because Phase-5 `BTreeSet`'s
- * `ExtractIf` will reuse the same shape.
+ * State machine of an [ExtractIf]. Internal because `BTreeSet.ExtractIf`
+ * reuses the same shape.
  */
 internal class ExtractIfInner<K : Comparable<K>, V, Q : Comparable<Q>>(
     internal val map: BTreeMap<K, V>,
