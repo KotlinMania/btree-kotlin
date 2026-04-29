@@ -21,8 +21,8 @@ port easier.
 - **NO PORTING NOTES**: Do not add comments explaining Kotlin workarounds, "Rust vs Kotlin" rationale, or any other porting narratives to the source code.
 - **NO RUST IN COMMENTS**: Never leave untranslated Rust code snippets or snake_case identifiers in the Kotlin KDocs. Ensure the documentation accurately describes the Kotlin API.
 - A missing function is preferable to a stub. If you can't translate
-  something, leave the slot empty and flag it in a `ast_distance reports` checklist
-  entry rather than committing a fake implementation.
+  something, leave the slot empty and track it explicitly (e.g. in
+  `NEXT_ACTIONS.md`) rather than committing a fake implementation.
 
 ### 2. Provenance markers (REQUIRED)
 
@@ -48,6 +48,25 @@ NOTICE file at the project root carries the long-form attribution.
 
 The Kotlin port is dual-licensed Apache-2.0 OR MIT, mirroring upstream.
 Don't add code under any other license without surfacing it for review.
+
+### 5. Strict Structural Parity (`ast_distance`)
+
+The `ast_distance` tool is useful for:
+- coverage accounting (which symbols/functions are still missing),
+- cheat detection (stubs, Rust-in-comments, porter-invented typealiases),
+- and pinpointing specific parity gaps in a file.
+
+It is not the gate.
+
+The gate for btree-kotlin is **behavioral parity**, proven by the ported tests:
+- Transliterate upstream test modules into `src/commonTest` and get them to pass.
+- Prefer adding/porting the minimal test utilities needed to support those tests
+  (under `src/commonTest/kotlin/io/github/kotlinmania/btree/testing/`), rather
+  than bending `commonMain` to appease a structural score.
+
+If `ast_distance` crashes (OOM / `Killed: 9`) on huge files (e.g. `map.rs` /
+`Map.kt`) during `--deep` or `--compare-functions`, treat that as a tool
+limitation. Keep porting from the Rust source and validate via the test gate.
 
 ## Rust → Kotlin translation rules (binding)
 
@@ -238,20 +257,18 @@ node.rs lands) is fine — but it must not be committed without:
 
 ## File-by-file checklist
 
-ast_distance is the sole oracle. Run `--deep` to see which files have
-landed, which are missing, and what each file's symbol-parity gap is.
+Use `ast_distance --deep` as a progress dashboard (missing files, symbol gaps,
+and cheat detection), but consider a file "done" only when the corresponding
+ported tests are present and passing.
 
 ## Out of scope
 
-- The `testing/` directory under upstream's btree (a test harness with
-  randomised ordering and crash-on-drop instrumentation). LALRPOP
-  doesn't need it; we'll port the `tests.rs` files in `commonTest`
-  using `kotlin.test` directly.
+- The `testing/` directory under upstream's btree. **LEARNING**: While the upstream `testing/` crate is out of scope, many ported tests (e.g. in `map/tests.rs`) rely on its utilities (`Governor`, `CrashTestDummy`, `DeterministicRng`). We must port minimal, functional Kotlin equivalents of these utilities directly into `src/commonTest/kotlin/io/github/kotlinmania/btree/testing/` to support the test transliteration, ensuring no testing code leaks into `commonMain`. We then port the `tests.rs` files in `commonTest` using `kotlin.test` directly.
 - `unstable` API features behind feature flags (`#[unstable(...)]`) —
   port only what's reachable through the stable surface.
 
 ## TODO policy
 
 No TODO / `unimplemented!()` / stub bodies in committed code. If a
-translation is incomplete, don't commit it; let ast_distance's
-`--missing` report surface the gap.
+translation is incomplete, don't commit it; leave the slot missing and track
+it in `NEXT_ACTIONS.md`.
