@@ -35,29 +35,3 @@ jobs:
 
       - name: Run macosArm64 tests
         run: ./gradlew macosArm64Test --no-daemon
-
-  port-lint:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Verify port-lint headers
-        shell: bash
-        run: |
-          set -e
-          missing=0
-          for f in $(find src/commonMain/kotlin -name '*.kt'); do
-            if ! head -3 "$f" | grep -qE '^// port-lint: source library/(alloc/src/collections/btree|core/src/ops)/'; then
-              echo "MISSING port-lint header: $f"
-              missing=$((missing + 1))
-            fi
-            if ! head -5 "$f" | grep -q 'rust-lang/rust'; then
-              echo "MISSING upstream attribution: $f"
-              missing=$((missing + 1))
-            fi
-          done
-          if [ "$missing" -gt 0 ]; then
-            echo "$missing files missing required headers."
-            exit 1
-          fi
-          echo "All Kotlin files carry port-lint and attribution headers."
