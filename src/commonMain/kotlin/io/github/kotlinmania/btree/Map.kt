@@ -17,19 +17,13 @@ internal const val MIN_LEN: Int = MIN_LEN_AFTER_SPLIT
 /**
  * An ordered map based on a B-Tree.
  *
- * Translation of upstream `class BTreeMap<K, V>`.
- *
  * Implements [MutableMap] so consumers can import the Kotlin collections idioms
- * for free; instance methods that mirror upstream's surface (e.g. [insert],
- * [removeEntry], [firstKeyValue]) coexist with the [MutableMap] contract.
+ * for free.
  *
  * The key type is constrained to [Comparable] so ordering is available across
  * all operations.
  */
 class BTreeMap<K : Comparable<K>, V> : MutableMap<K, V> {
-    internal typealias Item = Pair<K, V>
-    internal typealias Output = V
-
     var root: NodeRef<Marker.Owned, K, V, Marker.LeafOrInternal>? = null
     internal var length: Int = 0
 
@@ -41,12 +35,7 @@ class BTreeMap<K : Comparable<K>, V> : MutableMap<K, V> {
      */
     internal var internalIsSet: Boolean = false
 
-    /**
-     * Makes a new, empty `BTreeMap`. Does not allocate anything on its own.
-     *
-     * Matches the upstream "new" constructor semantics: empty, and without
-     * allocating nodes up front.
-     */
+    /** Makes a new, empty `BTreeMap`. Does not allocate anything on its own. */
     constructor()
 
     // ---- size / isEmpty / clear --------------------------------------------
@@ -117,11 +106,7 @@ class BTreeMap<K : Comparable<K>, V> : MutableMap<K, V> {
 
     // ---- first / last (key, value, entry) -----------------------------------
 
-    /**
-     * Returns the first key-value pair in the map. The key is the minimum.
-     *
-     * Mirrors `fun firstKeyValue(&self) -> Option<(&K, &V)>`.
-     */
+    /** Returns the first key-value pair in the map. The key is the minimum. */
     fun firstKeyValue(): Pair<K, V>? {
         val rootNode = root?.reborrow() ?: return null
         return when (val r = rootNode.firstLeafEdge().rightKv()) {
@@ -254,18 +239,13 @@ class BTreeMap<K : Comparable<K>, V> : MutableMap<K, V> {
         }
     }
 
-    /**
-     * `MutableMap.put` is the Kotlin-side spelling of [insert]. Mirrors
-     * upstream behaviour exactly.
-     */
+    /** [MutableMap.put] is the Kotlin-side spelling of [insert]. */
     override fun put(key: K, value: V): V? = insert(key, value)
 
     /**
      * Tries to insert a key-value pair into the map. Returns the inserted
      * value on success, or [Result.failure] containing an [OccupiedError] if
      * the key already existed.
-     *
-     * Mirrors the unstable `fun tryInsert(...) -> Result<V, OccupiedError<...>>`.
      */
     fun tryInsert(key: K, value: V): Result<V> {
         return when (val e = entry(key)) {
@@ -309,8 +289,6 @@ class BTreeMap<K : Comparable<K>, V> : MutableMap<K, V> {
      * `false`. The elements are visited in ascending key order.
      */
     fun retain(f: (K, V) -> Boolean) {
-        // Upstream calls `self.extractIf(.., |k, v| !f(k, v)).forEach(drop)`.
-        // We do the same.
         val it = extractIf(unbounded<K>()) { k, v -> !f(k, v) }
         while (it.hasNext()) it.next()
     }
@@ -325,8 +303,6 @@ class BTreeMap<K : Comparable<K>, V> : MutableMap<K, V> {
      * from [other].
      */
     fun append(other: BTreeMap<K, V>) {
-        // Empty `other` after taking its contents, mirroring upstream's
-        // consumed-by-value semantics.
         val taken = BTreeMap<K, V>()
         taken.root = other.root
         taken.length = other.length
@@ -341,8 +317,6 @@ class BTreeMap<K : Comparable<K>, V> : MutableMap<K, V> {
      * If a key from [other] is already present in this map, the [conflict]
      * closure is used to compute the value retained in this map. The
      * closure receives this map's key, this map's value, and [other]'s value.
-     *
-     * Mirrors the unstable `fun merge(&mut self, ...)` upstream.
      */
     fun merge(other: BTreeMap<K, V>, conflict: (K, V, V) -> V) {
         if (other.isEmpty()) return
@@ -655,10 +629,7 @@ class BTreeMap<K : Comparable<K>, V> : MutableMap<K, V> {
             return BTreeMap()
         }
 
-        /**
-         * Makes a `BTreeMap` from a sorted iterator. Mirrors upstream's
-         * `public(crate) function bulkBuildFromSortedIter<I>`.
-         */
+        /** Makes a `BTreeMap` from a sorted iterator. */
         internal fun <K : Comparable<K>, V> bulkBuildFromSortedIter(
             iter: Iterator<Pair<K, V>>,
         ): BTreeMap<K, V> {
@@ -680,7 +651,6 @@ class BTreeMap<K : Comparable<K>, V> : MutableMap<K, V> {
         fun <K : Comparable<K>, V> fromIterable(items: Iterable<Pair<K, V>>): BTreeMap<K, V> {
             val list = items.toMutableList()
             if (list.isEmpty()) return BTreeMap()
-            // Stable sort to preserve insertion order on ties (matches upstream `sortBy`).
             list.sortWith(Comparator { a, b -> a.first.compareTo(b.first) })
             return bulkBuildFromSortedIter(list.iterator())
         }
@@ -696,8 +666,6 @@ class BTreeMap<K : Comparable<K>, V> : MutableMap<K, V> {
     /**
      * Returns a [Cursor] pointing at the gap before the smallest key greater
      * than the given bound.
-     *
-     * Mirrors upstream `fun lowerBound<Q>(&self, bound: Bound<&Q>) -> Cursor<...>`.
      */
     fun lowerBound(bound: Bound<K>): Cursor<K, V> {
         val rootNode = this.root?.reborrow() ?: return Cursor(current = null, root = null)
@@ -774,7 +742,6 @@ class BTreeMap<K : Comparable<K>, V> : MutableMap<K, V> {
     }
 
     override fun hashCode(): Int {
-        // Mirrors the upstream `Hash` implementation: prefix length, then iterate.
         var h = size
         for (entry in this) {
             h = 31 * h + entry.key.hashCode()
@@ -784,7 +751,6 @@ class BTreeMap<K : Comparable<K>, V> : MutableMap<K, V> {
     }
 
     override fun toString(): String {
-        // Upstream `Debug` renders as `{k: v, k: v, ...}`. Match that.
         val sb = StringBuilder("{")
         var first = true
         for (entry in this) {
@@ -863,7 +829,7 @@ class Iter<K, V> internal constructor(
         return ReadOnlyEntry(k, v)
     }
 
-    /** Mirrors `DoubleEndedIterator::nextBack`. */
+    /** Returns the next entry from the back of the iterator, or `null` if exhausted. */
     fun nextBack(): MutableMap.MutableEntry<K, V>? {
         if (length == 0) return null
         length -= 1
@@ -872,7 +838,7 @@ class Iter<K, V> internal constructor(
         return ReadOnlyEntry(k, v)
     }
 
-    /** Mirrors `ExactSizeIterator::len`. */
+    /** Returns the number of remaining entries. */
     fun len(): Int = length
 
     fun sizeHint(): Pair<Int, Int?> = Pair(length, length)
@@ -883,10 +849,7 @@ class Iter<K, V> internal constructor(
 
     fun max(): MutableMap.MutableEntry<K, V>? = nextBack()
 
-    override fun toString(): String {
-        // Upstream Debug renders as a list of (k, v) tuples.
-        return "Iter(length=$length)"
-    }
+    override fun toString(): String = "Iter(length=$length)"
 }
 
 /** An immutable entry shape: `setValue` is unsupported. */
@@ -922,7 +885,7 @@ class IterMut<K : Comparable<K>, V> internal constructor(
         return MutEntry(map, k, v)
     }
 
-    /** Mirrors `DoubleEndedIterator::nextBack`. */
+    /** Returns the next entry from the back of the iterator, or `null` if exhausted. */
     fun nextBack(): MutableMap.MutableEntry<K, V>? {
         if (length == 0) return null
         length -= 1
@@ -944,12 +907,7 @@ class IterMut<K : Comparable<K>, V> internal constructor(
     /** Returns an immutable iterator of references to the remaining items. */
     fun iter(): Iter<K, V> = Iter(range.reborrow(), length)
 
-    /**
-     * `MutableIterator.remove` removes the last-yielded entry from the map.
-     * Tracks the last key seen so we can re-locate it; this is slower than
-     * upstream's in-place remove but Kotlin's `MutableIterator` contract
-     * insists on a parameterless [remove].
-     */
+    /** Removes the last-yielded entry from the map. */
     override fun remove() {
         val k = lastKey ?: throw IllegalStateException("call next() before remove()")
         map.remove(k)
@@ -1009,13 +967,13 @@ class IntoIter<K, V> internal constructor(
 
     fun sizeHint(): Pair<Int, Int?> = Pair(length, length)
 
-    /** Mirrors `Iterator::last`: consume the iterator and return the last entry. */
+    /** Consumes the iterator and returns the last entry. */
     fun last(): Pair<K, V>? = nextBack()
 
-    /** Mirrors `Iterator::min` overridden for sorted iterators: O(1) via `next()`. */
+    /** Returns the minimum entry. O(1) for sorted iterators. */
     fun min(): Pair<K, V>? = if (hasNext()) next() else null
 
-    /** Mirrors `Iterator::max` overridden for sorted iterators: O(1) via `nextBack()`. */
+    /** Returns the maximum entry. O(1) for sorted iterators. */
     fun max(): Pair<K, V>? = nextBack()
 
     /**
@@ -1046,15 +1004,11 @@ class IntoIter<K, V> internal constructor(
 
     /**
      * Returns an immutable iterator of references over the remaining items.
-     * Mirrors upstream `public(super) function iter() -> Iter<K, V>`.
      *
-     * Note: yields `ReadOnlyEntry` views over the still-walked tree; the
-     * dying tree must not be mutated through this view, only read.
+     * Yields [ReadOnlyEntry] views over the still-walked tree; the dying
+     * tree must not be mutated through this view, only read.
      */
-    internal fun iter(): Iter<K, V> {
-        // Dying -> Immut reborrow: same nodes, narrower borrow type.
-        return Iter(range.reborrow(), length)
-    }
+    internal fun iter(): Iter<K, V> = Iter(range.reborrow(), length)
 
     override fun toString(): String = "IntoIter(length=$length)"
 }
@@ -1146,7 +1100,7 @@ class Range<K, V> internal constructor(
         return ReadOnlyEntry(out.first, out.second)
     }
 
-    /** Mirrors `DoubleEndedIterator::nextBackChecked`. */
+    /** Returns the next entry from the back, or `null` if exhausted. */
     fun nextBack(): MutableMap.MutableEntry<K, V>? {
         val kv = inner.nextBackChecked() ?: return null
         return ReadOnlyEntry(kv.first, kv.second)
@@ -1180,7 +1134,7 @@ class RangeMut<K, V> internal constructor(
         return out
     }
 
-    /** Mirrors `DoubleEndedIterator::nextBackChecked`. */
+    /** Returns the next entry from the back, or `null` if exhausted. */
     fun nextBack(): Pair<K, V>? = inner.nextBackCheckedValMut()
 
     fun sizeHint(): Pair<Int, Int?> = Pair(0, null)
@@ -1200,7 +1154,7 @@ class RangeMut<K, V> internal constructor(
 
 /**
  * Iterator that extracts elements matching a predicate from a sub-range of
- * a `BTreeMap`. Mirrors upstream `class ExtractIf<...>`.
+ * a `BTreeMap`.
  *
  * Removed elements are yielded in ascending key order; non-removed elements
  * remain in the map. If iteration short-circuits, the remaining matching
@@ -1367,8 +1321,6 @@ class Cursor<K : Comparable<K>, V> internal constructor(
     /** Returns the key/value of the next element without moving the cursor. */
     fun peekNext(): Pair<K, V>? {
         val cur = current ?: return null
-        // Clone-and-step: upstream uses `self.clone().next()`. We replicate
-        // by re-running `nextKv` non-destructively.
         return when (val r = cur.nextKv()) {
             is NextKvResult.Ok -> r.handle.intoKv()
             is NextKvResult.Err -> null
@@ -1395,7 +1347,7 @@ class Cursor<K : Comparable<K>, V> internal constructor(
  * A cursor over a `BTreeMap` with editing operations.
  *
  * Wraps a [CursorMutKey] so that [insertAfter] / [insertBefore] /
- * [removeNext] / [removeBefore] preserve the upstream BTreeMap invariants
+ * [removeNext] / [removeBefore] preserve the BTreeMap invariants
  * (ascending key order). [CursorMutKey] is the lower-level variant that
  * allows mutating keys directly with the additional caller obligation.
  */
@@ -1447,8 +1399,7 @@ class CursorMut<K : Comparable<K>, V> internal constructor(
  * A cursor over a `BTreeMap` with editing operations and mutable-key access.
  *
  * Mutating keys can violate the `BTreeMap` invariants. The caller is
- * responsible for keeping the tree in valid state. See upstream's
- * `# Safety` block for details.
+ * responsible for keeping the tree in valid state.
  */
 class CursorMutKey<K : Comparable<K>, V> internal constructor(
     internal var current: Handle<NodeRef<Marker.Mut, K, V, Marker.Leaf>, Marker.Edge>?,
