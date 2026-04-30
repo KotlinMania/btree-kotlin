@@ -15,6 +15,7 @@ local.properties
 # Keep the Gradle wrapper jar checked in so CI can run `./gradlew`.
 !gradle/wrapper/gradle-wrapper.jar
 .idea/
+.gemini/
 *.iml
 out/
 # Working dir for the vendored Rust source and any other ephemera.
