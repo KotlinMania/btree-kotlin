@@ -74,8 +74,19 @@ internal open class LeafNode<K, V> {
     val vals: Array<Any?> = arrayOfNulls<Any?>(CAPACITY)
 
     companion object {
+        /** Initializes a new [LeafNode] in-place. */
+        fun <K, V> init(thisNode: LeafNode<K, V>) {
+            thisNode.parent = null
+            thisNode.parentIdx = 0
+            thisNode.len = 0
+        }
+
         /** Creates a new `LeafNode`. */
-        fun <K, V> new(): LeafNode<K, V> = LeafNode()
+        fun <K, V> new(): LeafNode<K, V> {
+            val leaf = LeafNode<K, V>()
+            init(leaf)
+            return leaf
+        }
     }
 }
 
@@ -102,9 +113,16 @@ internal class InternalNode<K, V> : LeafNode<K, V>() {
          * initialized and valid edge. This function does not set up
          * such an edge.
          */
-        fun <K, V> new(): InternalNode<K, V> = InternalNode()
+        fun <K, V> new(): InternalNode<K, V> {
+            val node = InternalNode<K, V>()
+            LeafNode.init(node)
+            return node
+        }
     }
 }
+
+/** Real upstream node-pointer alias; Kotlin stores the managed node reference directly. */
+internal typealias BoxedNode<K, V> = LeafNode<K, V>
 
 /**
  * A managed, non-null pointer to a node. This is either an owned pointer to
@@ -180,6 +198,11 @@ internal class NodeRef<BorrowType, K, V, Type> internal constructor(
             return fromNewInternal(newNode, child.height + 1)
         }
 
+        /** Returns a new owned tree, with its own root node that is initially empty. */
+        fun <K, V> new(): NodeRef<Marker.Owned, K, V, Marker.LeafOrInternal> {
+            return newLeaf<K, V>().forgetType()
+        }
+
         /** Creates a new internal (height > 0) `NodeRef` from an existing internal node. */
         private fun <K, V> fromNewInternal(
             internal: InternalNode<K, V>,
@@ -227,6 +250,13 @@ internal class NodeRef<BorrowType, K, V, Type> internal constructor(
      * Could be a public implementation of PartialEq, but only used in this module.
      */
     fun structuralEq(other: NodeRef<BorrowType, K, V, Type>): Boolean {
+        return eq(other)
+    }
+
+    /**
+     * Could be a public implementation of PartialEq, but only used in this module.
+     */
+    fun eq(other: NodeRef<BorrowType, K, V, Type>): Boolean {
         return if (node === other.node) {
             check(height == other.height)
             true
@@ -246,9 +276,17 @@ internal class NodeRef<BorrowType, K, V, Type> internal constructor(
     }
 }
 
+/** Real upstream root-node alias. */
+internal typealias Root<K, V> = NodeRef<Marker.Owned, K, V, Marker.LeafOrInternal>
+
 // =====================================================================
 // NodeRef: methods restricted by BorrowType / Type
 // =====================================================================
+
+internal fun <K, V, Type> NodeRef<Marker.Immut, K, V, Type>.clone():
+    NodeRef<Marker.Immut, K, V, Type> {
+    return NodeRef(height = height, node = node)
+}
 
 /**
  * Finds the parent of the current node. Returns [AscendResult.Ok] holding a
@@ -322,6 +360,23 @@ internal fun <BorrowType : Marker.BorrowType, K, V, Type> NodeRef<BorrowType, K,
             return node.keys[index] as K
         }
     }
+}
+
+/** Exposes the leaf portion of any leaf or internal node in an immutable tree. */
+internal fun <K, V, Type> NodeRef<Marker.Immut, K, V, Type>.intoLeaf(): LeafNode<K, V> {
+    return asLeafPtr()
+}
+
+/** Exposes the data of an internal node. */
+internal fun <BorrowType, K, V> NodeRef<BorrowType, K, V, Marker.Internal>.asInternalPtr(): InternalNode<K, V> {
+    return node as InternalNode<K, V>
+}
+
+/**
+ * Exposes the leaf portion of any leaf or internal node.
+ */
+internal fun <BorrowType, K, V, Type> NodeRef<BorrowType, K, V, Type>.asLeafPtr(): LeafNode<K, V> {
+    return node
 }
 
 // ---- NodeRef<Dying, ...> -----------------------------------------------
@@ -402,7 +457,7 @@ internal fun <K, V, Type> NodeRef<Marker.Owned, K, V, Type>.intoDying():
 
 /** Returns a new owned tree, with its own root node that is initially empty. */
 internal fun <K, V> newOwnedTree(): NodeRef<Marker.Owned, K, V, Marker.LeafOrInternal> {
-    return NodeRef.newLeaf<K, V>().forgetType()
+    return NodeRef.new<K, V>()
 }
 
 /**
@@ -472,14 +527,14 @@ internal fun <K, V> NodeRef<Marker.Mut, K, V, Marker.LeafOrInternal>.setParentLi
  * Borrows exclusive access to the data of an internal node.
  */
 internal fun <K, V> NodeRef<Marker.Mut, K, V, Marker.Internal>.asInternalMut(): InternalNode<K, V> {
-    return node as InternalNode<K, V>
+    return asInternalPtr()
 }
 
 /**
  * Borrows exclusive access to the leaf portion of a leaf or internal node.
  */
 internal fun <K, V, Type> NodeRef<Marker.Mut, K, V, Type>.asLeafMut(): LeafNode<K, V> {
-    return node
+    return asLeafPtr()
 }
 
 /**
@@ -496,6 +551,8 @@ internal fun <K, V, Type> NodeRef<Marker.Mut, K, V, Type>.intoLeafMut(): LeafNod
 internal fun <K, V, Type> NodeRef<Marker.Mut, K, V, Type>.setLen(newLen: Int) {
     asLeafMut().len = newLen
 }
+
+internal fun <K, V, Type> NodeRef<Marker.Mut, K, V, Type>.lenMut(): Int = asLeafMut().len
 
 internal fun <K, V, Type> NodeRef<Marker.Mut, K, V, Type>.incLen(by: Int = 1) {
     asLeafMut().len += by
@@ -517,7 +574,7 @@ internal fun <K, V, Type> NodeRef<Marker.Dying, K, V, Type>.asLeafDying(): LeafN
  * in bounds of `0..CAPACITY`.
  */
 internal fun <K, V, Type> NodeRef<Marker.Mut, K, V, Type>.writeKeyArea(idx: Int, value: K) {
-    asLeafMut().keys[idx] = value
+    keyAreaMut()[idx] = value
 }
 
 /**
@@ -525,8 +582,14 @@ internal fun <K, V, Type> NodeRef<Marker.Mut, K, V, Type>.writeKeyArea(idx: Int,
  * in bounds of `0..CAPACITY`.
  */
 internal fun <K, V, Type> NodeRef<Marker.Mut, K, V, Type>.writeValArea(idx: Int, value: V) {
-    asLeafMut().vals[idx] = value
+    valAreaMut()[idx] = value
 }
+
+/** Borrows exclusive access to the key storage area. */
+internal fun <K, V, Type> NodeRef<Marker.Mut, K, V, Type>.keyAreaMut(): Array<Any?> = asLeafMut().keys
+
+/** Borrows exclusive access to the value storage area. */
+internal fun <K, V, Type> NodeRef<Marker.Mut, K, V, Type>.valAreaMut(): Array<Any?> = asLeafMut().vals
 
 /**
  * Reads (and conceptually moves out of) the key slot at [idx]. Caller must
@@ -547,7 +610,12 @@ internal fun <K, V> NodeRef<Marker.Mut, K, V, Marker.Internal>.writeEdgeArea(
     idx: Int,
     edge: LeafNode<K, V>,
 ) {
-    asInternalMut().edges[idx] = edge
+    edgeAreaMut()[idx] = edge
+}
+
+/** Borrows exclusive access to the edge storage area. */
+internal fun <K, V> NodeRef<Marker.Mut, K, V, Marker.Internal>.edgeAreaMut(): Array<LeafNode<K, V>?> {
+    return asInternalMut().edges
 }
 
 /**
@@ -730,6 +798,10 @@ internal class Handle<Node, Type> internal constructor(
     }
 }
 
+internal fun <Node, Type> Handle<Node, Type>.clone(): Handle<Node, Type> {
+    return Handle(node, idx)
+}
+
 // ---- Handle KV: edges, equality ----------------------------------------
 
 internal fun <BorrowType, K, V, NodeType> Handle<NodeRef<BorrowType, K, V, NodeType>, Marker.KV>.leftEdge():
@@ -751,7 +823,14 @@ internal fun <BorrowType, K, V, NodeType, HandleType>
 Handle<NodeRef<BorrowType, K, V, NodeType>, HandleType>.structuralEq(
     other: Handle<NodeRef<BorrowType, K, V, NodeType>, HandleType>,
 ): Boolean {
-    return node.structuralEq(other.node) && idx == other.idx
+    return eq(other)
+}
+
+internal fun <BorrowType, K, V, NodeType, HandleType>
+Handle<NodeRef<BorrowType, K, V, NodeType>, HandleType>.eq(
+    other: Handle<NodeRef<BorrowType, K, V, NodeType>, HandleType>,
+): Boolean {
+    return node.eq(other.node) && idx == other.idx
 }
 
 // ---- Handle: reborrow / dormant / awaken --------------------------------
@@ -1605,22 +1684,28 @@ internal fun <K, V> BalancingContext<K, V>.bulkStealRight(count: Int) {
 // Handle forgetNodeType (Leaf Edge / Internal Edge / Leaf KV)
 // =====================================================================
 
+internal fun <BorrowType, K, V, NodeType, HandleType>
+Handle<NodeRef<BorrowType, K, V, NodeType>, HandleType>.forgetNodeType():
+    Handle<NodeRef<BorrowType, K, V, Marker.LeafOrInternal>, HandleType> {
+    return Handle(node.forgetType(), idx)
+}
+
 internal fun <BorrowType, K, V>
 Handle<NodeRef<BorrowType, K, V, Marker.Leaf>, Marker.Edge>.forgetNodeTypeLeafEdge():
     Handle<NodeRef<BorrowType, K, V, Marker.LeafOrInternal>, Marker.Edge> {
-    return Handle.newEdge(node.forgetType(), idx)
+    return forgetNodeType()
 }
 
 internal fun <BorrowType, K, V>
 Handle<NodeRef<BorrowType, K, V, Marker.Internal>, Marker.Edge>.forgetNodeTypeInternalEdge():
     Handle<NodeRef<BorrowType, K, V, Marker.LeafOrInternal>, Marker.Edge> {
-    return Handle.newEdge(node.forgetType(), idx)
+    return forgetNodeType()
 }
 
 internal fun <BorrowType, K, V>
 Handle<NodeRef<BorrowType, K, V, Marker.Leaf>, Marker.KV>.forgetNodeTypeKv():
     Handle<NodeRef<BorrowType, K, V, Marker.LeafOrInternal>, Marker.KV> {
-    return Handle.newKv(node.forgetType(), idx)
+    return forgetNodeType()
 }
 
 // =====================================================================
@@ -1729,15 +1814,16 @@ internal class SplitResult<K, V, NodeType>(
 /** Specialised `forgetNodeType` for `SplitResult<..., Leaf>`. */
 internal fun <K, V> SplitResult<K, V, Marker.Leaf>.forgetNodeTypeLeaf():
     SplitResult<K, V, Marker.LeafOrInternal> {
-    return SplitResult(
-        left = left.forgetType(),
-        kv = kv,
-        right = right.forgetType(),
-    )
+    return forgetNodeType()
 }
 
 /** Specialised `forgetNodeType` for `SplitResult<..., Internal>`. */
 internal fun <K, V> SplitResult<K, V, Marker.Internal>.forgetNodeTypeInternal():
+    SplitResult<K, V, Marker.LeafOrInternal> {
+    return forgetNodeType()
+}
+
+internal fun <K, V, NodeType> SplitResult<K, V, NodeType>.forgetNodeType():
     SplitResult<K, V, Marker.LeafOrInternal> {
     return SplitResult(
         left = left.forgetType(),
