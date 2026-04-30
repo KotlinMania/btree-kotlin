@@ -102,7 +102,6 @@ internal class InternalNode<K, V> : LeafNode<K, V>() {
          * initialized and valid edge. This function does not set up
          * such an edge.
          */
-        // SAFETY: caller must set up at least one edge before exposing the node.
         fun <K, V> new(): InternalNode<K, V> = InternalNode()
     }
 }
@@ -196,7 +195,7 @@ internal class NodeRef<BorrowType, K, V, Type> internal constructor(
             node: InternalNode<K, V>,
             height: Int,
         ): NodeRef<BorrowType, K, V, Marker.Internal> {
-            check(height > 0) // debugAssert(height > 0)
+            check(height > 0)
             return NodeRef(height = height, node = node)
         }
     }
@@ -229,7 +228,7 @@ internal class NodeRef<BorrowType, K, V, Type> internal constructor(
      */
     fun structuralEq(other: NodeRef<BorrowType, K, V, Type>): Boolean {
         return if (node === other.node) {
-            check(height == other.height) // debugAssertEq(height, other.height)
+            check(height == other.height)
             true
         } else {
             false
@@ -288,14 +287,12 @@ internal fun <BorrowType : Marker.BorrowType, K, V, Type> NodeRef<BorrowType, K,
 
 internal fun <BorrowType : Marker.BorrowType, K, V, Type> NodeRef<BorrowType, K, V, Type>.firstEdge():
     Handle<NodeRef<BorrowType, K, V, Type>, Marker.Edge> {
-    // SAFETY: 0 is a valid edge index for any node.
     return Handle.newEdge(this, 0)
 }
 
 internal fun <BorrowType : Marker.BorrowType, K, V, Type> NodeRef<BorrowType, K, V, Type>.lastEdge():
     Handle<NodeRef<BorrowType, K, V, Type>, Marker.Edge> {
     val len = this.len()
-    // SAFETY: `len` is a valid edge index for any node (edges range 0..=len).
     return Handle.newEdge(this, len)
 }
 
@@ -303,8 +300,7 @@ internal fun <BorrowType : Marker.BorrowType, K, V, Type> NodeRef<BorrowType, K,
 internal fun <BorrowType : Marker.BorrowType, K, V, Type> NodeRef<BorrowType, K, V, Type>.firstKv():
     Handle<NodeRef<BorrowType, K, V, Type>, Marker.KV> {
     val len = this.len()
-    check(len > 0) // assert(len > 0)
-    // SAFETY: 0 < len.
+    check(len > 0)
     return Handle.newKv(this, 0)
 }
 
@@ -312,8 +308,7 @@ internal fun <BorrowType : Marker.BorrowType, K, V, Type> NodeRef<BorrowType, K,
 internal fun <BorrowType : Marker.BorrowType, K, V, Type> NodeRef<BorrowType, K, V, Type>.lastKv():
     Handle<NodeRef<BorrowType, K, V, Type>, Marker.KV> {
     val len = this.len()
-    check(len > 0) // assert(len > 0)
-    // SAFETY: len - 1 < len.
+    check(len > 0)
     return Handle.newKv(this, len - 1)
 }
 
@@ -324,7 +319,6 @@ internal fun <BorrowType : Marker.BorrowType, K, V, Type> NodeRef<BorrowType, K,
         override val size: Int get() = n
         override fun get(index: Int): K {
             if (index < 0 || index >= n) throw IndexOutOfBoundsException("index $index out of bounds [0, $n)")
-            // SAFETY: index is in 0..len, slot is initialised.
             return node.keys[index] as K
         }
     }
@@ -485,7 +479,6 @@ internal fun <K, V> NodeRef<Marker.Mut, K, V, Marker.Internal>.asInternalMut(): 
  * Borrows exclusive access to the leaf portion of a leaf or internal node.
  */
 internal fun <K, V, Type> NodeRef<Marker.Mut, K, V, Type>.asLeafMut(): LeafNode<K, V> {
-    // SAFETY: we have exclusive access to the entire node.
     return node
 }
 
@@ -514,7 +507,6 @@ internal fun <K, V, Type> NodeRef<Marker.Mut, K, V, Type>.incLen(by: Int = 1) {
  * Borrows exclusive access to the leaf portion of a dying leaf or internal node.
  */
 internal fun <K, V, Type> NodeRef<Marker.Dying, K, V, Type>.asLeafDying(): LeafNode<K, V> {
-    // SAFETY: we have exclusive access to the entire node.
     return node
 }
 
@@ -555,7 +547,6 @@ internal fun <K, V> NodeRef<Marker.Mut, K, V, Marker.Internal>.writeEdgeArea(
     idx: Int,
     edge: LeafNode<K, V>,
 ) {
-    // SAFETY: idx is in 0..CAPACITY+1 by caller contract.
     asInternalMut().edges[idx] = edge
 }
 
@@ -566,7 +557,6 @@ internal fun <K, V> NodeRef<Marker.Mut, K, V, Marker.Internal>.writeEdgeArea(
  * `idx` is in bounds of `0..len + 1`, slot is initialised.
  */
 internal fun <K, V> NodeRef<Marker.Mut, K, V, Marker.Internal>.readEdgeArea(idx: Int): LeafNode<K, V> {
-    // SAFETY: caller ensures idx <= len so slot is initialised.
     return asInternalMut().edges[idx]!!
 }
 
@@ -580,7 +570,6 @@ internal fun <K, V> NodeRef<Marker.Mut, K, V, Marker.Internal>.readEdgeArea(idx:
  * value is the only operation Search.kt-and-below need.
  */
 internal fun <K, V, Type> NodeRef<Marker.ValMut, K, V, Type>.intoKeyValMutAt(idx: Int): Pair<K, V> {
-    // SAFETY: idx < len, slots are initialised.
     val key = node.keys[idx] as K
     val v = node.vals[idx] as V
     return Pair(key, v)
@@ -596,15 +585,13 @@ internal fun <K, V> NodeRef<Marker.Mut, K, V, Marker.Internal>.correctChildrensP
     range: IntRange,
 ) {
     for (i in range) {
-        check(i <= len()) // debugAssert(i <= self.len())
-        // SAFETY: caller-provided range items are valid edge indices.
+        check(i <= len())
         Handle.newEdge(this.reborrowMut(), i).correctParentLink()
     }
 }
 
 internal fun <K, V> NodeRef<Marker.Mut, K, V, Marker.Internal>.correctAllChildrensParentLinks() {
     val len = this.len()
-    // SAFETY: 0..=len is the full range of valid edge indices.
     this.correctChildrensParentLinks(0..len)
 }
 
@@ -620,9 +607,8 @@ internal fun <K, V> NodeRef<Marker.Mut, K, V, Marker.Leaf>.pushWithHandle(
     value: V,
 ): Handle<NodeRef<Marker.Mut, K, V, Marker.Leaf>, Marker.KV> {
     val idx = this.len()
-    check(idx < CAPACITY) // assert(idx < CAPACITY)
+    check(idx < CAPACITY)
     setLen(idx + 1)
-    // SAFETY: idx < CAPACITY by the assert above.
     this.writeKeyArea(idx, key)
     this.writeValArea(idx, value)
     return Handle.newKv(NodeRef(height = height, node = node), idx)
@@ -648,12 +634,11 @@ internal fun <K, V> NodeRef<Marker.Mut, K, V, Marker.Internal>.push(
     value: V,
     edge: NodeRef<Marker.Owned, K, V, Marker.LeafOrInternal>,
 ) {
-    check(edge.height == this.height - 1) // assert(edge.height == self.height - 1)
+    check(edge.height == this.height - 1)
 
     val idx = this.len()
-    check(idx < CAPACITY) // assert(idx < CAPACITY)
+    check(idx < CAPACITY)
     setLen(idx + 1)
-    // SAFETY: idx < CAPACITY (asserted above) and idx + 1 <= CAPACITY.
     this.writeKeyArea(idx, key)
     this.writeValArea(idx, value)
     this.writeEdgeArea(idx + 1, edge.node)
@@ -678,14 +663,14 @@ internal fun <BorrowType, K, V> NodeRef<BorrowType, K, V, Marker.LeafOrInternal>
 /** Unsafely asserts to the compiler the static information that this node is a `Leaf`. */
 internal fun <K, V> NodeRef<Marker.Mut, K, V, Marker.LeafOrInternal>.castToLeafUnchecked():
     NodeRef<Marker.Mut, K, V, Marker.Leaf> {
-    check(height == 0) // debugAssert(self.height == 0)
+    check(height == 0)
     return NodeRef(height = height, node = node)
 }
 
 /** Unsafely asserts to the compiler the static information that this node is an `Internal`. */
 internal fun <K, V> NodeRef<Marker.Mut, K, V, Marker.LeafOrInternal>.castToInternalUnchecked():
     NodeRef<Marker.Mut, K, V, Marker.Internal> {
-    check(height > 0) // debugAssert(self.height > 0)
+    check(height > 0)
     return NodeRef(height = height, node = node)
 }
 
@@ -816,7 +801,6 @@ internal fun <BorrowType, K, V, NodeType>
 Handle<NodeRef<BorrowType, K, V, NodeType>, Marker.Edge>.leftKv():
     EdgeKvResult<BorrowType, K, V, NodeType> {
     return if (idx > 0) {
-        // SAFETY: idx > 0 so idx - 1 >= 0; idx <= len so idx - 1 < len.
         EdgeKvResult.Ok(Handle.newKv(node, idx - 1))
     } else {
         EdgeKvResult.Err(this)
@@ -827,7 +811,6 @@ internal fun <BorrowType, K, V, NodeType>
 Handle<NodeRef<BorrowType, K, V, NodeType>, Marker.Edge>.rightKv():
     EdgeKvResult<BorrowType, K, V, NodeType> {
     return if (idx < node.len()) {
-        // SAFETY: idx < len so idx is a valid KV index.
         EdgeKvResult.Ok(Handle.newKv(node, idx))
     } else {
         EdgeKvResult.Err(this)
@@ -848,7 +831,7 @@ internal sealed class LeftOrRight<T> {
  * computes a sensible KV index of a split point and where to perform the insertion.
  */
 internal fun splitpoint(edgeIdx: Int): Pair<Int, LeftOrRight<Int>> {
-    check(edgeIdx <= CAPACITY) // debugAssert(edgeIdx <= CAPACITY)
+    check(edgeIdx <= CAPACITY)
     return when {
         edgeIdx < EDGE_IDX_LEFT_OF_CENTER -> Pair(KV_IDX_CENTER - 1, LeftOrRight.Left(edgeIdx))
         edgeIdx == EDGE_IDX_LEFT_OF_CENTER -> Pair(KV_IDX_CENTER, LeftOrRight.Left(edgeIdx))
@@ -869,10 +852,9 @@ private fun <K, V> Handle<NodeRef<Marker.Mut, K, V, Marker.Leaf>, Marker.Edge>.i
     key: K,
     value: V,
 ): Handle<NodeRef<Marker.Mut, K, V, Marker.Leaf>, Marker.KV> {
-    check(node.len() < CAPACITY) // debugAssert(self.node.len() < CAPACITY)
+    check(node.len() < CAPACITY)
     val newLen = node.len() + 1
 
-    // SAFETY: caller ensured there is space; idx <= len() < CAPACITY = newLen-? — see sliceInsert contract.
     sliceInsert(node.asLeafMut().keys, newLen, idx, key as Any?)
     sliceInsert(node.asLeafMut().vals, newLen, idx, value as Any?)
     node.setLen(newLen)
@@ -892,25 +874,20 @@ private fun <K, V> Handle<NodeRef<Marker.Mut, K, V, Marker.Leaf>, Marker.Edge>.i
     value: V,
 ): Pair<SplitResult<K, V, Marker.Leaf>?, Handle<NodeRef<Marker.DormantMut, K, V, Marker.Leaf>, Marker.KV>> {
     return if (node.len() < CAPACITY) {
-        // SAFETY: There is enough space in the node for insertion.
         val handle = this.insertFit(key, value)
         Pair(null, handle.dormant())
     } else {
         val (middleKvIdx, insertion) = splitpoint(idx)
-        // SAFETY: middleKvIdx < node.len() == CAPACITY.
         val middle = Handle.newKv(node, middleKvIdx)
         val result = middle.split(SplitTag.Leaf)
         val insertionEdge = when (insertion) {
             is LeftOrRight.Left -> {
-                // SAFETY: insertion index from splitpoint is bounds-checked there.
                 Handle.newEdge(result.left.reborrowMut(), insertion.value)
             }
             is LeftOrRight.Right -> {
-                // SAFETY: insertion index from splitpoint is bounds-checked there.
                 Handle.newEdge(result.right.borrowMut(), insertion.value)
             }
         }
-        // SAFETY: We just split the node, so there is enough space for insertion.
         val handle = insertionEdge.insertFit(key, value).dormant()
         Pair(result, handle)
     }
@@ -942,8 +919,8 @@ private fun <K, V> Handle<NodeRef<Marker.Mut, K, V, Marker.Internal>, Marker.Edg
     value: V,
     edge: NodeRef<Marker.Owned, K, V, Marker.LeafOrInternal>,
 ) {
-    check(node.len() < CAPACITY) // debugAssert(self.node.len() < CAPACITY)
-    check(edge.height == node.height - 1) // debugAssert(edge.height == self.node.height - 1)
+    check(node.len() < CAPACITY)
+    check(edge.height == node.height - 1)
     val newLen = node.len() + 1
 
     val internal = node.asInternalMut()
@@ -965,23 +942,20 @@ private fun <K, V> Handle<NodeRef<Marker.Mut, K, V, Marker.Internal>, Marker.Edg
     value: V,
     edge: NodeRef<Marker.Owned, K, V, Marker.LeafOrInternal>,
 ): SplitResult<K, V, Marker.Internal>? {
-    check(edge.height == node.height - 1) // assert(edge.height == self.node.height - 1)
+    check(edge.height == node.height - 1)
 
     return if (node.len() < CAPACITY) {
         this.insertFit(key, value, edge)
         null
     } else {
         val (middleKvIdx, insertion) = splitpoint(idx)
-        // SAFETY: middleKvIdx < node.len() == CAPACITY.
         val middle = Handle.newKv(node, middleKvIdx)
         val result = middle.split(SplitTag.Internal)
         val insertionEdge = when (insertion) {
             is LeftOrRight.Left -> {
-                // SAFETY: insertion index from splitpoint is bounds-checked there.
                 Handle.newEdge(result.left.reborrowMut(), insertion.value)
             }
             is LeftOrRight.Right -> {
-                // SAFETY: insertion index from splitpoint is bounds-checked there.
                 Handle.newEdge(result.right.borrowMut(), insertion.value)
             }
         }
@@ -1010,7 +984,6 @@ internal fun <K, V> Handle<NodeRef<Marker.Mut, K, V, Marker.Leaf>, Marker.Edge>.
 ): Handle<NodeRef<Marker.Mut, K, V, Marker.Leaf>, Marker.KV> {
     val (firstSplit, handle) = this.insert(key, value)
     var split: SplitResult<K, V, Marker.LeafOrInternal> = if (firstSplit == null) {
-        // SAFETY: we have finished splitting and can now re-awaken the
         // handle to the inserted element.
         return handle.awaken()
     } else {
@@ -1023,7 +996,6 @@ internal fun <K, V> Handle<NodeRef<Marker.Mut, K, V, Marker.Leaf>, Marker.Edge>.
                 val parent = ascended.handle
                 val sub = parent.insert(split.kv.first, split.kv.second, split.right)
                 if (sub == null) {
-                    // SAFETY: we have finished splitting and can now re-awaken the
                     // handle to the inserted element.
                     return handle.awaken()
                 } else {
@@ -1032,7 +1004,6 @@ internal fun <K, V> Handle<NodeRef<Marker.Mut, K, V, Marker.Leaf>, Marker.Edge>.
             }
             is AscendResult.Err -> {
                 splitRoot(SplitResult(left = ascended.node, kv = split.kv, right = split.right))
-                // SAFETY: we have finished splitting and can now re-awaken the
                 // handle to the inserted element.
                 return handle.awaken()
             }
@@ -1050,7 +1021,6 @@ Handle<NodeRef<BorrowType, K, V, Marker.Internal>, Marker.Edge>.descend():
     NodeRef<BorrowType, K, V, Marker.LeafOrInternal> {
     // const { assert(BorrowType::TRAVERSAL_PERMIT) } — see ascend() note.
     val parentPtr: InternalNode<K, V> = node.node as InternalNode<K, V>
-    // SAFETY: idx <= len, so edges[idx] is initialised.
     val childNode = parentPtr.edges[idx]!!
     return NodeRef(height = node.height - 1, node = childNode)
 }
@@ -1059,9 +1029,8 @@ Handle<NodeRef<BorrowType, K, V, Marker.Internal>, Marker.Edge>.descend():
 // Handle Immut KV: intoKv
 // =====================================================================
 internal fun <K, V, NodeType> Handle<NodeRef<Marker.Immut, K, V, NodeType>, Marker.KV>.intoKv(): Pair<K, V> {
-    check(idx < node.len()) // debugAssert(self.idx < self.node.len())
+    check(idx < node.len())
     val leaf = node.node
-    // SAFETY: idx < len, slots are initialised.
     val k = leaf.keys[idx] as K
     val v = leaf.vals[idx] as V
     return Pair(k, v)
@@ -1071,36 +1040,30 @@ internal fun <K, V, NodeType> Handle<NodeRef<Marker.Immut, K, V, NodeType>, Mark
 // Handle Mut KV: keyMut, intoValMut, intoKvMut, kvMut, replaceKv
 // =====================================================================
 internal fun <K, V, NodeType> Handle<NodeRef<Marker.Mut, K, V, NodeType>, Marker.KV>.keyMut(): K {
-    // SAFETY: idx < len by Handle invariant; slot initialised.
     return node.asLeafMut().keys[idx] as K
 }
 
 internal fun <K, V, NodeType> Handle<NodeRef<Marker.Mut, K, V, NodeType>, Marker.KV>.setKey(value: K) {
-    // SAFETY: idx < len by Handle invariant.
     node.asLeafMut().keys[idx] = value
 }
 internal fun <K, V, NodeType> Handle<NodeRef<Marker.Mut, K, V, NodeType>, Marker.KV>.intoValMut(): V {
-    check(idx < node.len()) // debugAssert(self.idx < self.node.len())
+    check(idx < node.len())
     val leaf = node.intoLeafMut()
-    // SAFETY: idx < len, slot initialised.
     return leaf.vals[idx] as V
 }
 
 internal fun <K, V, NodeType> Handle<NodeRef<Marker.Mut, K, V, NodeType>, Marker.KV>.setValMut(value: V) {
-    // SAFETY: idx < len by Handle invariant.
     node.asLeafMut().vals[idx] = value
 }
 internal fun <K, V, NodeType> Handle<NodeRef<Marker.Mut, K, V, NodeType>, Marker.KV>.intoKvMut(): Pair<K, V> {
-    check(idx < node.len()) // debugAssert(self.idx < self.node.len())
+    check(idx < node.len())
     val leaf = node.intoLeafMut()
-    // SAFETY: idx < len, slots initialised.
     val k = leaf.keys[idx] as K
     val v = leaf.vals[idx] as V
     return Pair(k, v)
 }
 internal fun <K, V, NodeType> Handle<NodeRef<Marker.Mut, K, V, NodeType>, Marker.KV>.kvMut(): Pair<K, V> {
-    check(idx < node.len()) // debugAssert(self.idx < self.node.len())
-    // SAFETY: idx < len, slots initialised.
+    check(idx < node.len())
     val leaf = node.asLeafMut()
     val key = leaf.keys[idx] as K
     val v = leaf.vals[idx] as V
@@ -1153,7 +1116,7 @@ internal fun <K, V, NodeType> Handle<NodeRef<Marker.Dying, K, V, NodeType>, Mark
  * The node that the handle refers to must not yet have been deallocated.
  */
 internal fun <K, V, NodeType> Handle<NodeRef<Marker.Dying, K, V, NodeType>, Marker.KV>.dropKeyVal() {
-    check(idx < node.len()) // debugAssert(self.idx < self.node.len())
+    check(idx < node.len())
 }
 
 // =====================================================================
@@ -1167,12 +1130,11 @@ internal fun <K, V, NodeType> Handle<NodeRef<Marker.Dying, K, V, NodeType>, Mark
 private fun <K, V, NodeType> Handle<NodeRef<Marker.Mut, K, V, NodeType>, Marker.KV>.splitLeafData(
     newNode: LeafNode<K, V>,
 ): Pair<K, V> {
-    check(idx < node.len()) // debugAssert(self.idx < self.node.len())
+    check(idx < node.len())
     val oldLen = node.len()
     val newLen = oldLen - idx - 1
     newNode.len = newLen
     val leaf = node.asLeafMut()
-    // SAFETY: idx < len so the slot is initialised.
     val k = leaf.keys[idx] as K
     val v = leaf.vals[idx] as V
 
@@ -1240,7 +1202,6 @@ internal fun <K, V> Handle<NodeRef<Marker.Mut, K, V, Marker.Internal>, Marker.KV
         newLen + 1,
     )
 
-    // SAFETY: self is `Marker::Internal`, so `node.height` is positive.
     val height = node.height
     val right = NodeRef<Marker.Owned, K, V, Marker.Internal>(height = height, node = newNode)
     right.borrowMut().correctAllChildrensParentLinks()
@@ -1383,7 +1344,7 @@ private inline fun <K, V, R> BalancingContext<K, V>.doMerge(
     val rightLen = rightNode.len()
     val newLeftLen = oldLeftLen + 1 + rightLen
 
-    check(newLeftLen <= CAPACITY) // assert(newLeftLen <= CAPACITY)
+    check(newLeftLen <= CAPACITY)
 
     leftNode.setLen(newLeftLen)
 
@@ -1409,7 +1370,6 @@ private inline fun <K, V, R> BalancingContext<K, V>.doMerge(
     parentNode.setLen(oldParentLen - 1)
 
     if (parentNode.height > 1) {
-        // SAFETY: the height of the nodes being merged is one below the height
         // of the node of this edge, thus above zero, so they are internal.
         val leftInternal = leftNode.reborrowMut().castToInternalUnchecked()
         val rightInternal = rightNode.castToInternalUnchecked()
@@ -1500,15 +1460,15 @@ internal fun <K, V> BalancingContext<K, V>.stealRight(
 
 /** Bulk steal `count` entries from the left child into the right child. */
 internal fun <K, V> BalancingContext<K, V>.bulkStealLeft(count: Int) {
-    check(count > 0) // assert(count > 0)
+    check(count > 0)
     val leftNode = leftChild
     val oldLeftLen = leftNode.len()
     val rightNode = rightChild
     val oldRightLen = rightNode.len()
 
     // Make sure that we may steal safely.
-    check(oldRightLen + count <= CAPACITY) // assert(oldRightLen + count <= CAPACITY)
-    check(oldLeftLen >= count) // assert(oldLeftLen >= count)
+    check(oldRightLen + count <= CAPACITY)
+    check(oldLeftLen >= count)
 
     val newLeftLen = oldLeftLen - count
     val newRightLen = oldRightLen + count
@@ -1571,15 +1531,15 @@ internal fun <K, V> BalancingContext<K, V>.bulkStealLeft(count: Int) {
 
 /** The symmetric clone of [bulkStealLeft]. */
 internal fun <K, V> BalancingContext<K, V>.bulkStealRight(count: Int) {
-    check(count > 0) // assert(count > 0)
+    check(count > 0)
     val leftNode = leftChild
     val oldLeftLen = leftNode.len()
     val rightNode = rightChild
     val oldRightLen = rightNode.len()
 
     // Make sure that we may steal safely.
-    check(oldLeftLen + count <= CAPACITY) // assert(oldLeftLen + count <= CAPACITY)
-    check(oldRightLen >= count) // assert(oldRightLen >= count)
+    check(oldLeftLen + count <= CAPACITY)
+    check(oldRightLen >= count)
 
     val newLeftLen = oldLeftLen + count
     val newRightLen = oldRightLen - count
@@ -1706,8 +1666,8 @@ internal fun <K, V> Handle<NodeRef<Marker.Mut, K, V, Marker.LeafOrInternal>, Mar
     val newRightLen = oldLeftLen - newLeftLen
     val rightNode = right.reborrowMut()
 
-    check(rightNode.len() == 0) // assert(rightNode.len() == 0)
-    check(leftNode.height == rightNode.height) // assert(leftNode.height == rightNode.height)
+    check(rightNode.len() == 0)
+    check(leftNode.height == rightNode.height)
 
     if (newRightLen > 0) {
         leftNode.setLen(newLeftLen)

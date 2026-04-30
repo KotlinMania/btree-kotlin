@@ -30,7 +30,6 @@ internal class DormantMutRef<T> private constructor(
          */
         fun <T> new(t: T): Pair<T, DormantMutRef<T>> {
             val ptr = NonNull.from(t)
-            // SAFETY: we hold the borrow throughout the scope via `_marker`, and we expose
             // only this reference, so it is unique.
             val newRef = ptr.asPtr()
             return Pair(newRef, DormantMutRef(ptr, PhantomData))
@@ -46,7 +45,6 @@ internal class DormantMutRef<T> private constructor(
      * all pointers and references derived from it, must not be used anymore.
      */
     fun awaken(): T {
-        // SAFETY: our own safety conditions imply this reference is again unique.
         return this.ptr.asPtr()
     }
 
@@ -59,7 +57,6 @@ internal class DormantMutRef<T> private constructor(
      * all pointers and references derived from it, must not be used anymore.
      */
     fun reborrow(): T {
-        // SAFETY: our own safety conditions imply this reference is again unique.
         return this.ptr.asPtr()
     }
 
@@ -72,7 +69,6 @@ internal class DormantMutRef<T> private constructor(
      * all pointers and references derived from it, must not be used anymore.
      */
     fun reborrowShared(): T {
-        // SAFETY: our own safety conditions imply this reference is again unique.
         return this.ptr.asPtr()
     }
 }

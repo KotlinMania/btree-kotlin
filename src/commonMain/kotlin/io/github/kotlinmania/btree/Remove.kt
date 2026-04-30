@@ -52,18 +52,15 @@ private fun <K, V> Handle<NodeRef<Marker.Mut, K, V, Marker.Leaf>, Marker.KV>.rem
                         }
                     }
                 }
-                // SAFETY: the recovered `pos` NodeRef is the same node we
                 // started from; its length is `len` and `idx` was a valid
                 // edge index there, so `idx <= len` still holds.
                 is ChooseParentKvResult.Err -> Handle.newEdge(choose.node, idx)
             }
-        // SAFETY: `newPos` is the leaf we started from or a sibling.
         pos = newPos.castToLeafUnchecked()
 
         // Only if we merged, the parent (if any) has shrunk, but skipping
         // the following step otherwise does not pay off in benchmarks.
         //
-        // SAFETY: We won't destroy or rearrange the leaf where `pos` is at
         // by handling its parent recursively; at worst we will destroy or
         // rearrange the parent through the grandparent, thus change the
         // link to the parent inside the leaf.
@@ -87,7 +84,6 @@ private fun <K, V> Handle<NodeRef<Marker.Mut, K, V, Marker.Internal>, Marker.KV>
     // the element we were asked to remove. Prefer the left adjacent KV,
     // for the reasons listed in `chooseParentKv`.
     val leftLeafEdgeKv = this.leftEdge().descend().lastLeafEdge().leftKv()
-    // SAFETY: the left edge of an internal KV descends into a non-empty
     // subtree, so `lastLeafEdge` lands at a leaf edge with at least one KV
     // to its left — `leftKv` is therefore always `Ok` here.
     val leftLeafKv = (leftLeafEdgeKv as EdgeKvResult.Ok).handle
@@ -95,7 +91,6 @@ private fun <K, V> Handle<NodeRef<Marker.Mut, K, V, Marker.Internal>, Marker.KV>
 
     // The internal node may have been stolen from or merged. Go back right
     // to find where the original KV ended up.
-    // SAFETY: we removed a KV strictly to the left of the original internal
     // KV, so a KV to the right of `leftHole` always exists.
     val internal = (leftHole.nextKv() as NextKvResult.Ok).handle
     val oldKv = internal.replaceKv(leftKv.first, leftKv.second)

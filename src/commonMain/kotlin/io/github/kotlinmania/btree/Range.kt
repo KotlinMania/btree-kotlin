@@ -455,12 +455,10 @@ enum class OneSidedRangeBound {
 }
 
 /**
- * `OneSidedRange` is implemented for built-in range types that are unbounded
- * on one side. For example, `a..`, `..b` and `..=c` implement `OneSidedRange`,
- * but `..`, `d..e`, and `f..=g` do not.
- *
- * Types that implement `OneSidedRange<T>` must return `Bound::Unbounded`
- * from one of `RangeBounds.startBound` or `RangeBounds.endBound`.
+ * Implemented by range types that are unbounded on one side: [RangeFrom],
+ * [RangeTo], [RangeToInclusive]. Types that implement [OneSidedRange] must
+ * return [Bound.Unbounded] from one of [RangeBounds.startBound] or
+ * [RangeBounds.endBound].
  */
 interface OneSidedRange<T> : RangeBounds<T> {
     /**

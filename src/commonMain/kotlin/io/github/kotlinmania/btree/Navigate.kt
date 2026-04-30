@@ -3,9 +3,6 @@
 // copyright The Rust Project Developers, dual-licensed Apache-2.0 / MIT.
 package io.github.kotlinmania.btree
 
-// Upstream `# Safety` clauses about not visiting the same KV twice are
-// preserved verbatim in KDoc -- callers must respect them.
-
 // ============================================================================
 // LeafRange
 // ============================================================================
@@ -69,13 +66,11 @@ internal class LeafRange<BorrowType, K, V>(
 
     internal fun nextCheckedValMut(): Pair<K, V>? {
         val self = this as LeafRange<Marker.ValMut, K, V>
-        // SAFETY: Kotlin uses the reference directly; GC keeps it alive.
         return self.performNextChecked { kv -> kv.intoKvValmut() }
     }
 
     internal fun nextBackCheckedValMut(): Pair<K, V>? {
         val self = this as LeafRange<Marker.ValMut, K, V>
-        // SAFETY: Kotlin uses the reference directly; GC keeps it alive.
         return self.performNextBackChecked { kv -> kv.intoKvValmut() }
     }
 }
@@ -202,7 +197,6 @@ internal class LazyLeafRange<BorrowType, K, V>(
      */
     internal fun nextUnchecked(): Pair<K, V> {
         val self = this as LazyLeafRange<Marker.Immut, K, V>
-        // SAFETY: caller-enforced precondition guarantees initFront() returns non-null.
         val edge = self.initFront()!!
         val (newEdge, kv) = edge.nextUnchecked()
         self.front = LazyLeafHandle.Edge(newEdge)
@@ -262,7 +256,7 @@ internal class LazyLeafRange<BorrowType, K, V>(
     internal fun deallocatingNextUnchecked():
         Handle<NodeRef<Marker.Dying, K, V, Marker.LeafOrInternal>, Marker.KV> {
         val self = this as LazyLeafRange<Marker.Dying, K, V>
-        check(self.front != null) // debugAssert(self.front.isSome())
+        check(self.front != null)
         val edge = self.initFront()!!
         val (newEdge, kv) = edge.deallocatingNextUnchecked()
         self.front = LazyLeafHandle.Edge(newEdge)
@@ -272,7 +266,7 @@ internal class LazyLeafRange<BorrowType, K, V>(
     internal fun deallocatingNextBackUnchecked():
         Handle<NodeRef<Marker.Dying, K, V, Marker.LeafOrInternal>, Marker.KV> {
         val self = this as LazyLeafRange<Marker.Dying, K, V>
-        check(self.back != null) // debugAssert(self.back.isSome())
+        check(self.back != null)
         val edge = self.initBack()!!
         val (newEdge, kv) = edge.deallocatingNextBackUnchecked()
         self.back = LazyLeafHandle.Edge(newEdge)
@@ -304,7 +298,6 @@ internal fun <BorrowType : Marker.BorrowType, K, V> LazyLeafRange<BorrowType, K,
     return when (val f = front) {
         null -> null
         is LazyLeafHandle.Edge -> f.edge
-        // SAFETY: the code above would have replaced it.
         is LazyLeafHandle.Root -> error("unreachable: Root case was rewritten above")
     }
 }
@@ -419,7 +412,6 @@ internal inline fun <K, reified V, Q : Comparable<Q>, R : RangeBounds<Q>>
     NodeRef<Marker.Immut, K, V, Marker.LeafOrInternal>.rangeSearch(
     range: R,
 ): LeafRange<Marker.Immut, K, V> where K : Comparable<Q> {
-    // SAFETY: our borrow type is immutable.
     return this.findLeafEdgesSpanningRange<Marker.Immut, K, V, Q, R>(range)
 }
 
@@ -502,10 +494,7 @@ internal fun <K, V> NodeRef<Marker.Dying, K, V, Marker.LeafOrInternal>.fullRange
 // Handle<Leaf, Edge>: nextKv / nextBackKv
 // ============================================================================
 
-/**
- * Translates `Result<Handle<..., LeafOrInternal, KV>, NodeRef<..., LeafOrInternal>>`
- * for [nextKv] / [nextBackKv]. Same sealed-class-of-Ok-or-Err shape used elsewhere.
- */
+/** Result of [nextKv] / [nextBackKv]: either the neighbour KV (`Ok`) or the root node (`Err`). */
 internal sealed class NextKvResult<BorrowType, K, V> {
     data class Ok<BorrowType, K, V>(
         val handle: Handle<NodeRef<BorrowType, K, V, Marker.LeafOrInternal>, Marker.KV>,
@@ -559,10 +548,7 @@ internal fun <BorrowType : Marker.BorrowType, K, V>
 // Handle<Internal, Edge>: nextKv (private)
 // ============================================================================
 
-/**
- * Translates the private `Result<Handle<..., Internal, KV>, NodeRef<..., Internal>>`
- * for [nextKvInternal]. The variant names mirror the upstream `Ok` / `Err`.
- */
+/** Result of [nextKvInternal]: either the neighbour KV (`Ok`) or the internal node (`Err`). */
 internal sealed class NextKvInternalResult<BorrowType, K, V> {
     data class Ok<BorrowType, K, V>(
         val kv: Handle<NodeRef<BorrowType, K, V, Marker.Internal>, Marker.KV>,
@@ -587,11 +573,7 @@ internal fun <BorrowType : Marker.BorrowType, K, V>
             is EdgeKvResult.Err -> when (val asc = rk.handle.intoNode().ascend()) {
                 is AscendResult.Ok -> asc.handle
                 is AscendResult.Err -> {
-                    // Upstream returns `NodeRef<..., Internal>` from the
-                    // ascend Err branch via type inference; here Node.kt's
-                    // `ascend()` widens the recovery type to `LeafOrInternal`.
-                    // Since the receiver is `Internal`, the recovered root
-                    // (which is `self` if no parent existed) is also
+                    // Receiver is `Internal`, so the recovered root is
                     // `Internal` at runtime — narrow back via direct
                     // construction with the known type tag.
                     val recovered = asc.node
@@ -739,11 +721,9 @@ internal fun <K, V>
 // ============================================================================
 
 /**
- * SAFETY: There must be another KV in the direction travelled.
- *
- * The intoKvValmut() call is deferred until after the swap as a micro
- * optimisation noted upstream as "Doing this last is faster, according to
- * benchmarks". Preserved verbatim.
+ * Caller must ensure there is another KV in the direction travelled. The
+ * [intoKvValmut] call is deferred until after the swap as a micro
+ * optimisation ("Doing this last is faster, according to benchmarks").
  */
 internal fun <K, V>
     Handle<NodeRef<Marker.ValMut, K, V, Marker.Leaf>, Marker.Edge>.nextUncheckedValMut():
@@ -795,7 +775,6 @@ internal fun <K, V>
         Handle<NodeRef<Marker.Dying, K, V, Marker.LeafOrInternal>, Marker.KV>,
         > {
     return replace(this) { leafEdge ->
-        // SAFETY: caller-asserted there is another KV; deallocatingNext returns non-null.
         leafEdge.deallocatingNext() ?: error("unreachable: caller-asserted KV present")
     }
 }
@@ -808,7 +787,6 @@ internal fun <K, V>
         Handle<NodeRef<Marker.Dying, K, V, Marker.LeafOrInternal>, Marker.KV>,
         > {
     return replace(this) { leafEdge ->
-        // SAFETY: caller-asserted there is another KV; deallocatingNextBack returns non-null.
         leafEdge.deallocatingNextBack() ?: error("unreachable: caller-asserted KV present")
     }
 }

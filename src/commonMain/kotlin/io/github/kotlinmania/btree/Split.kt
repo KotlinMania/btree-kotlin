@@ -17,12 +17,10 @@ internal fun <K, V> calcSplitLength(
     if (rootA.height() < rootB.height()) {
         lengthA = rootA.reborrow().calcLength()
         lengthB = totalNum - lengthA
-        check(lengthB == rootB.reborrow().calcLength()) // debugAssertEq!
-    } else {
+        check(lengthB == rootB.reborrow().calcLength())    } else {
         lengthB = rootB.reborrow().calcLength()
         lengthA = totalNum - lengthB
-        check(lengthA == rootA.reborrow().calcLength()) // debugAssertEq!
-    }
+        check(lengthA == rootA.reborrow().calcLength())    }
     return Pair(lengthA, lengthB)
 }
 

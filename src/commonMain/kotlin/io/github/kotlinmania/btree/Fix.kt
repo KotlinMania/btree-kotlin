@@ -3,13 +3,9 @@
 // copyright The Rust Project Developers, dual-licensed Apache-2.0 / MIT.
 package io.github.kotlinmania.btree
 
-/**
- * Sealed result wrapper for upstream's
- * `Result<Option<NodeRef<Mut, K, V, Internal>>, Self>`: both branches carry
- * data, so the result is rendered as a sealed class rather than a throw.
- */
+/** Result of [fixNodeThroughParent]. */
 private sealed class FixNodeThroughParentResult<K, V> {
-    /** `Ok(None)` (no shrunk parent) or `Ok(Some(parent))` (returns shrunk parent). */
+    /** `Ok(null)` (no shrunk parent) or `Ok(parent)` (returns shrunk parent). */
     data class Ok<K, V>(val parent: NodeRef<Marker.Mut, K, V, Marker.Internal>?) :
         FixNodeThroughParentResult<K, V>()
 
@@ -135,7 +131,7 @@ internal fun <K, V> NodeRef<Marker.Owned, K, V, Marker.LeafOrInternal>.fixRightB
         }
         // Check if rightmost child is underfull.
         val lastKv = internal.lastKv().considerForBalancing()
-        check(lastKv.leftChildLen() >= MIN_LEN * 2) // debugAssert(...)
+        check(lastKv.leftChildLen() >= MIN_LEN * 2)
         val rightChildLen = lastKv.rightChildLen()
         if (rightChildLen < MIN_LEN) {
             // We need to steal.
@@ -155,7 +151,7 @@ private fun <K, V> Handle<NodeRef<Marker.Mut, K, V, Marker.LeafOrInternal>, Mark
             is ForceResult.Leaf -> return
         }
         self = internalKv.fixLeftChild().firstKv()
-        check(self.reborrow().intoNode().len() > MIN_LEN) // debugAssert(...)
+        check(self.reborrow().intoNode().len() > MIN_LEN)
     }
 }
 
@@ -167,7 +163,7 @@ private fun <K, V> Handle<NodeRef<Marker.Mut, K, V, Marker.LeafOrInternal>, Mark
             is ForceResult.Leaf -> return
         }
         self = internalKv.fixRightChild().lastKv()
-        check(self.reborrow().intoNode().len() > MIN_LEN) // debugAssert(...)
+        check(self.reborrow().intoNode().len() > MIN_LEN)
     }
 }
 
@@ -181,7 +177,7 @@ private fun <K, V> Handle<NodeRef<Marker.Mut, K, V, Marker.Internal>, Marker.KV>
     NodeRef<Marker.Mut, K, V, Marker.LeafOrInternal> {
     val internalKv = this.considerForBalancing()
     val leftLen = internalKv.leftChildLen()
-    check(internalKv.rightChildLen() >= MIN_LEN) // debugAssert(...)
+    check(internalKv.rightChildLen() >= MIN_LEN)
     return if (internalKv.canMerge()) {
         internalKv.mergeTrackingChild()
     } else {
@@ -204,7 +200,7 @@ private fun <K, V> Handle<NodeRef<Marker.Mut, K, V, Marker.Internal>, Marker.KV>
     NodeRef<Marker.Mut, K, V, Marker.LeafOrInternal> {
     val internalKv = this.considerForBalancing()
     val rightLen = internalKv.rightChildLen()
-    check(internalKv.leftChildLen() >= MIN_LEN) // debugAssert(...)
+    check(internalKv.leftChildLen() >= MIN_LEN)
     return if (internalKv.canMerge()) {
         internalKv.mergeTrackingChild()
     } else {

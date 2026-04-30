@@ -347,20 +347,17 @@ class BTreeMap<K : Comparable<K>, V> : MutableMap<K, V> {
                     if (removed != null) {
                         val (k, v) = removed
                         val newV = conflict(k, v, firstOtherVal)
-                        // SAFETY: we remove the K, V out of the next entry,
                         // apply `conflict` to get a new (K, V), and insert it
                         // back into the next entry that the cursor is pointing at
                         selfCursor.insertAfterUnchecked(k, newV)
                     }
                 }
                 cmp > 0 -> {
-                    // SAFETY: otherKey < selfKey, sorted order preserved.
                     selfCursor.insertBeforeUnchecked(firstOtherKey, firstOtherVal)
                 }
                 else -> error("unreachable: Cursor's peekNext should return null.")
             }
         } else {
-            // SAFETY: cursor is at the end.
             selfCursor.insertBeforeUnchecked(firstOtherKey, firstOtherVal)
         }
 
@@ -377,13 +374,11 @@ class BTreeMap<K : Comparable<K>, V> : MutableMap<K, V> {
                             if (removed != null) {
                                 val (k, v) = removed
                                 val newV = conflict(k, v, otherVal)
-                                // SAFETY: see above.
                                 selfCursor.insertAfterUnchecked(k, newV)
                             }
                             break
                         }
                         cmp > 0 -> {
-                            // SAFETY: selfKey > otherKey, insert preserves order.
                             selfCursor.insertBeforeUnchecked(otherKey, otherVal)
                             break
                         }
@@ -392,7 +387,6 @@ class BTreeMap<K : Comparable<K>, V> : MutableMap<K, V> {
                         }
                     }
                 } else {
-                    // SAFETY: cursor is at the end.
                     selfCursor.insertBeforeUnchecked(otherKey, otherVal)
                     break
                 }
@@ -824,7 +818,6 @@ class Iter<K, V> internal constructor(
     override fun next(): MutableMap.MutableEntry<K, V> {
         if (length == 0) throw NoSuchElementException()
         length -= 1
-        // SAFETY: length > 0 implies there is another KV in the direction travelled.
         val (k, v) = range.nextUnchecked()
         return ReadOnlyEntry(k, v)
     }
@@ -833,7 +826,6 @@ class Iter<K, V> internal constructor(
     fun nextBack(): MutableMap.MutableEntry<K, V>? {
         if (length == 0) return null
         length -= 1
-        // SAFETY: length > 0 implies there is another KV.
         val (k, v) = range.nextBackUnchecked()
         return ReadOnlyEntry(k, v)
     }
@@ -879,7 +871,6 @@ class IterMut<K : Comparable<K>, V> internal constructor(
     override fun next(): MutableMap.MutableEntry<K, V> {
         if (length == 0) throw NoSuchElementException()
         length -= 1
-        // SAFETY: length > 0 implies there is another KV.
         val (k, v) = range.nextUncheckedValMut()
         lastKey = k
         return MutEntry(map, k, v)
@@ -954,7 +945,6 @@ class IntoIter<K, V> internal constructor(
 
     override fun next(): Pair<K, V> {
         val kv = dyingNext() ?: throw NoSuchElementException()
-        // SAFETY: we consume the dying handle immediately.
         return kv.intoKeyVal()
     }
 
@@ -986,7 +976,6 @@ class IntoIter<K, V> internal constructor(
             null
         } else {
             length -= 1
-            // SAFETY: length > 0 implies there is another KV.
             range.deallocatingNextUnchecked()
         }
     }
@@ -1230,7 +1219,6 @@ internal class ExtractIfInner<K : Comparable<K>, V, Q : Comparable<Q>>(
 
             // On creation, we navigated directly to the left bound, so we
             // need only check the right bound to decide whether to stop.
-            // SAFETY: K is Comparable<K>; the runtime contract for Q is that
             // K is comparable to it (the static `K : Comparable<Q>` constraint
             // can't be expressed here because Kotlin doesn't allow a class
             // type parameter to be re-bounded against a method-level Q).
@@ -1246,7 +1234,6 @@ internal class ExtractIfInner<K : Comparable<K>, V, Q : Comparable<Q>>(
             if (pred(k, v)) {
                 map.length -= 1
                 val (kvPair, pos) = kv.removeKvTracking {
-                    // SAFETY: we will touch the root in a way that will not
                     // invalidate the position returned.
                     val root = dormantRoot!!.awaken()
                     root.popInternalLevel()
@@ -1411,7 +1398,6 @@ class CursorMutKey<K : Comparable<K>, V> internal constructor(
         return when (val r = cur.nextKv()) {
             is NextKvResult.Ok -> {
                 val kv = r.handle
-                // SAFETY: The key/value pointers remain valid even after the
                 // cursor is moved forward.
                 val result = kv.reborrowMut().intoKvMut()
                 current = kv.nextLeafEdge()
@@ -1459,7 +1445,6 @@ class CursorMutKey<K : Comparable<K>, V> internal constructor(
 
     /** Returns a read-only cursor pointing to the same location. */
     fun asCursor(): Cursor<K, V> {
-        // SAFETY: The tree is immutable while the cursor exists.
         val map = dormantMap.reborrowShared()
         return Cursor(
             current = current?.reborrow(),
@@ -1481,11 +1466,9 @@ class CursorMutKey<K : Comparable<K>, V> internal constructor(
         current = null
         val edge: Handle<NodeRef<Marker.Mut, K, V, Marker.Leaf>, Marker.Edge> = if (cur == null) {
             // Tree is empty, allocate a new root.
-            // SAFETY: We have no other reference to the tree.
             val map = dormantMap.reborrow()
-            check(map.root == null) // debugAssert(root.isNone())
+            check(map.root == null)
             val node = NodeRef.newLeaf<K, V>()
-            // SAFETY: We don't touch the root while the handle is alive.
             val handle = node.borrowMut().pushWithHandle(key, value)
             map.root = node.forgetType()
             map.length += 1
@@ -1495,7 +1478,6 @@ class CursorMutKey<K : Comparable<K>, V> internal constructor(
             cur
         }
         val handle = edge.insertRecursing(key, value) { ins ->
-            // SAFETY: The handle to the newly inserted value is always on a
             // leaf node, so adding a new root node doesn't invalidate it.
             val map = dormantMap.reborrow()
             val r = map.root!! // same as ins.left
@@ -1516,12 +1498,10 @@ class CursorMutKey<K : Comparable<K>, V> internal constructor(
         val cur = current
         current = null
         val edge: Handle<NodeRef<Marker.Mut, K, V, Marker.Leaf>, Marker.Edge> = if (cur == null) {
-            // SAFETY: We have no other reference to the tree.
             val map = dormantMap.reborrow()
             if (map.root == null) {
                 // Tree is empty, allocate a new root.
                 val node = NodeRef.newLeaf<K, V>()
-                // SAFETY: We don't touch the root while the handle is alive.
                 val handle = node.borrowMut().pushWithHandle(key, value)
                 map.root = node.forgetType()
                 map.length += 1
@@ -1587,7 +1567,6 @@ class CursorMutKey<K : Comparable<K>, V> internal constructor(
         current = pos
         dormantMap.reborrow().length -= 1
         if (emptiedInternalRoot) {
-            // SAFETY: This is safe since current does not point within the now-empty root.
             val map = dormantMap.reborrow()
             map.root!!.popInternalLevel()
         }

@@ -4,22 +4,22 @@
 package io.github.kotlinmania.btree
 
 /**
- * `SearchBound` mirrors `core::ops::Bound` but adds two unconditional
- * variants used to short-circuit further bound checks once the search has
- * fallen entirely on one side of a key.
+ * Bound type used during a tree search. Like [Bound] but with two extra
+ * unconditional variants used to short-circuit further bound checks once the
+ * search has fallen entirely on one side of a key.
  */
 internal sealed class SearchBound<out T> {
-    /** An inclusive bound to look for, just like `Bound::Included(T)`. */
+    /** An inclusive bound to look for. */
     data class Included<T>(val value: T) : SearchBound<T>() {
         override fun toString(): String = "Included($value)"
     }
 
-    /** An exclusive bound to look for, just like `Bound::Excluded(T)`. */
+    /** An exclusive bound to look for. */
     data class Excluded<T>(val value: T) : SearchBound<T>() {
         override fun toString(): String = "Excluded($value)"
     }
 
-    /** An unconditional inclusive bound, just like `Bound::Unbounded`. */
+    /** An unconditional inclusive bound. */
     data object AllIncluded : SearchBound<Nothing>() {
         override fun toString(): String = "AllIncluded"
     }
@@ -194,7 +194,6 @@ internal fun <BorrowType : Marker.BorrowType, K, V, Q : Comparable<Q>, R : Range
     var upperBound = SearchBound.fromRange(end)
     while (true) {
         val (lowerEdgeIdx, lowerChildBound) = self.findLowerBoundIndex(lowerBound)
-        // SAFETY: `lowerEdgeIdx` is a valid edge index returned by `findLowerBoundIndex`.
         val (upperEdgeIdx, upperChildBound) = self.findUpperBoundIndex(upperBound, lowerEdgeIdx)
         if (lowerEdgeIdx < upperEdgeIdx) {
             return BifurcationResult.Ok(
@@ -207,8 +206,7 @@ internal fun <BorrowType : Marker.BorrowType, K, V, Q : Comparable<Q>, R : Range
                 ),
             )
         }
-        check(lowerEdgeIdx == upperEdgeIdx) // upstream debugAssertEq on lowerEdgeIdx vs upperEdgeIdx
-        // SAFETY: `lowerEdgeIdx` is a valid edge index for `self`.
+        check(lowerEdgeIdx == upperEdgeIdx)
         val commonEdge = Handle.newEdge(self, lowerEdgeIdx)
         when (val forced = commonEdge.force()) {
             is ForceResult.Leaf -> return BifurcationResult.LeafEdge(forced.value)
@@ -232,7 +230,6 @@ internal fun <BorrowType : Marker.BorrowType, K, V, Q : Comparable<Q>> NodeRef<B
     bound: SearchBound<Q>,
 ): Pair<Handle<NodeRef<BorrowType, K, V, Marker.LeafOrInternal>, Marker.Edge>, SearchBound<Q>> where K : Comparable<Q> {
     val (edgeIdx, newBound) = this.findLowerBoundIndex(bound)
-    // SAFETY: `edgeIdx` is the edge index returned by `findLowerBoundIndex`.
     val edge = Handle.newEdge(this, edgeIdx)
     return Pair(edge, newBound)
 }
@@ -241,9 +238,7 @@ internal fun <BorrowType : Marker.BorrowType, K, V, Q : Comparable<Q>> NodeRef<B
 internal fun <BorrowType : Marker.BorrowType, K, V, Q : Comparable<Q>> NodeRef<BorrowType, K, V, Marker.LeafOrInternal>.findUpperBoundEdge(
     bound: SearchBound<Q>,
 ): Pair<Handle<NodeRef<BorrowType, K, V, Marker.LeafOrInternal>, Marker.Edge>, SearchBound<Q>> where K : Comparable<Q> {
-    // SAFETY: `0` is a valid edge index for any node.
     val (edgeIdx, newBound) = this.findUpperBoundIndex(bound, 0)
-    // SAFETY: `edgeIdx` is the edge index returned by `findUpperBoundIndex`.
     val edge = Handle.newEdge(this, edgeIdx)
     return Pair(edge, newBound)
 }
@@ -260,7 +255,6 @@ internal fun <BorrowType : Marker.BorrowType, K, V, Q : Comparable<Q>> NodeRef<B
 internal fun <BorrowType, K, V, Type, Q : Comparable<Q>> NodeRef<BorrowType, K, V, Type>.searchNode(
     key: Q,
 ): SearchResult<BorrowType, K, V, Type, Type> where K : Comparable<Q> {
-    // SAFETY: `0` is a valid edge index for any node.
     return when (val r = this.findKeyIndex(key, 0)) {
         is IndexResult.KV -> SearchResult.Found(Handle.newKv(this, r.idx))
         is IndexResult.Edge -> SearchResult.GoDown(Handle.newEdge(this, r.idx))
@@ -269,13 +263,11 @@ internal fun <BorrowType, K, V, Type, Q : Comparable<Q>> NodeRef<BorrowType, K, 
 
 /**
  * Returns either the KV index in the node at which the key (or an equivalent)
- * exists, or the edge index where the key belongs, starting from a particular index.
+ * exists, or the edge index where the key belongs, starting from a particular
+ * index. Caller must ensure `startIndex` is a valid edge index for the node.
  *
  * The result is meaningful only if the tree is ordered by key, like the tree
- * in a `BTreeMap` is.
- *
- * # Safety
- * `startIndex` must be a valid edge index for the node.
+ * in a [BTreeMap] is.
  */
 private fun <BorrowType, K, V, Type, Q : Comparable<Q>> NodeRef<BorrowType, K, V, Type>.findKeyIndex(
     key: Q,
@@ -283,13 +275,10 @@ private fun <BorrowType, K, V, Type, Q : Comparable<Q>> NodeRef<BorrowType, K, V
 ): IndexResult where K : Comparable<Q> {
     val node = this.reborrow()
     val keys = node.keys()
-    check(startIndex <= keys.size) // upstream debugAssert that startIndex is within keys length
-    // SAFETY: `startIndex <= keys.size`, so the slice from `startIndex` is in bounds.
-    // Iterate by index rather than allocating a sublist; matches the upstream unchecked-slice access on `keys` from start.
+    check(startIndex <= keys.size)
     for (offset in 0 until (keys.size - startIndex)) {
         val k = keys[startIndex + offset]
-        // `key.cmp(k.borrow())` -> `key.compareTo(k)`, with the convention that
-        // K : Comparable<Q> means we invert: compare k to key, then negate.
+        // `K : Comparable<Q>` means we invert: compare k to key, then negate.
         // Equivalently, use `-k.compareTo(key)` so that:
         //   key > k  -> Greater (positive)
         //   key == k -> Equal   (zero)

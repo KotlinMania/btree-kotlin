@@ -88,11 +88,6 @@ sealed class Entry<K : Comparable<K>, V> {
     /**
      * Ensures a value is in the entry by inserting the value supplied by
      * [default] if empty, and returns the value in the entry.
-     *
-     * Upstream's `orDefault` requires `V: Default`. Kotlin has no `Default`
-     * trait — callers pass an explicit factory instead. Method named
-     * `orDefault` to match upstream spelling; the factory parameter is the
-     * Kotlin-side accommodation.
      */
     fun orDefault(default: () -> V): V = when (this) {
         is Occupied -> entry.intoMut()
@@ -129,27 +124,23 @@ class VacantEntry<K : Comparable<K>, V> internal constructor(
         val h = handle
         val newHandle: Handle<NodeRef<Marker.Mut, K, V, Marker.LeafOrInternal>, Marker.KV> =
             if (h == null) {
-                // SAFETY: There is no tree yet so no reference to it exists.
                 val map = dormantMap.reborrow()
                 if (map.root == null) {
                     map.root = NodeRef.newLeaf<K, V>().forgetType()
                 }
                 val root = map.root!!
-                // SAFETY: We *just* created the root as a leaf, and we're
                 // stacking the new handle on the original borrow.
                 val leaf = root.borrowMut().castToLeafUnchecked()
                 val pushed = leaf.pushWithHandle(this.key, value)
                 pushed.forgetNodeTypeKv()
             } else {
                 h.insertRecursing(this.key, value) { ins ->
-                    // SAFETY: Pushing a new root node doesn't invalidate
                     // handles to existing nodes.
                     val map = dormantMap.reborrow()
                     val root = map.root!! // same as ins.left
                     root.pushInternalLevel().push(ins.kv.first, ins.kv.second, ins.right)
                 }.forgetNodeTypeKv()
             }
-        // SAFETY: modifying the length doesn't invalidate handles to existing nodes.
         dormantMap.reborrow().length += 1
 
         return OccupiedEntry(handle = newHandle, dormantMap = dormantMap)
@@ -195,14 +186,10 @@ class OccupiedEntry<K : Comparable<K>, V> internal constructor(
     /** Takes the value of the entry out of the map, and returns it. */
     fun remove(): V = removeKv().second
 
-    /**
-     * Body of [removeEntry], split out because the upstream name reflects
-     * the returned pair.
-     */
+    /** Body of [removeEntry], returning the removed key-value pair. */
     internal fun removeKv(): Pair<K, V> {
         var emptiedInternalRoot = false
         val (oldKv, _) = handle.removeKvTracking { emptiedInternalRoot = true }
-        // SAFETY: we consumed the intermediate root borrow, `self.handle`.
         val map = dormantMap.awaken()
         map.length -= 1
         if (emptiedInternalRoot) {
@@ -219,8 +206,7 @@ class OccupiedEntry<K : Comparable<K>, V> internal constructor(
 /**
  * The error returned by [BTreeMap.tryInsert] when the key already exists.
  *
- * Contains the occupied entry, and the value that was not inserted. Mirrors
- * upstream's `(unstable(mapTryInsert))` `OccupiedError` struct.
+ * Contains the occupied entry, and the value that was not inserted.
  */
 class OccupiedError<K : Comparable<K>, V> internal constructor(
     /** The entry in the map that was already occupied. */
