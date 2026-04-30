@@ -26,10 +26,6 @@ package io.github.kotlinmania.btree
 // }
 // ```
 //
-// `InternalNode` extending `LeafNode` mirrors the upstream `(repr(C))` trick —
-// the upstream cast from `InternalNode` pointer to `LeafNode` pointer is, in
-// Kotlin, the implicit upcast that comes for free with subclassing.
-//
 // A major goal of this module is to avoid complexity by treating the tree as a generic (if
 // weirdly shaped) container and avoiding dealing with most of the B-Tree invariants. As such,
 // this module doesn't care whether the entries are sorted, which nodes can be underfull, or
@@ -51,14 +47,10 @@ private const val EDGE_IDX_LEFT_OF_CENTER: Int = B - 1
 private const val EDGE_IDX_RIGHT_OF_CENTER: Int = B
 
 /**
- * The underlying representation of leaf nodes and part of the representation of internal nodes.
- *
- * The class is `open` so that [InternalNode] can extend it. This mirrors the
- * upstream `(repr(C))` layout where an `InternalNode` begins with a
- * `LeafNode` field and a pointer to the internal can be cast to a pointer
- * to its leaf portion. In Kotlin a Leaf-typed reference is allowed to point
- * at an [InternalNode] instance, and the runtime `height` field
- * disambiguates when it matters.
+ * The underlying representation of leaf nodes and part of the representation
+ * of internal nodes. The class is `open` so that [InternalNode] can extend it;
+ * a Leaf-typed reference is allowed to point at an [InternalNode] instance,
+ * and the runtime `height` field disambiguates when it matters.
  */
 internal open class LeafNode<K, V> {
     /** We want to be covariant in `K` and `V`. */
@@ -82,24 +74,16 @@ internal open class LeafNode<K, V> {
     val vals: Array<Any?> = arrayOfNulls<Any?>(CAPACITY)
 
     companion object {
-        /**
-         * Initializes a new `LeafNode` in-place — in Kotlin this is just the
-         * default constructor, since `parent`, `len`, `keys`, and `vals` are
-         * initialised by the field initialisers above.
-         *
-         * Creates a new `LeafNode`.
-         */
+        /** Creates a new `LeafNode`. */
         fun <K, V> new(): LeafNode<K, V> = LeafNode()
     }
 }
 
 /**
- * The underlying representation of internal nodes. As with `LeafNode`s, these should be hidden
- * behind managed node references to prevent dropping uninitialized keys and values. Any pointer to an
- * `InternalNode` can be directly cast to a pointer to the underlying `LeafNode` portion of the
- * node, allowing code to act on leaf and internal nodes generically without having to even check
- * which of the two a pointer is pointing at. This property is enabled by the import of `repr(C)`
- * upstream; in Kotlin it is enabled by class inheritance ([InternalNode] extends [LeafNode]).
+ * The underlying representation of internal nodes. As with [LeafNode]s, these
+ * should be hidden behind managed node references. Subclassing [LeafNode]
+ * lets code act on leaf and internal nodes generically without having to
+ * check which of the two a reference is pointing at.
  */
 internal class InternalNode<K, V> : LeafNode<K, V>() {
     /**
@@ -179,10 +163,7 @@ internal class NodeRef<BorrowType, K, V, Type> internal constructor(
     companion object {
         // ---- newLeaf / newInternal --------------------------------------
 
-        /**
-         * Mirrors `NodeRef::<Owned, K, V, Leaf>::newLeaf` (upstream node.rs,
-         * line 224). Returns an Owned NodeRef wrapping a freshly allocated leaf.
-         */
+        /** Returns an Owned [NodeRef] wrapping a freshly allocated leaf. */
         fun <K, V> newLeaf(): NodeRef<Marker.Owned, K, V, Marker.Leaf> {
             return fromNewLeaf(LeafNode.new<K, V>())
         }
@@ -195,10 +176,8 @@ internal class NodeRef<BorrowType, K, V, Type> internal constructor(
         fun <K, V> newInternal(
             child: NodeRef<Marker.Owned, K, V, Marker.LeafOrInternal>,
         ): NodeRef<Marker.Owned, K, V, Marker.Internal> {
-            // SAFETY: we set up edges[0] before exposing the node; satisfies InternalNode.new's invariant.
             val newNode = InternalNode.new<K, V>()
             newNode.edges[0] = child.node
-            // NonZero::new(child.height + 1).unwrap() — child.height + 1 is always > 0.
             return fromNewInternal(newNode, child.height + 1)
         }
 
@@ -261,7 +240,7 @@ internal class NodeRef<BorrowType, K, V, Type> internal constructor(
 
     /**
      * Removes any static information asserting that this node is a `Leaf`
-     * (or `Internal`) node. Mirrors both `forgetType` impls in upstream.
+     * (or `Internal`) node.
      */
     fun forgetType(): NodeRef<BorrowType, K, V, Marker.LeafOrInternal> {
         return NodeRef(height = height, node = node)
@@ -273,19 +252,14 @@ internal class NodeRef<BorrowType, K, V, Type> internal constructor(
 // =====================================================================
 
 /**
- * Finds the parent of the current node. Returns the handle if the current
- * node actually has a parent, where `handle` points to the edge of the parent
- * that points to the current node. Returns `null` if the current node has
- * no parent. Upstream's `Result<Ok, Err(self)>` collapses to nullable since
- * `self` is recoverable from the caller's binding (it was passed by value).
+ * Finds the parent of the current node. Returns [AscendResult.Ok] holding a
+ * handle that points to the edge of the parent that points to the current
+ * node, or [AscendResult.Err] holding the current node if it has no parent.
  *
  * The method name assumes you picture trees with the root node on top.
  *
- * `edge.descend().ascend().unwrap()` and `node.ascend().unwrap().descend()` should
- * both, upon success, do nothing.
- *
- * Returns [AscendResult] — `Ok(handle)` on success, `Err(self)` if the
- * current node is the root.
+ * `edge.descend().ascend().unwrap()` and `node.ascend().unwrap().descend()`
+ * should both, upon success, do nothing.
  */
 internal sealed class AscendResult<BorrowType, K, V> {
     data class Ok<BorrowType, K, V>(
@@ -299,10 +273,6 @@ internal sealed class AscendResult<BorrowType, K, V> {
 
 internal fun <BorrowType : Marker.BorrowType, K, V, Type> NodeRef<BorrowType, K, V, Type>.ascend():
     AscendResult<BorrowType, K, V> {
-    // const { assert(BorrowType::TRAVERSAL_PERMIT) } — Kotlin has no compile-time
-    // discrimination on type parameters; the upstream Owned implementation sets
-    // TRAVERSAL_PERMIT = false to forbid traversal. In practice ascend()
-    // is never called on Owned NodeRefs by the rest of the port.
     val parent = node.parent
     return if (parent != null) {
         AscendResult.Ok(
@@ -312,9 +282,6 @@ internal fun <BorrowType : Marker.BorrowType, K, V, Type> NodeRef<BorrowType, K,
             ),
         )
     } else {
-        // The Err branch upstream returns `self`. Because `Type` may be `Leaf`
-        // or `Internal` or `LeafOrInternal`, we widen to `LeafOrInternal` here
-        // for the recovery handle.
         AscendResult.Err(NodeRef(height = height, node = node))
     }
 }
@@ -350,14 +317,7 @@ internal fun <BorrowType : Marker.BorrowType, K, V, Type> NodeRef<BorrowType, K,
     return Handle.newKv(this, len - 1)
 }
 
-/**
- * Generic `keys` accessor — the upstream `public(super) function keys(&self) -> &[K]`
- * is restricted to `Immut`, but Search.kt calls `keys()` on
- * `NodeRef<BorrowType, K, V, Type>` after a `reborrow()`, which yields an
- * `Immut` borrow. We expose this convenience with the same generic
- * BorrowType so Search.kt's `node.reborrow().keys()` resolves identically
- * to upstream.
- */
+/** Returns a read-only view of this node's initialised keys. */
 internal fun <BorrowType : Marker.BorrowType, K, V, Type> NodeRef<BorrowType, K, V, Type>.keys(): List<K> {
     val n = node.len
     return object : AbstractList<K>() {
@@ -408,7 +368,6 @@ internal fun <K, V, Type> NodeRef<Marker.DormantMut, K, V, Type>.awaken():
  */
 internal fun <K, V, Type> NodeRef<Marker.Mut, K, V, Type>.reborrowMut():
     NodeRef<Marker.Mut, K, V, Type> {
-    // SAFETY: caller-enforced uniqueness; upstream requires the same invariant from callers.
     return NodeRef(height = height, node = node)
 }
 
@@ -560,60 +519,37 @@ internal fun <K, V, Type> NodeRef<Marker.Dying, K, V, Type>.asLeafDying(): LeafN
 }
 
 // ---- NodeRef<Mut, ..., Type>: key/val area accessors -------------------
-//
-// Upstream uses `SliceIndex` so a single `keyAreaMut(idx)` /
-// `keyAreaMut(start..end)` / `keyAreaMut(..end)` covers all forms.
-// Kotlin doesn't have a slice-index trait, so we expose three small
-// helpers per area: a single-slot accessor and bulk shift/insert/remove
-// helpers operate directly on the underlying arrays via the
-// `slice_*` free functions below.
 
 /**
- * Writes [value] into the key slot at [idx].
- *
- * # Safety
- * `idx` is in bounds of `0..CAPACITY`.
+ * Writes [value] into the key slot at [idx]. Caller must ensure `idx` is
+ * in bounds of `0..CAPACITY`.
  */
 internal fun <K, V, Type> NodeRef<Marker.Mut, K, V, Type>.writeKeyArea(idx: Int, value: K) {
-    // SAFETY: idx is in 0..CAPACITY by caller contract.
     asLeafMut().keys[idx] = value
 }
 
 /**
- * Writes [value] into the value slot at [idx].
- *
- * # Safety
- * `idx` is in bounds of `0..CAPACITY`.
+ * Writes [value] into the value slot at [idx]. Caller must ensure `idx` is
+ * in bounds of `0..CAPACITY`.
  */
 internal fun <K, V, Type> NodeRef<Marker.Mut, K, V, Type>.writeValArea(idx: Int, value: V) {
-    // SAFETY: idx is in 0..CAPACITY by caller contract.
     asLeafMut().vals[idx] = value
 }
 
 /**
- * Reads (and conceptually moves out of) the key slot at [idx].
- *
- * Mirrors `keyAreaMut(idx).assumeInitRead()`. In Kotlin the slot is
- * not nulled out (GC will reclaim once no longer reachable from `len`-area
- * scope), but the caller treats the slot as logically uninitialised.
- *
- * # Safety
- * `idx` is in bounds of `0..len`, slot is initialised.
+ * Reads (and conceptually moves out of) the key slot at [idx]. Caller must
+ * ensure `idx` is in bounds of `0..len` and the slot is initialised.
  */
 internal fun <K, V, Type> NodeRef<Marker.Mut, K, V, Type>.readKeyArea(idx: Int): K {
-    // SAFETY: caller ensures idx < len so slot is initialised.
     return asLeafMut().keys[idx] as K
 }
 internal fun <K, V, Type> NodeRef<Marker.Mut, K, V, Type>.readValArea(idx: Int): V {
-    // SAFETY: caller ensures idx < len so slot is initialised.
     return asLeafMut().vals[idx] as V
 }
 
 /**
- * Writes [edge] into the edge slot at [idx]. Internal-node only.
- *
- * # Safety
- * `idx` is in bounds of `0..CAPACITY + 1`.
+ * Writes [edge] into the edge slot at [idx]. Internal-node only. Caller must
+ * ensure `idx` is in bounds of `0..CAPACITY + 1`.
  */
 internal fun <K, V> NodeRef<Marker.Mut, K, V, Marker.Internal>.writeEdgeArea(
     idx: Int,
@@ -693,12 +629,10 @@ internal fun <K, V> NodeRef<Marker.Mut, K, V, Marker.Leaf>.pushWithHandle(
 }
 
 /**
- * Adds a key-value pair to the end of the node, and returns
- * the (newly-inserted) value. Upstream returns `*mut V`; we return the
- * value the caller passed in, since GC keeps it reachable through the node.
+ * Adds a key-value pair to the end of the node, and returns the
+ * newly-inserted value.
  */
 internal fun <K, V> NodeRef<Marker.Mut, K, V, Marker.Leaf>.push(key: K, value: V): V {
-    // SAFETY: The unbound handle is no longer accessible.
     val handle = this.pushWithHandle(key, value)
     return handle.intoValMut()
 }
@@ -784,28 +718,28 @@ internal class Handle<Node, Type> internal constructor(
         // ---- KV constructors ------------------------------------------------
 
         /**
-         * Creates a new handle to a key-value pair in `node`.
-         * Unsafe upstream because the caller must ensure that `idx < node.len()`.
+         * Creates a new handle to a key-value pair in `node`. Caller must
+         * ensure `idx < node.len()`.
          */
         fun <BorrowType, K, V, NodeType> newKv(
             node: NodeRef<BorrowType, K, V, NodeType>,
             idx: Int,
         ): Handle<NodeRef<BorrowType, K, V, NodeType>, Marker.KV> {
-            check(idx < node.len()) // debugAssert(idx < node.len())
+            check(idx < node.len())
             return Handle(node, idx)
         }
 
         // ---- Edge constructors ----------------------------------------------
 
         /**
-         * Creates a new handle to an edge in `node`.
-         * Unsafe upstream because the caller must ensure that `idx <= node.len()`.
+         * Creates a new handle to an edge in `node`. Caller must ensure
+         * `idx <= node.len()`.
          */
         fun <BorrowType, K, V, NodeType> newEdge(
             node: NodeRef<BorrowType, K, V, NodeType>,
             idx: Int,
         ): Handle<NodeRef<BorrowType, K, V, NodeType>, Marker.Edge> {
-            check(idx <= node.len()) // debugAssert(idx <= node.len())
+            check(idx <= node.len())
             return Handle(node, idx)
         }
     }
@@ -824,10 +758,9 @@ internal fun <BorrowType, K, V, NodeType> Handle<NodeRef<BorrowType, K, V, NodeT
 }
 
 /**
- * Structural equality for handles. Upstream is `implementation PartialEq` on
- * `Handle<NodeRef<...>, ...>`. We expose this as an extension function
- * rather than overriding [Object.equals] so we don't impose equality on
- * generic [Handle] (whose `Node` may not itself be a [NodeRef]).
+ * Structural equality for handles. Exposed as an extension function rather
+ * than [Any.equals] so equality isn't imposed on generic [Handle]s whose
+ * `Node` may not itself be a [NodeRef].
  */
 internal fun <BorrowType, K, V, NodeType, HandleType>
 Handle<NodeRef<BorrowType, K, V, NodeType>, HandleType>.structuralEq(
@@ -847,7 +780,6 @@ Handle<NodeRef<BorrowType, K, V, NodeType>, HandleType>.reborrow():
 internal fun <K, V, NodeType, HandleType>
 Handle<NodeRef<Marker.Mut, K, V, NodeType>, HandleType>.reborrowMut():
     Handle<NodeRef<Marker.Mut, K, V, NodeType>, HandleType> {
-    // SAFETY: caller-enforced uniqueness, mirrors NodeRef.reborrowMut.
     return Handle(node.reborrowMut(), idx)
 }
 
@@ -866,8 +798,9 @@ Handle<NodeRef<Marker.DormantMut, K, V, NodeType>, HandleType>.awaken():
 // ---- Handle Edge: leftKv / rightKv ------------------------------------
 
 /**
- * Upstream returns `Result<Handle<..., KV>, Self>`. We translate as a sealed
- * class wrapper similar to [AscendResult].
+ * Result of [Handle.leftKv] / [Handle.rightKv]: either the requested KV
+ * handle (`Ok`), or the original edge handle (`Err`) if the edge is at the
+ * extreme of the node and there is no neighbour KV in that direction.
  */
 internal sealed class EdgeKvResult<BorrowType, K, V, NodeType> {
     data class Ok<BorrowType, K, V, NodeType>(
@@ -1201,18 +1134,13 @@ internal fun <K, V, NodeType> Handle<NodeRef<Marker.ValMut, K, V, NodeType>, Mar
 // =====================================================================
 
 /**
- * Extracts the key and value that the KV handle refers to.
- *
- * Naming: upstream is `intoKeyVal` already (no `dying_` prefix to drop).
- *
- * # Safety
- * The node that the handle refers to must not yet have been deallocated.
+ * Extracts the key and value that the KV handle refers to. The node that
+ * the handle refers to must not yet have been deallocated.
  */
 internal fun <K, V, NodeType> Handle<NodeRef<Marker.Dying, K, V, NodeType>, Marker.KV>.intoKeyVal():
     Pair<K, V> {
-    check(idx < node.len()) // debugAssert(self.idx < self.node.len())
+    check(idx < node.len())
     val leaf = node.asLeafDying()
-    // SAFETY: idx < len, slots initialised.
     val key = leaf.keys[idx] as K
     val v = leaf.vals[idx] as V
     return Pair(key, v)
@@ -1356,9 +1284,6 @@ internal fun <K, V> Handle<NodeRef<Marker.Mut, K, V, Marker.Internal>, Marker.KV
  * the KV immediately to the left or to the right in the parent node.
  * Returns an `Err` if there is no parent.
  * Panics if the parent is empty.
- *
- * Translation: upstream returns `Result<LeftOrRight<BalancingContext>, Self>`.
- * We model with a sealed result type analogous to [AscendResult].
  */
 internal sealed class ChooseParentKvResult<K, V> {
     data class Ok<K, V>(val context: LeftOrRight<BalancingContext<K, V>>) : ChooseParentKvResult<K, V>()
@@ -1865,12 +1790,7 @@ internal fun <K, V> SplitResult<K, V, Marker.Internal>.forgetNodeTypeInternal():
 // Marker namespace
 // =====================================================================
 
-/**
- * Phantom-type tag namespace. Mirrors `public(super) mod marker` upstream.
- *
- * The Rust types are `enum`s with no variants (uninhabited zero-sized
- * markers); we render them as empty Kotlin classes.
- */
+/** Phantom-type tag namespace, exposing marker classes used as type parameters. */
 internal object Marker {
     /** Marker for nodes that are statically known to be leaves. */
     class Leaf private constructor()
@@ -1908,9 +1828,8 @@ internal object Marker {
     class Edge private constructor()
 
     /**
-     * Constraint trait for the `BorrowType` parameter. Mirrors upstream
-     * `marker::BorrowType`, including its `TRAVERSAL_PERMIT` constant
-     * (rendered as an instance property).
+     * Constraint type for the `BorrowType` parameter, with its
+     * `traversalPermit` flag exposed as an instance property.
      */
     interface BorrowType {
         val traversalPermit: Boolean get() = true
