@@ -1,4 +1,4 @@
-// port-lint: source library/alloc/src/collections/btree/remove.rs
+// port-lint: source remove.rs
 // Derived from the Rust standard library (rust-lang/rust),
 // copyright The Rust Project Developers, dual-licensed Apache-2.0 / MIT.
 package io.github.kotlinmania.btree

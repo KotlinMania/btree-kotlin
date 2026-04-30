@@ -1,32 +1,36 @@
-// port-lint: source library/alloc/src/collections/btree/merge_iter.rs
+// port-lint: source merge_iter.rs
 // Derived from the Rust standard library (rust-lang/rust),
 // copyright The Rust Project Developers, dual-licensed Apache-2.0 / MIT.
 package io.github.kotlinmania.btree
+
+/**
+ * Benchmarks faster than wrapping both iterators in a Peekable,
+ * probably because we can afford to impose a FusedIterator bound.
+ */
+internal sealed class Peeked<out T> {
+    data class A<out T>(val item: T) : Peeked<T>()
+    data class B<out T>(val item: T) : Peeked<T>()
+}
 
 /**
  * Core of an iterator that merges the output of two strictly ascending iterators,
  * for instance a union or a symmetric difference.
  */
 internal class MergeIterInner<T>(
-    private val a: Iterator<T>,
-    private val b: Iterator<T>,
+    private val a: BTreeSet.Iter<T>,
+    private val b: BTreeSet.Iter<T>,
 ) {
     private var peeked: Peeked<T>? = null
 
-    /**
-     * Benchmarks faster than wrapping both iterators in a Peekable,
-     * probably because we can afford to impose a FusedIterator bound.
-     */
-    internal sealed class Peeked<out T> {
-        data class A<out T>(val item: T) : Peeked<T>()
-        data class B<out T>(val item: T) : Peeked<T>()
-    }
-
     companion object {
         /** Creates a new core for an iterator merging a pair of sources. */
-        internal fun <T> new(a: Iterator<T>, b: Iterator<T>): MergeIterInner<T> {
+        internal fun <T> new(a: BTreeSet.Iter<T>, b: BTreeSet.Iter<T>): MergeIterInner<T> {
             return MergeIterInner(a, b)
         }
+    }
+
+    override fun toString(): String {
+        return "MergeIterInner(a=$a, b=$b, peeked=$peeked)"
     }
 
     /**
@@ -76,16 +80,10 @@ internal class MergeIterInner<T>(
         return Pair(aNext, bNext)
     }
 
-    /** Returns a pair of upper bounds for the `sizeHint` of the final iterator. */
-    internal fun lens(aLen: Int, bLen: Int): Pair<Int, Int> = when (peeked) {
-        is Peeked.A -> Pair(1 + aLen, bLen)
-        is Peeked.B -> Pair(aLen, 1 + bLen)
-        null -> Pair(aLen, bLen)
-    }
-}
-
-private object DebugForMergeIterInner {
-    fun fmt(self: MergeIterInner<*>, f: StringBuilder) {
-        f.append("MergeIterInner(").append(self).append(")")
+    /** Returns a pair of upper bounds for the size hint of the final iterator. */
+    internal fun lens(): Pair<Int, Int> = when (peeked) {
+        is Peeked.A -> Pair(1 + a.len(), b.len())
+        is Peeked.B -> Pair(a.len(), 1 + b.len())
+        null -> Pair(a.len(), b.len())
     }
 }

@@ -1,4 +1,4 @@
-// port-lint: source library/alloc/src/collections/btree/navigate.rs
+// port-lint: source navigate.rs
 // Derived from the Rust standard library (rust-lang/rust),
 // copyright The Rust Project Developers, dual-licensed Apache-2.0 / MIT.
 package io.github.kotlinmania.btree
@@ -10,7 +10,7 @@ package io.github.kotlinmania.btree
 // LeafRange
 // ============================================================================
 
-// `front` and `back` are always both `null` or both non-null.
+// `front` and `back` are always both `None` or both `Some`.
 internal class LeafRange<BorrowType, K, V>(
     var front: Handle<NodeRef<BorrowType, K, V, Marker.Leaf>, Marker.Edge>?,
     var back: Handle<NodeRef<BorrowType, K, V, Marker.Leaf>, Marker.Edge>?,
@@ -23,10 +23,9 @@ internal class LeafRange<BorrowType, K, V>(
             LeafRange(front = null, back = null)
     }
 
-    // Cloning of immutable ranges is omitted: Kotlin Iterator-shaped types
-    // are not generally cloneable, and consumers of this port don't fork
-    // ranges. The two equivalent immutable handles can be reconstructed via
-    // [reborrow].
+    internal fun clone(): LeafRange<BorrowType, K, V> {
+        return LeafRange(front, back)
+    }
 
     private fun isEmpty(): Boolean {
         // self.front == self.back  — uses Handle::structuralEq.
@@ -54,12 +53,12 @@ internal class LeafRange<BorrowType, K, V>(
     /**
      * Call this only when the underlying borrow type is [Marker.Immut].
      */
-    internal fun nextCheckedImmut(): Pair<K, V>? {
+    internal fun nextChecked(): Pair<K, V>? {
         val self = this as LeafRange<Marker.Immut, K, V>
         return self.performNextChecked { kv -> kv.intoKv() }
     }
 
-    internal fun nextBackCheckedImmut(): Pair<K, V>? {
+    internal fun nextBackChecked(): Pair<K, V>? {
         val self = this as LeafRange<Marker.Immut, K, V>
         return self.performNextBackChecked { kv -> kv.intoKv() }
     }
@@ -84,11 +83,10 @@ internal class LeafRange<BorrowType, K, V>(
 /**
  * If possible, extract some result from the following KV and move to the edge beyond it.
  */
-private inline fun <BorrowType : Marker.BorrowType, K, V, R> LeafRange<BorrowType, K, V>.performNextChecked(
+private fun <BorrowType : Marker.BorrowType, K, V, R> LeafRange<BorrowType, K, V>.performNextChecked(
     f: (Handle<NodeRef<BorrowType, K, V, Marker.LeafOrInternal>, Marker.KV>) -> R,
 ): R? {
     if (isEmptyInternal()) return null
-    // mem::replace(self.front.asMut().unwrap(), |front| { ... })
     val frontVal = front!!
     val (newFront, result) = replace(frontVal) { fr ->
         val kv = when (val r = fr.nextKv()) {
@@ -105,7 +103,7 @@ private inline fun <BorrowType : Marker.BorrowType, K, V, R> LeafRange<BorrowTyp
 /**
  * If possible, extract some result from the preceding KV and move to the edge beyond it.
  */
-private inline fun <BorrowType : Marker.BorrowType, K, V, R> LeafRange<BorrowType, K, V>.performNextBackChecked(
+private fun <BorrowType : Marker.BorrowType, K, V, R> LeafRange<BorrowType, K, V>.performNextBackChecked(
     f: (Handle<NodeRef<BorrowType, K, V, Marker.LeafOrInternal>, Marker.KV>) -> R,
 ): R? {
     if (isEmptyInternal()) return null
@@ -152,8 +150,12 @@ internal sealed class LazyLeafHandle<BorrowType, K, V> {
         val edge: Handle<NodeRef<BorrowType, K, V, Marker.Leaf>, Marker.Edge>,
     ) : LazyLeafHandle<BorrowType, K, V>()
 
-    // Cloning is implicit: data class generates structural equality and
-    // copying a NodeRef or Handle is just copying the reference.
+    internal fun clone(): LazyLeafHandle<BorrowType, K, V> {
+        return when (this) {
+            is Root -> Root(node)
+            is Edge -> Edge(edge)
+        }
+    }
 }
 
 internal fun <BorrowType, K, V> LazyLeafHandle<BorrowType, K, V>.reborrow():
@@ -166,7 +168,7 @@ internal fun <BorrowType, K, V> LazyLeafHandle<BorrowType, K, V>.reborrow():
 // LazyLeafRange
 // ============================================================================
 
-// `front` and `back` are always both `null` or both non-null.
+// `front` and `back` are always both `None` or both `Some`.
 internal class LazyLeafRange<BorrowType, K, V>(
     var front: LazyLeafHandle<BorrowType, K, V>?,
     var back: LazyLeafHandle<BorrowType, K, V>?,
@@ -179,7 +181,9 @@ internal class LazyLeafRange<BorrowType, K, V>(
             LazyLeafRange(front = null, back = null)
     }
 
-    // Cloning omitted — see [LeafRange] for the rationale.
+    internal fun clone(): LazyLeafRange<BorrowType, K, V> {
+        return LazyLeafRange(front?.clone(), back?.clone())
+    }
 
     /** Temporarily takes out another, immutable equivalent of the same range. */
     internal fun reborrow(): LazyLeafRange<Marker.Immut, K, V> {
@@ -196,19 +200,19 @@ internal class LazyLeafRange<BorrowType, K, V>(
     /**
      * SAFETY: There must be another KV in the direction travelled.
      */
-    internal fun nextUncheckedImmut(): Pair<K, V> {
+    internal fun nextUnchecked(): Pair<K, V> {
         val self = this as LazyLeafRange<Marker.Immut, K, V>
         // SAFETY: caller-enforced precondition guarantees initFront() returns non-null.
         val edge = self.initFront()!!
-        val (newEdge, kv) = edge.nextUncheckedImmut()
+        val (newEdge, kv) = edge.nextUnchecked()
         self.front = LazyLeafHandle.Edge(newEdge)
         return kv
     }
 
-    internal fun nextBackUncheckedImmut(): Pair<K, V> {
+    internal fun nextBackUnchecked(): Pair<K, V> {
         val self = this as LazyLeafRange<Marker.Immut, K, V>
         val edge = self.initBack()!!
-        val (newEdge, kv) = edge.nextBackUncheckedImmut()
+        val (newEdge, kv) = edge.nextBackUnchecked()
         self.back = LazyLeafHandle.Edge(newEdge)
         return kv
     }
@@ -295,7 +299,6 @@ internal fun <BorrowType : Marker.BorrowType, K, V> LazyLeafRange<BorrowType, K,
     Handle<NodeRef<BorrowType, K, V, Marker.Leaf>, Marker.Edge>? {
     val current = front
     if (current is LazyLeafHandle.Root) {
-        // SAFETY: ptr::read(root) — Kotlin uses the reference directly.
         front = LazyLeafHandle.Edge(current.node.firstLeafEdge())
     }
     return when (val f = front) {
@@ -310,7 +313,6 @@ internal fun <BorrowType : Marker.BorrowType, K, V> LazyLeafRange<BorrowType, K,
     Handle<NodeRef<BorrowType, K, V, Marker.Leaf>, Marker.Edge>? {
     val current = back
     if (current is LazyLeafHandle.Root) {
-        // SAFETY: ptr::read(root) — Kotlin uses the reference directly.
         back = LazyLeafHandle.Edge(current.node.lastLeafEdge())
     }
     return when (val b = back) {
@@ -357,7 +359,6 @@ internal fun <BorrowType : Marker.BorrowType, K, V, Q : Comparable<Q>, R : Range
         is BifurcationResult.LeafEdge -> return LeafRange.none()
         is BifurcationResult.Ok -> {
             val bif = r.value
-            // SAFETY: ptr::read(&node) — Kotlin uses the reference directly.
             var lowerEdge: Handle<NodeRef<BorrowType, K, V, Marker.LeafOrInternal>, Marker.Edge> =
                 Handle.newEdge(bif.node, bif.lowerEdgeIdx)
             var upperEdge: Handle<NodeRef<BorrowType, K, V, Marker.LeafOrInternal>, Marker.Edge> =
@@ -415,7 +416,7 @@ internal fun <BorrowType : Marker.BorrowType, K, V> fullRange(
  * The result is meaningful only if the tree is ordered by key.
  */
 internal inline fun <K, reified V, Q : Comparable<Q>, R : RangeBounds<Q>>
-    NodeRef<Marker.Immut, K, V, Marker.LeafOrInternal>.rangeSearchImmut(
+    NodeRef<Marker.Immut, K, V, Marker.LeafOrInternal>.rangeSearch(
     range: R,
 ): LeafRange<Marker.Immut, K, V> where K : Comparable<Q> {
     // SAFETY: our borrow type is immutable.
@@ -424,7 +425,7 @@ internal inline fun <K, reified V, Q : Comparable<Q>, R : RangeBounds<Q>>
 
 /** Explicit-`isSet` variant of [rangeSearchImmut] for non-reified callers. */
 internal fun <K, V, Q : Comparable<Q>, R : RangeBounds<Q>>
-    NodeRef<Marker.Immut, K, V, Marker.LeafOrInternal>.rangeSearchImmutExplicit(
+    NodeRef<Marker.Immut, K, V, Marker.LeafOrInternal>.rangeSearch(
     range: R,
     isSet: Boolean,
 ): LeafRange<Marker.Immut, K, V> where K : Comparable<Q> {
@@ -476,7 +477,6 @@ internal fun <K, V> NodeRef<Marker.ValMut, K, V, Marker.LeafOrInternal>.fullRang
     LazyLeafRange<Marker.ValMut, K, V> {
     // We duplicate the root NodeRef here -- we will never visit the same KV
     // twice, and never end up with overlapping value references.
-    // SAFETY: ptr::read(&self) — Kotlin reference copy.
     val self2 = NodeRef<Marker.ValMut, K, V, Marker.LeafOrInternal>(height = height, node = node)
     return fullRange(this, self2)
 }
@@ -494,7 +494,6 @@ internal fun <K, V> NodeRef<Marker.Dying, K, V, Marker.LeafOrInternal>.fullRange
     LazyLeafRange<Marker.Dying, K, V> {
     // We duplicate the root NodeRef here -- we will never access it in a way
     // that overlaps references obtained from the root.
-    // SAFETY: ptr::read(&self) — Kotlin reference copy.
     val self2 = NodeRef<Marker.Dying, K, V, Marker.LeafOrInternal>(height = height, node = node)
     return fullRange(this, self2)
 }
@@ -577,10 +576,6 @@ internal sealed class NextKvInternalResult<BorrowType, K, V> {
 /**
  * Given an internal edge handle, returns Ok with a handle to the neighboring KV
  * on the right side, which is either in the same internal node or in an ancestor node.
- *
- * Renamed to [nextKvInternal] because Kotlin extension-function overload
- * resolution rejects same-name extensions whose receivers differ only by the
- * [Marker.Leaf] vs [Marker.Internal] type argument.
  */
 internal fun <BorrowType : Marker.BorrowType, K, V>
     Handle<NodeRef<BorrowType, K, V, Marker.Internal>, Marker.Edge>.nextKvInternal():
@@ -640,7 +635,6 @@ internal fun <K, V>
         edge = when (val rk = edge.rightKv()) {
             is EdgeKvResult.Ok -> {
                 val kv = rk.handle
-                // SAFETY: ptr::read(&kv) — Kotlin reference reuse; GC keeps `kv` alive.
                 return Pair(kv.nextLeafEdge(), kv)
             }
             is EdgeKvResult.Err -> {
@@ -669,7 +663,6 @@ internal fun <K, V>
         edge = when (val lk = edge.leftKv()) {
             is EdgeKvResult.Ok -> {
                 val kv = lk.handle
-                // SAFETY: ptr::read(&kv) — Kotlin reference reuse; GC keeps `kv` alive.
                 return Pair(kv.nextBackLeafEdge(), kv)
             }
             is EdgeKvResult.Err -> {
@@ -715,7 +708,7 @@ internal fun <K, V>
  * SAFETY: There must be another KV in the direction travelled.
  */
 internal fun <K, V>
-    Handle<NodeRef<Marker.Immut, K, V, Marker.Leaf>, Marker.Edge>.nextUncheckedImmut():
+    Handle<NodeRef<Marker.Immut, K, V, Marker.Leaf>, Marker.Edge>.nextUnchecked():
     Pair<Handle<NodeRef<Marker.Immut, K, V, Marker.Leaf>, Marker.Edge>, Pair<K, V>> {
     val (newEdge, kvRef) = replace(this) { leafEdge ->
         val kv = when (val r = leafEdge.nextKv()) {
@@ -727,9 +720,9 @@ internal fun <K, V>
     return Pair(newEdge, kvRef.intoKv())
 }
 
-/** Mirror of [nextUncheckedImmut] for the previous leaf edge. */
+/** Mirror of [nextUnchecked] for the previous leaf edge. */
 internal fun <K, V>
-    Handle<NodeRef<Marker.Immut, K, V, Marker.Leaf>, Marker.Edge>.nextBackUncheckedImmut():
+    Handle<NodeRef<Marker.Immut, K, V, Marker.Leaf>, Marker.Edge>.nextBackUnchecked():
     Pair<Handle<NodeRef<Marker.Immut, K, V, Marker.Leaf>, Marker.Edge>, Pair<K, V>> {
     val (newEdge, kvRef) = replace(this) { leafEdge ->
         val kv = when (val r = leafEdge.nextBackKv()) {
@@ -760,7 +753,6 @@ internal fun <K, V>
             is NextKvResult.Ok -> r.handle
             is NextKvResult.Err -> error("unreachable: caller-asserted there is another KV")
         }
-        // SAFETY: ptr::read(&kv) — Kotlin uses the reference directly.
         Pair(kv.nextLeafEdge(), kv)
     }
     // Doing this last is faster, according to benchmarks.
@@ -776,7 +768,6 @@ internal fun <K, V>
             is NextKvResult.Ok -> r.handle
             is NextKvResult.Err -> error("unreachable: caller-asserted there is another KV")
         }
-        // SAFETY: ptr::read(&kv) — Kotlin uses the reference directly.
         Pair(kv.nextBackLeafEdge(), kv)
     }
     // Doing this last is faster, according to benchmarks.

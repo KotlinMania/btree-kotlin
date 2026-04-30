@@ -1,7 +1,8 @@
-// port-lint: source library/alloc/src/collections/btree/set.rs
+// port-lint: source set.rs
 // Derived from the Rust standard library (rust-lang/rust),
 // copyright The Rust Project Developers, dual-licensed Apache-2.0 / MIT.
 package io.github.kotlinmania.btree
+
 // Cross-iterator state machines:
 //   - `DifferenceInner` / `IntersectionInner` translate as private sealed
 //     classes (`Stitch` / `Search` / `Iterate` / `Answer`).
@@ -95,6 +96,8 @@ class BTreeSet<T : Comparable<T>> : MutableSet<T> {
          */
         fun <T : Comparable<T>> of(vararg values: T): BTreeSet<T> = fromIterable(values.asIterable())
 
+        fun <T : Comparable<T>> from(vararg values: T): BTreeSet<T> = fromIterable(values.asIterable())
+
         /**
          * Mirrors upstream `function fromSortedIter` (private to the `Ord` implementation
          * block). Kept internal because callers are the factory methods
@@ -120,6 +123,8 @@ class BTreeSet<T : Comparable<T>> : MutableSet<T> {
      *   and end are equal and both excluded.
      */
     fun range(range: RangeBounds<T>): Range<T> = Range(map.range(range))
+
+    fun range(range: RangeFull): Range<T> = Range(map.range(range))
 
     /**
      * Visits the elements representing the difference, i.e., the elements
@@ -335,13 +340,43 @@ class BTreeSet<T : Comparable<T>> : MutableSet<T> {
      * Inserts the given [value] into the set if it is not present, then
      * returns the value in the set.
      */
-    fun getOrInsert(value: T): T = map.getOrInsertWithSetVal(value) { it }
+    fun getOrInsert(value: T): T = map.getOrInsertWith(value) { it }
 
     /**
      * Inserts a value computed from [f] into the set if the given [value] is
      * not present, then returns the value in the set.
      */
-    fun getOrInsertWith(value: T, f: (T) -> T): T = map.getOrInsertWithSetVal(value, f)
+    fun getOrInsertWith(value: T, f: (T) -> T): T = map.getOrInsertWith(value, f)
+
+    /**
+     * Gets the given value's corresponding entry in the set for in-place manipulation.
+     */
+    fun entry(value: T): SetEntry<T> = when (val e = map.entry(value)) {
+        is io.github.kotlinmania.btree.Entry.Occupied -> SetEntry.Occupied(SetOccupiedEntry(e.entry))
+        is io.github.kotlinmania.btree.Entry.Vacant -> SetEntry.Vacant(SetVacantEntry(e.entry))
+    }
+
+    // ---- sub / bitxor / bitand / bitor --------------------------------------
+
+    fun sub(rhs: BTreeSet<T>): BTreeSet<T> {
+        val diffIter = this.difference(rhs).asSequence().toList().iterator()
+        return BTreeSet.fromSortedIter(diffIter)
+    }
+
+    fun bitxor(rhs: BTreeSet<T>): BTreeSet<T> {
+        val symDiffIter = this.symmetricDifference(rhs).asSequence().toList().iterator()
+        return BTreeSet.fromSortedIter(symDiffIter)
+    }
+
+    fun bitand(rhs: BTreeSet<T>): BTreeSet<T> {
+        val intersectionIter = this.intersection(rhs).asSequence().toList().iterator()
+        return BTreeSet.fromSortedIter(intersectionIter)
+    }
+
+    fun bitor(rhs: BTreeSet<T>): BTreeSet<T> {
+        val unionIter = this.union(rhs).asSequence().toList().iterator()
+        return BTreeSet.fromSortedIter(unionIter)
+    }
 
     // ---- remove / take / retain / append / splitOff / extractIf -----------
 
@@ -393,6 +428,11 @@ class BTreeSet<T : Comparable<T>> : MutableSet<T> {
         return ExtractIf(mapExtract)
     }
 
+    fun extractIf(range: RangeFull, pred: (T) -> Boolean): ExtractIf<T> {
+        val mapExtract = map.extractIf(range) { k, _ -> pred(k) }
+        return ExtractIf(mapExtract)
+    }
+
     // ---- iter / len / isEmpty -----------------------------------------------
 
     /**
@@ -400,6 +440,8 @@ class BTreeSet<T : Comparable<T>> : MutableSet<T> {
      * ascending order.
      */
     fun iter(): Iter<T> = Iter(map.iter())
+
+    fun intoIter(): IntoIter<T> = IntoIter(map.intoIter())
 
     /** Returns the number of elements in the set. */
     fun len(): Int = map.size
@@ -414,6 +456,13 @@ class BTreeSet<T : Comparable<T>> : MutableSet<T> {
     /** Inserts a single value into this set. */
     fun extendOne(value: T) {
         insert(value)
+    }
+
+    fun clone(): BTreeSet<T> = fromSortedIter(iter().asSequence().toList().iterator())
+
+    fun cloneFrom(source: BTreeSet<T>) {
+        clear()
+        extend(source.iter().asSequence().toList())
     }
 
     /** Returns `true` if the set contains no elements. */
@@ -498,6 +547,26 @@ class BTreeSet<T : Comparable<T>> : MutableSet<T> {
         return map.hashCode()
     }
 
+    fun hash(): Int = hashCode()
+
+    fun eq(other: BTreeSet<T>): Boolean = this == other
+
+    fun partialCmp(other: BTreeSet<T>): Int = cmp(other)
+
+    fun cmp(other: BTreeSet<T>): Int {
+        val left = iter()
+        val right = other.iter()
+        while (left.hasNext() && right.hasNext()) {
+            val order = left.next().compareTo(right.next())
+            if (order != 0) return order
+        }
+        return when {
+            left.hasNext() -> 1
+            right.hasNext() -> -1
+            else -> 0
+        }
+    }
+
     override fun toString(): String {
         // Upstream `fmt::Debug` renders as `f.debugSet().entries(self.iter()).finish()`.
         val sb = StringBuilder("{")
@@ -535,6 +604,14 @@ class BTreeSet<T : Comparable<T>> : MutableSet<T> {
         /** Mirrors `ExactSizeIterator::len`. */
         fun len(): Int = inner.len()
 
+        fun sizeHint(): Pair<Int, Int?> = inner.sizeHint()
+
+        fun last(): T? = nextBack()
+
+        fun min(): T? = if (hasNext()) next() else null
+
+        fun max(): T? = nextBack()
+
         override fun toString(): String = "Iter(${inner})"
     }
 
@@ -554,6 +631,17 @@ class BTreeSet<T : Comparable<T>> : MutableSet<T> {
         /** Mirrors `ExactSizeIterator::len`. */
         fun len(): Int = inner.len()
 
+        fun sizeHint(): Pair<Int, Int?> = inner.sizeHint()
+
+        /** Mirrors `Iterator::last`: consume the iterator and return the last element. */
+        fun last(): T? = nextBack()
+
+        /** Mirrors `Iterator::min` overridden for sorted iterators: O(1) via `next()`. */
+        fun min(): T? = if (hasNext()) next() else null
+
+        /** Mirrors `Iterator::max` overridden for sorted iterators: O(1) via `nextBack()`. */
+        fun max(): T? = nextBack()
+
         override fun toString(): String = "IntoIter(${inner})"
     }
 
@@ -569,6 +657,14 @@ class BTreeSet<T : Comparable<T>> : MutableSet<T> {
 
         /** Mirrors `DoubleEndedIterator::nextBack`. */
         fun nextBack(): T? = inner.nextBack()?.key
+
+        fun sizeHint(): Pair<Int, Int?> = Pair(0, null)
+
+        fun last(): T? = nextBack()
+
+        fun min(): T? = if (hasNext()) next() else null
+
+        fun max(): T? = nextBack()
 
         override fun toString(): String = "Range(${inner})"
     }
@@ -629,6 +725,17 @@ class BTreeSet<T : Comparable<T>> : MutableSet<T> {
             return out
         }
 
+        fun min(): T? = if (hasNext()) next() else null
+
+        fun sizeHint(): Pair<Int, Int?> {
+            val (selfLen, otherLen) = when (val inner = inner) {
+                is DifferenceInner.Stitch -> Pair(inner.selfIter.len(), inner.otherIter.len())
+                is DifferenceInner.Search -> Pair(inner.selfIter.len(), inner.otherSet.len())
+                is DifferenceInner.Iterate -> Pair(inner.iter.len(), 0)
+            }
+            return Pair((selfLen - otherLen).coerceAtLeast(0), selfLen)
+        }
+
         override fun toString(): String = "Difference($inner)"
     }
 
@@ -661,6 +768,13 @@ class BTreeSet<T : Comparable<T>> : MutableSet<T> {
             pending = null
             primed = false
             return out
+        }
+
+        fun min(): T? = if (hasNext()) next() else null
+
+        fun sizeHint(): Pair<Int, Int?> {
+            val (aLen, bLen) = inner.lens()
+            return Pair(0, aLen + bLen)
         }
 
         override fun toString(): String = "SymmetricDifference($inner)"
@@ -718,6 +832,14 @@ class BTreeSet<T : Comparable<T>> : MutableSet<T> {
             return out
         }
 
+        fun min(): T? = if (hasNext()) next() else null
+
+        fun sizeHint(): Pair<Int, Int?> = when (val inner = inner) {
+            is IntersectionInner.Stitch -> Pair(0, minOf(inner.a.len(), inner.b.len()))
+            is IntersectionInner.Search -> Pair(0, inner.smallIter.len())
+            is IntersectionInner.Answer -> Pair(if (inner.value == null) 0 else 1, if (inner.value == null) 0 else 1)
+        }
+
         override fun toString(): String = "Intersection($inner)"
     }
 
@@ -748,6 +870,13 @@ class BTreeSet<T : Comparable<T>> : MutableSet<T> {
             return out
         }
 
+        fun min(): T? = if (hasNext()) next() else null
+
+        fun sizeHint(): Pair<Int, Int?> {
+            val (aLen, bLen) = inner.lens()
+            return Pair(maxOf(aLen, bLen), aLen + bLen)
+        }
+
         override fun toString(): String = "Union($inner)"
     }
 
@@ -760,6 +889,8 @@ class BTreeSet<T : Comparable<T>> : MutableSet<T> {
     ) : Iterator<T> {
         override fun hasNext(): Boolean = inner.hasNext()
         override fun next(): T = inner.next().first
+
+        fun sizeHint(): Pair<Int, Int?> = inner.sizeHint()
 
         override fun toString(): String = "ExtractIf(${inner})"
     }
@@ -1001,4 +1132,37 @@ private fun <T> BTreeSet.Iter<T>.advance(): T? = if (hasNext()) next() else null
 private fun <T> unboundedSet(): RangeBounds<T> = object : RangeBounds<T> {
     override fun startBound(): Bound<T> = Bound.Unbounded
     override fun endBound(): Bound<T> = Bound.Unbounded
+}
+/**
+ * A view into a single entry in a set, which may either be vacant or occupied.
+ *
+ * This `enum` is constructed from the [`BTreeSet.entry`] method.
+ */
+sealed class SetEntry<T : Comparable<T>> {
+    /** A view into an occupied entry in a `BTreeSet`. */
+    class Occupied<T : Comparable<T>>(val entry: SetOccupiedEntry<T>) : SetEntry<T>()
+
+    /** A view into a vacant entry in a `BTreeSet`. */
+    class Vacant<T : Comparable<T>>(val entry: SetVacantEntry<T>) : SetEntry<T>()
+
+    fun get(): T = when (this) {
+        is Occupied -> entry.get()
+        is Vacant -> entry.get()
+    }
+}
+
+class SetOccupiedEntry<T : Comparable<T>> internal constructor(
+    internal val inner: OccupiedEntry<T, SetValZst>
+) {
+    fun get(): T = inner.key()
+    fun remove(): T = inner.removeEntry().first
+}
+
+class SetVacantEntry<T : Comparable<T>> internal constructor(
+    internal val inner: VacantEntry<T, SetValZst>
+) {
+    fun get(): T = inner.key()
+    fun insert() {
+        inner.insert(SetValZst)
+    }
 }

@@ -1,4 +1,4 @@
-// port-lint: source library/alloc/src/collections/btree/fix.rs
+// port-lint: source fix.rs
 // Derived from the Rust standard library (rust-lang/rust),
 // copyright The Rust Project Developers, dual-licensed Apache-2.0 / MIT.
 package io.github.kotlinmania.btree
@@ -93,7 +93,7 @@ internal fun <K, V> NodeRef<Marker.Mut, K, V, Marker.LeafOrInternal>.fixNodeAndA
 }
 
 /** Removes empty levels on the top, but keeps an empty leaf if the entire tree is empty. */
-internal fun <K, V> Root<K, V>.fixTop() {
+internal fun <K, V> NodeRef<Marker.Owned, K, V, Marker.LeafOrInternal>.fixTop() {
     while (this.height() > 0 && this.len() == 0) {
         this.popInternalLevel()
     }
@@ -104,7 +104,7 @@ internal fun <K, V> Root<K, V>.fixTop() {
  * tree. The other nodes, those that are not the root nor a rightmost edge,
  * must already have at least MIN_LEN elements.
  */
-internal fun <K, V> Root<K, V>.fixRightBorder() {
+internal fun <K, V> NodeRef<Marker.Owned, K, V, Marker.LeafOrInternal>.fixRightBorder() {
     this.fixTop()
     if (this.len() > 0) {
         this.borrowMut().lastKv().fixRightBorderOfRightEdge()
@@ -113,7 +113,7 @@ internal fun <K, V> Root<K, V>.fixRightBorder() {
 }
 
 /** The symmetric clone of [fixRightBorder]. */
-internal fun <K, V> Root<K, V>.fixLeftBorder() {
+internal fun <K, V> NodeRef<Marker.Owned, K, V, Marker.LeafOrInternal>.fixLeftBorder() {
     this.fixTop()
     if (this.len() > 0) {
         this.borrowMut().firstKv().fixLeftBorderOfLeftEdge()
@@ -126,7 +126,7 @@ internal fun <K, V> Root<K, V>.fixLeftBorder() {
  * The other nodes, those that are neither the root nor a rightmost edge,
  * must be prepared to have up to MIN_LEN elements stolen.
  */
-internal fun <K, V> Root<K, V>.fixRightBorderOfPlentiful() {
+internal fun <K, V> NodeRef<Marker.Owned, K, V, Marker.LeafOrInternal>.fixRightBorderOfPlentiful() {
     var curNode: NodeRef<Marker.Mut, K, V, Marker.LeafOrInternal> = this.borrowMut()
     while (true) {
         val internal = when (val f = curNode.force()) {

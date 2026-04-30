@@ -1,4 +1,4 @@
-// port-lint: source library/alloc/src/collections/btree/mem.rs
+// port-lint: source mem.rs
 // Derived from the Rust standard library (rust-lang/rust),
 // copyright The Rust Project Developers, dual-licensed Apache-2.0 / MIT.
 package io.github.kotlinmania.btree
@@ -9,8 +9,14 @@ package io.github.kotlinmania.btree
  *
  * If a panic occurs in the `change` closure, the entire process will be aborted.
  */
-internal inline fun <T> takeMut(v: T, change: (T) -> T): T {
+internal fun <T> takeMut(v: T, change: (T) -> T): T {
     return replace(v) { value -> Pair(change(value), Unit) }.first
+}
+
+private object Intrinsics {
+    fun abort(): Nothing {
+        kotlin.system.exitProcess(1)
+    }
 }
 
 /**
@@ -19,8 +25,12 @@ internal inline fun <T> takeMut(v: T, change: (T) -> T): T {
  *
  * If a panic occurs in the `change` closure, the entire process will be aborted.
  */
-internal inline fun <T, R> replace(v: T, change: (T) -> Pair<T, R>): Pair<T, R> {
-    val value = v
-    val (newValue, ret) = change(value)
-    return Pair(newValue, ret)
+internal fun <T, R> replace(v: T, change: (T) -> Pair<T, R>): Pair<T, R> {
+    return try {
+        val value = v
+        val (newValue, ret) = change(value)
+        Pair(newValue, ret)
+    } catch (_: Throwable) {
+        Intrinsics.abort()
+    }
 }

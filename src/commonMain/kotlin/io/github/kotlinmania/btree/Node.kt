@@ -1,4 +1,4 @@
-// port-lint: source library/alloc/src/collections/btree/node.rs
+// port-lint: source node.rs
 // Derived from the Rust standard library (rust-lang/rust),
 // copyright The Rust Project Developers, dual-licensed Apache-2.0 / MIT.
 @file:Suppress("UNCHECKED_CAST", "RemoveExplicitTypeArguments", "ConvertTwoComparisonsToRangeCheck")
@@ -95,7 +95,7 @@ internal open class LeafNode<K, V> {
 
 /**
  * The underlying representation of internal nodes. As with `LeafNode`s, these should be hidden
- * behind `BoxedNode`s to prevent dropping uninitialized keys and values. Any pointer to an
+ * behind managed node references to prevent dropping uninitialized keys and values. Any pointer to an
  * `InternalNode` can be directly cast to a pointer to the underlying `LeafNode` portion of the
  * node, allowing code to act on leaf and internal nodes generically without having to even check
  * which of the two a pointer is pointing at. This property is enabled by the import of `repr(C)`
@@ -127,14 +127,13 @@ internal class InternalNode<K, V> : LeafNode<K, V>() {
  * A managed, non-null pointer to a node. This is either an owned pointer to
  * `LeafNode<K, V>` or an owned pointer to `InternalNode<K, V>`.
  *
- * However, `BoxedNode` contains no information as to which of the two types
+ * However, the node reference contains no information as to which of the two types
  * of nodes it actually contains, and, partially due to this lack of information,
  * is not a separate type and has no destructor.
  *
  * In Kotlin this becomes simply [LeafNode]: an [InternalNode] is a subclass
  * of [LeafNode], so a `LeafNode` reference can hold either kind of node.
  */
-internal typealias BoxedNode<K, V> = LeafNode<K, V>
 
 /**
  * A reference to a node.
@@ -193,7 +192,9 @@ internal class NodeRef<BorrowType, K, V, Type> internal constructor(
         }
 
         /** Creates a new internal (height > 0) `NodeRef`. */
-        fun <K, V> newInternal(child: Root<K, V>): NodeRef<Marker.Owned, K, V, Marker.Internal> {
+        fun <K, V> newInternal(
+            child: NodeRef<Marker.Owned, K, V, Marker.LeafOrInternal>,
+        ): NodeRef<Marker.Owned, K, V, Marker.Internal> {
             // SAFETY: we set up edges[0] before exposing the node; satisfies InternalNode.new's invariant.
             val newNode = InternalNode.new<K, V>()
             newNode.edges[0] = child.node
@@ -447,7 +448,7 @@ internal fun <K, V, Type> NodeRef<Marker.Owned, K, V, Type>.intoDying():
 // ---- Owned, LeafOrInternal: tree-shape mutators -------------------------
 
 /** Returns a new owned tree, with its own root node that is initially empty. */
-internal fun <K, V> newOwnedTree(): Root<K, V> {
+internal fun <K, V> newOwnedTree(): NodeRef<Marker.Owned, K, V, Marker.LeafOrInternal> {
     return NodeRef.newLeaf<K, V>().forgetType()
 }
 
@@ -459,7 +460,7 @@ internal fun <K, V> newOwnedTree(): Root<K, V> {
 internal fun <K, V> NodeRef<Marker.Owned, K, V, Marker.LeafOrInternal>.pushInternalLevel():
     NodeRef<Marker.Mut, K, V, Marker.Internal> {
     // takeMut(self, |oldRoot| NodeRef.newInternal(oldRoot).forgetType())
-    val oldRoot: Root<K, V> = NodeRef(height = height, node = node)
+    val oldRoot: NodeRef<Marker.Owned, K, V, Marker.LeafOrInternal> = NodeRef(height = height, node = node)
     val newRoot = NodeRef.newInternal(oldRoot).forgetType()
     height = newRoot.height
     node = newRoot.node
@@ -623,7 +624,7 @@ internal fun <K, V, Type> NodeRef<Marker.Mut, K, V, Type>.readValArea(idx: Int):
  */
 internal fun <K, V> NodeRef<Marker.Mut, K, V, Marker.Internal>.writeEdgeArea(
     idx: Int,
-    edge: BoxedNode<K, V>,
+    edge: LeafNode<K, V>,
 ) {
     // SAFETY: idx is in 0..CAPACITY+1 by caller contract.
     asInternalMut().edges[idx] = edge
@@ -635,7 +636,7 @@ internal fun <K, V> NodeRef<Marker.Mut, K, V, Marker.Internal>.writeEdgeArea(
  * # Safety
  * `idx` is in bounds of `0..len + 1`, slot is initialised.
  */
-internal fun <K, V> NodeRef<Marker.Mut, K, V, Marker.Internal>.readEdgeArea(idx: Int): BoxedNode<K, V> {
+internal fun <K, V> NodeRef<Marker.Mut, K, V, Marker.Internal>.readEdgeArea(idx: Int): LeafNode<K, V> {
     // SAFETY: caller ensures idx <= len so slot is initialised.
     return asInternalMut().edges[idx]!!
 }
@@ -718,7 +719,7 @@ internal fun <K, V> NodeRef<Marker.Mut, K, V, Marker.Leaf>.push(key: K, value: V
 internal fun <K, V> NodeRef<Marker.Mut, K, V, Marker.Internal>.push(
     key: K,
     value: V,
-    edge: Root<K, V>,
+    edge: NodeRef<Marker.Owned, K, V, Marker.LeafOrInternal>,
 ) {
     check(edge.height == this.height - 1) // assert(edge.height == self.height - 1)
 
@@ -760,13 +761,6 @@ internal fun <K, V> NodeRef<Marker.Mut, K, V, Marker.LeafOrInternal>.castToInter
     check(height > 0) // debugAssert(self.height > 0)
     return NodeRef(height = height, node = node)
 }
-
-// =====================================================================
-// Root type alias
-// =====================================================================
-
-/** The root node of an owned tree. */
-internal typealias Root<K, V> = NodeRef<Marker.Owned, K, V, Marker.LeafOrInternal>
 
 // =====================================================================
 // Handle
@@ -1020,7 +1014,7 @@ internal fun <K, V> Handle<NodeRef<Marker.Mut, K, V, Marker.Internal>, Marker.Ed
 private fun <K, V> Handle<NodeRef<Marker.Mut, K, V, Marker.Internal>, Marker.Edge>.insertFit(
     key: K,
     value: V,
-    edge: Root<K, V>,
+    edge: NodeRef<Marker.Owned, K, V, Marker.LeafOrInternal>,
 ) {
     check(node.len() < CAPACITY) // debugAssert(self.node.len() < CAPACITY)
     check(edge.height == node.height - 1) // debugAssert(edge.height == self.node.height - 1)
@@ -1043,7 +1037,7 @@ private fun <K, V> Handle<NodeRef<Marker.Mut, K, V, Marker.Internal>, Marker.Edg
 private fun <K, V> Handle<NodeRef<Marker.Mut, K, V, Marker.Internal>, Marker.Edge>.insert(
     key: K,
     value: V,
-    edge: Root<K, V>,
+    edge: NodeRef<Marker.Owned, K, V, Marker.LeafOrInternal>,
 ): SplitResult<K, V, Marker.Internal>? {
     check(edge.height == node.height - 1) // assert(edge.height == self.node.height - 1)
 
@@ -1193,7 +1187,6 @@ internal fun <K, V, NodeType> Handle<NodeRef<Marker.Mut, K, V, NodeType>, Marker
     v: V,
 ): Pair<K, V> {
     val leaf = node.asLeafMut()
-    // mem::replace(key, k) / mem::replace(val, v)
     val oldK = leaf.keys[idx] as K
     val oldV = leaf.vals[idx] as V
     leaf.keys[idx] = k
@@ -1388,7 +1381,6 @@ internal fun <K, V> NodeRef<Marker.Mut, K, V, Marker.LeafOrInternal>.chooseParen
             when (val left = parentEdge.leftKv()) {
                 is EdgeKvResult.Ok -> {
                     val leftParentKv = left.handle
-                    // ptr::read(&leftParentKv): construct a sibling handle aliasing the same node.
                     val parentForCtx = Handle<NodeRef<Marker.Mut, K, V, Marker.Internal>, Marker.KV>(
                         node = NodeRef(leftParentKv.node.height, leftParentKv.node.node),
                         idx = leftParentKv.idx,
@@ -1932,18 +1924,6 @@ internal object Marker {
     }
 }
 
-// =====================================================================
-// Slice helpers
-// =====================================================================
-//
-// Upstream takes `&mut [MaybeUninit<T>]` slice references; Kotlin lacks
-// slice references, so each helper takes the underlying array plus the
-// slice's logical length (`sliceLen`), or explicit `srcOffset`/`dstOffset`.
-//
-// All helpers operate on `Array<Any?>` storage. The K/V/edge types are
-// erased at this level (the storage arrays are allocated as
-// `arrayOfNulls<Any?>(...)` for a uniform shape).
-
 /**
  * Inserts a value into a slice of initialized elements followed by one uninitialized element.
  *
@@ -1951,10 +1931,8 @@ internal object Marker {
  * The slice has more than `idx` elements (i.e. `idx < sliceLen`).
  */
 private fun sliceInsert(slice: Array<Any?>, sliceLen: Int, idx: Int, value: Any?) {
-    check(sliceLen > idx) // debugAssert(len > idx)
+    check(sliceLen > idx)
     if (sliceLen > idx + 1) {
-        // ptr::copy(slicePtr.add(idx), slicePtr.add(idx + 1), len - idx - 1)
-        // overlapping move toward higher indices: iterate from high end.
         for (i in sliceLen - 1 downTo idx + 1) {
             slice[i] = slice[i - 1]
         }
@@ -1970,10 +1948,8 @@ private fun sliceInsert(slice: Array<Any?>, sliceLen: Int, idx: Int, value: Any?
  * The slice has more than `idx` elements (i.e. `idx < sliceLen`).
  */
 private fun sliceRemove(slice: Array<Any?>, sliceLen: Int, idx: Int): Any? {
-    check(idx < sliceLen) // debugAssert(idx < len)
+    check(idx < sliceLen)
     val ret = slice[idx]
-    // ptr::copy(slicePtr.add(idx + 1), slicePtr.add(idx), len - idx - 1)
-    // overlapping move toward lower indices: iterate from low end.
     for (i in idx until sliceLen - 1) {
         slice[i] = slice[i + 1]
     }
@@ -1988,8 +1964,6 @@ private fun sliceRemove(slice: Array<Any?>, sliceLen: Int, idx: Int): Any? {
  * The slice has at least `distance` elements (`distance <= sliceLen`).
  */
 private fun sliceShl(slice: Array<Any?>, sliceLen: Int, distance: Int) {
-    // ptr::copy(slicePtr.add(distance), slicePtr, slice.len() - distance)
-    // overlapping copy toward lower indices: iterate from low end.
     for (i in 0 until sliceLen - distance) {
         slice[i] = slice[i + distance]
     }
@@ -2002,8 +1976,6 @@ private fun sliceShl(slice: Array<Any?>, sliceLen: Int, distance: Int) {
  * The slice has at least `distance` elements (`distance <= sliceLen`).
  */
 private fun sliceShr(slice: Array<Any?>, sliceLen: Int, distance: Int) {
-    // ptr::copy(slicePtr, slicePtr.add(distance), slice.len() - distance)
-    // overlapping copy toward higher indices: iterate from high end.
     for (i in sliceLen - 1 downTo distance) {
         slice[i] = slice[i - distance]
     }
@@ -2012,9 +1984,6 @@ private fun sliceShr(slice: Array<Any?>, sliceLen: Int, distance: Int) {
 /**
  * Moves all values from a slice of initialized elements to a slice
  * of uninitialized elements, leaving behind `src` as all uninitialized.
- *
- * Works for non-overlapping spans of the same or different arrays. The
- * caller is responsible for the non-overlap precondition.
  */
 private fun moveToSlice(
     src: Array<Any?>,
@@ -2023,7 +1992,6 @@ private fun moveToSlice(
     dstOffset: Int,
     count: Int,
 ) {
-    // assert(src.len() == dst.len()) — caller passes matching lengths via `count`.
     for (i in 0 until count) {
         dst[dstOffset + i] = src[srcOffset + i]
         src[srcOffset + i] = null

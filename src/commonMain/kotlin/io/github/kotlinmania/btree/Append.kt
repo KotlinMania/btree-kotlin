@@ -1,4 +1,4 @@
-// port-lint: source library/alloc/src/collections/btree/append.rs
+// port-lint: source append.rs
 // Derived from the Rust standard library (rust-lang/rust),
 // copyright The Rust Project Developers, dual-licensed Apache-2.0 / MIT.
 package io.github.kotlinmania.btree
@@ -48,7 +48,7 @@ internal fun <K, V> NodeRef<Marker.Owned, K, V, Marker.LeafOrInternal>.bulkPush(
 
             // Push key-value pair and new right subtree.
             val treeHeight = openNode.height() - 1
-            val rightTree: Root<K, V> = newOwnedTree()
+            val rightTree = newOwnedTree<K, V>()
             for (i in 0 until treeHeight) {
                 rightTree.pushInternalLevel()
             }

@@ -1,4 +1,4 @@
-// port-lint: source library/alloc/src/collections/btree/split.rs
+// port-lint: source split.rs
 // Derived from the Rust standard library (rust-lang/rust),
 // copyright The Rust Project Developers, dual-licensed Apache-2.0 / MIT.
 package io.github.kotlinmania.btree
@@ -9,8 +9,8 @@ package io.github.kotlinmania.btree
  */
 internal fun <K, V> calcSplitLength(
     totalNum: Int,
-    rootA: Root<K, V>,
-    rootB: Root<K, V>,
+    rootA: NodeRef<Marker.Owned, K, V, Marker.LeafOrInternal>,
+    rootB: NodeRef<Marker.Owned, K, V, Marker.LeafOrInternal>,
 ): Pair<Int, Int> {
     val lengthA: Int
     val lengthB: Int
@@ -35,7 +35,7 @@ internal fun <K, V> calcSplitLength(
  */
 internal fun <K, V, Q : Comparable<Q>> NodeRef<Marker.Owned, K, V, Marker.LeafOrInternal>.splitOff(
     key: Q,
-): Root<K, V> where K : Comparable<Q> {
+): NodeRef<Marker.Owned, K, V, Marker.LeafOrInternal> where K : Comparable<Q> {
     val leftRoot = this
     val rightRoot = newPillar<K, V>(leftRoot.height())
     var leftNode = leftRoot.borrowMut()
@@ -73,7 +73,7 @@ internal fun <K, V, Q : Comparable<Q>> NodeRef<Marker.Owned, K, V, Marker.LeafOr
 }
 
 /** Creates a tree consisting of empty nodes. */
-private fun <K, V> newPillar(height: Int): Root<K, V> {
+private fun <K, V> newPillar(height: Int): NodeRef<Marker.Owned, K, V, Marker.LeafOrInternal> {
     val root = newOwnedTree<K, V>()
     for (i in 0 until height) {
         root.pushInternalLevel()

@@ -1,0 +1,327 @@
+=== Deep Analysis: tmp/rust-stdlib-collections-btree (rust) -> src/commonMain/kotlin/io/github/kotlinmania/btree (kotlin) ===
+
+Scanning source codebase (rust)...
+Codebase: tmp/rust-stdlib-collections-btree (rust)
+  Files: 20
+  Total imports: 119
+  Most depended: borrow (5 dependents)
+
+Scanning target codebase (kotlin)...
+Codebase: src/commonMain/kotlin/io/github/kotlinmania/btree (kotlin)
+  Files: 21
+  Total imports: 28
+  Most depended: testing.Box (1 dependents)
+
+Comparing codebases...
+Computing AST similarities...
+
+=== Codebase Comparison Report ===
+
+Source: tmp/rust-stdlib-collections-btree (20 files)
+Target: src/commonMain/kotlin/io/github/kotlinmania/btree (21 files)
+Scoring invariant: FnSim is required function body/parameter similarity. Class/type and symbol parity are reported beside it; whole-file shape is diagnostic only.
+
+Matched:   19 files
+Unmatched: 1 source, 1 target
+
+=== Matched Files (by porting priority) ===
+
+Source                        Target                        FnSim     Dependents FunctionParityTypeParity  Priority
+ --------------------------------------------------------------------------------------------------------------------------
+borrow                        btree.Borrow                  0.74      5          4/4           1/1         5000502.5 
+map.tests                     btree.SetTests                0.01      0          5/176         0/6         1788209.9 
+navigate                      btree.Navigate                0.51      1          29/32         4/4         1033604.9 
+dedup_sorted_iter             btree.DedupSortedIter [PROVENANCE-FALLBACK]0.70      1          2/2           1/2         1010403.1 
+mem                           btree.Mem [PROVENANCE-FALLBACK]0.89      1          3/3           1/1         1000401.1 
+set.tests                     btree.SmokeTests              0.07      0          13/64         1/2         526609.2  
+node                          btree.Node                    0.63      0          86/98         20/23       162103.7  
+map                           btree.Map                     0.44      0          67/77         17/20       139705.6  
+set                           btree.Set                     0.43      0          58/69         14/16       138505.7  
+range                         btree.Range                   0.50      0          12/13         6/7         22005.0   
+merge_iter                    btree.MergeIter               0.30      0          3/5           2/2         20707.0   
+map.entry                     btree.MapEntry                0.70      0          15/16         4/4         12003.0   
+node.tests                    btree.NodeTests               0.66      0          4/5           0/0         10503.4   
+search                        btree.Search                  0.76      0          9/9           3/3         1202.4    
+fix                           btree.Fix                     0.75      0          10/10         0/0         1002.5    
+set_val                       btree.SetVal                  0.23      0          1/1           2/2         307.7     
+remove                        btree.Remove                  0.74      0          3/3           0/0         302.6     
+split                         btree.Split                   0.81      0          3/3           0/0         301.9     
+append                        btree.Append                  0.72      0          1/1           0/0         102.8     
+
+=== Function and Symbol Details ===
+
+borrow -> btree.Borrow
+  similarity: 0.74, priority: 5000502.5, dependents: 5
+  functions: 4/4 matched (target total: 4, required body score: 0.74)
+  missing functions: none
+  types: 1/1 matched (target total: 1)
+  missing types: none
+
+map.tests -> btree.SetTests
+  similarity: 0.01, priority: 1788209.9, dependents: 0
+  functions: 5/176 matched (target total: 37, required body score: 0.01)
+  missing functions: check_invariants, height, dump_keys, assert_strictly_ascending, compact, assert_min_len, test_levels, test_check_ord_chaos, test_check_invariants_ord_chaos, test_basic_large, test_basic_small, test_iter, test, test_iter_rev, do_test_iter_mut_mutation, try_from, test_iter_mut_mutation, test_values_mut, test_values_mut_mutation, test_iter_entering_root_twice, test_iter_descending_to_same_node_twice, test_iter_mixed, test_iter_min_max, range_keys, test_range_small, test_range_height_1, test_range_large, test_range_inclusive_max_value, test_range_equal_empty_cases, test_range_equal_excluded, test_range_backwards_1, test_range_backwards_2, test_range_backwards_3, test_range_backwards_4, test_range_finding_ill_order_in_map, test_range_finding_ill_order_in_range_ord, partial_cmp, cmp, eq, borrow, test_range_1000, test_range_borrowed_key, test_range, test_range_mut, test_range_panic_3, test_retain, empty, consumed_keeping_all, consumed_removing_all, consumed_removing_some, mutating_and_keeping, mutating_and_removing, underfull_keeping_all, underfull_removing_one, underfull_keeping_one, underfull_removing_all, height_0_keeping_all, height_0_removing_one, height_0_keeping_one, height_0_removing_all, height_0_keeping_half, height_1_removing_all, height_1_removing_one, height_1_keeping_one, height_2_removing_one, height_2_keeping_one, height_2_removing_all, drop_panic_leak, pred_panic_leak, pred_panic_reuse, test_borrow, get, get_mut, get_key_value, contains_key, range, range_mut, remove, remove_entry, split_off, test_entry, test_zst, test_bad_zst, test_clear, test_clear_drop_panic_leak, test_clone, test_clone_panic_leak, test_clone_panic_leak_height_0, test_clone_panic_leak_height_1, test_clone_from, assert_covariance, map_key, map_val, iter_key, iter_val, into_iter_key, into_iter_val, into_keys_key, into_keys_val, into_values_key, into_values_val, range_key, range_val, keys_key, keys_val, values_key, values_val, assert_sync, map, into_iter, into_keys, into_values, extract_if, iter, iter_mut, keys, values, values_mut, entry, occupied_entry, vacant_entry, assert_send, test_ord_absence, map_debug, map_clone, test_occupied_entry_key, test_vacant_entry_key, test_vacant_entry_no_insert, test_first_last_entry, test_pop_first_last, test_get_key_value, test_insert_into_full_height_0, test_insert_into_full_height_1, test_try_insert, test_append_drop_leak, test_append_ord_chaos, test_merge_drop_leak, test_merge_conflict_drop_leak, test_merge_ord_chaos, rand_data, test_split_off_empty_right, test_split_off_empty_left, test_split_off_tiny_left_height_2, test_split_off_tiny_right_height_2, test_split_off_halfway, test_split_off_large_random_sorted, test_into_iter_drop_leak_height_0, test_into_iter_drop_leak_kv_panic_in_key, test_into_iter_drop_leak_kv_panic_in_val, test_into_iter_drop_leak_height_1, test_into_keys, test_into_values, test_insert_remove_intertwined, test_insert_remove_intertwined_ord_chaos, from_array, test_cursor, test_cursor_mut, test_cursor_mut_key, test_cursor_empty, test_cursor_mut_insert_before_1, test_cursor_mut_insert_before_2, test_cursor_mut_insert_before_3, test_cursor_mut_insert_before_4, test_cursor_mut_insert_after_1, test_cursor_mut_insert_after_2, test_cursor_mut_insert_after_3, test_cursor_mut_insert_after_4, cursor_peek_prev_agrees_with_cursor_mut, test_id_based_insert, test_id_based_append, test_id_based_merge
+  types: 0/6 matched (target total: 3)
+  missing types: Align32, Error, EvilTwin, CompositeKey, Bad, NonOrd
+  tests: 3/115 matched
+
+navigate -> btree.Navigate
+  similarity: 0.51, priority: 1033604.9, dependents: 1
+  functions: 29/32 matched (target total: 59, required body score: 0.51)
+  missing functions: next_checked, next_back_checked, next_back_unchecked
+  types: 4/4 matched (target total: 13)
+  missing types: none
+
+dedup_sorted_iter -> btree.DedupSortedIter [PROVENANCE-FALLBACK]
+  similarity: 0.70, priority: 1010403.1, dependents: 1
+  provenance warning: port-lint provenance header matched only by basename: `tmp/rust-stdlib-collections-btree/dedup_sorted_iter.rs` vs expected `dedup_sorted_iter.rs`
+  functions: 2/2 matched (target total: 4, required body score: 0.70)
+  missing functions: none
+  types: 1/2 matched (target total: 5)
+  missing types: Item
+
+mem -> btree.Mem [PROVENANCE-FALLBACK]
+  similarity: 0.89, priority: 1000401.1, dependents: 1
+  provenance warning: port-lint provenance header matched only by basename: `tmp/rust-stdlib-collections-btree/mem.rs` vs expected `mem.rs`
+  functions: 3/3 matched (target total: 4, required body score: 0.89)
+  missing functions: none
+  types: 1/1 matched (target total: 2)
+  missing types: none
+
+set.tests -> btree.SmokeTests
+  similarity: 0.07, priority: 526609.2, dependents: 0
+  functions: 13/64 matched (target total: 182, required body score: 0.07)
+  missing functions: test_clone_eq, test_intersection, check_intersection, test_intersection_size_hint, test_difference, check_difference, test_difference_size_hint, test_symmetric_difference, check_symmetric_difference, test_symmetric_difference_size_hint, test_union, check_union, test_union_size_hint, test_is_disjoint, test_is_subset, is_subset, test_is_superset, is_superset, test_extract_if, test_extract_if_drop_panic_leak, test_extract_if_pred_panic_leak, test_remove, test_zip, test_from_iter, test_show, test_extend_ref, test_recovery, eq, partial_cmp, cmp, assert_covariance, set, iter, into_iter, assert_sync, extract_if, difference, intersection, symmetric_difference, union, assert_send, assert_derives, hash, ne, min, max, clamp, set_debug, set_clone, test_append, test_first_last
+  types: 1/2 matched (target total: 5)
+  missing types: Foo
+  tests: 10/31 matched
+
+node -> btree.Node
+  similarity: 0.63, priority: 162103.7, dependents: 0
+  functions: 86/98 matched (target total: 115, required body score: 0.63)
+  missing functions: init, clone, as_internal_ptr, as_leaf_ptr, eq, into_leaf, key_area_mut, val_area_mut, edge_area_mut, len_mut, drop, forget_node_type
+  types: 20/23 matched (target total: 29)
+  missing types: BoxedNode, Root, Dropper
+
+map -> btree.Map
+  similarity: 0.44, priority: 139705.6, dependents: 0
+  functions: 67/77 matched (target total: 174, required body score: 0.44)
+  missing functions: drop, replace, fmt, last, min, max, hash, eq, partial_cmp, cmp
+  types: 17/20 matched (target total: 22)
+  missing types: Item, DropGuard, Output
+
+set -> btree.Set
+  similarity: 0.43, priority: 138505.7, dependents: 0
+  functions: 58/69 matched (target total: 143, required body score: 0.43)
+  missing functions: hash, eq, partial_cmp, cmp, clone, clone_from, fmt, from, size_hint, min, max
+  types: 14/16 matched (target total: 24)
+  missing types: Item, Output
+
+range -> btree.Range
+  similarity: 0.50, priority: 22005.0, dependents: 0
+  functions: 12/13 matched (target total: 56, required body score: 0.50)
+  missing functions: fmt
+  types: 6/7 matched (target total: 15)
+  missing types: Range
+
+merge_iter -> btree.MergeIter
+  similarity: 0.30, priority: 20707.0, dependents: 0
+  functions: 3/5 matched (target total: 4, required body score: 0.30)
+  missing functions: clone, fmt
+  types: 2/2 matched (target total: 4)
+  missing types: none
+
+map.entry -> btree.MapEntry
+  similarity: 0.70, priority: 12003.0, dependents: 0
+  functions: 15/16 matched (target total: 25, required body score: 0.70)
+  missing functions: fmt
+  types: 4/4 matched (target total: 6)
+  missing types: none
+
+node.tests -> btree.NodeTests
+  similarity: 0.66, priority: 10503.4, dependents: 0
+  functions: 4/5 matched (target total: 4, required body score: 0.66)
+  missing functions: test_sizes
+  types: 0/0 matched (target total: 1)
+  missing types: none
+  tests: 2/2 matched
+
+search -> btree.Search
+  similarity: 0.76, priority: 1202.4, dependents: 0
+  functions: 9/9 matched (target total: 20, required body score: 0.76)
+  missing functions: none
+  types: 3/3 matched (target total: 15)
+  missing types: none
+
+fix -> btree.Fix
+  similarity: 0.75, priority: 1002.5, dependents: 0
+  functions: 10/10 matched (target total: 10, required body score: 0.75)
+  missing functions: none
+  types: 0/0 matched (target total: 3)
+  missing types: none
+
+set_val -> btree.SetVal
+  similarity: 0.23, priority: 307.7, dependents: 0
+  functions: 1/1 matched (target total: 4, required body score: 0.23)
+  missing functions: none
+  types: 2/2 matched (target total: 2)
+  missing types: none
+
+remove -> btree.Remove
+  similarity: 0.74, priority: 302.6, dependents: 0
+  functions: 3/3 matched (target total: 3, required body score: 0.74)
+  missing functions: none
+  types: 0/0 matched (target total: 0)
+  missing types: none
+
+split -> btree.Split
+  similarity: 0.81, priority: 301.9, dependents: 0
+  functions: 3/3 matched (target total: 3, required body score: 0.81)
+  missing functions: none
+  types: 0/0 matched (target total: 0)
+  missing types: none
+
+append -> btree.Append
+  similarity: 0.72, priority: 102.8, dependents: 0
+  functions: 1/1 matched (target total: 1, required body score: 0.72)
+  missing functions: none
+  types: 0/0 matched (target total: 0)
+  missing types: none
+
+
+=== Provenance Header Fallbacks ===
+
+These files were paired only after normalization; fix the port-lint source header.
+  - dedup_sorted_iter -> btree.DedupSortedIter: port-lint provenance header matched only by basename: `tmp/rust-stdlib-collections-btree/dedup_sorted_iter.rs` vs expected `dedup_sorted_iter.rs`
+    proposed: // port-lint: source dedup_sorted_iter.rs
+  - mem -> btree.Mem: port-lint provenance header matched only by basename: `tmp/rust-stdlib-collections-btree/mem.rs` vs expected `mem.rs`
+    proposed: // port-lint: source mem.rs
+
+=== Missing from Target (need to port) ===
+
+File                          Deps    Path
+------------------------------------------------------------------------------
+mod                           0       mod.rs
+
+=== Porting Quality Summary ===
+
+Matched by exact header:          17 / 19
+Matched by provenance fallback:   2 / 19
+Matched by name:                  0 / 19
+Total TODOs in target: 0
+Total lint errors:    2
+Stub files:           0
+
+=== Big Picture ===
+
+- Missing files: 1
+- Incomplete ports (similarity < 60%): 8
+- Stub files: 0
+- Files missing functions: 10 (total deficit: 263 functions)
+- Type definitions missing: 17
+- Files missing tests: 2 (total deficit: 133 unported `#[test]` functions)
+- Documentation coverage: 1875 / 8280 lines (23%)
+
+Primary focus: create missing files (highest deps first)
+
+=== Files with Issues ===
+
+File                          Similarity LineRatio  FunctionParityTests     TODOs Lint  Status
+----------------------------------------------------------------------------------------------------
+btree.SetTests                0.01       0.00       5/176         3/115     0     0     LOW_SIM
+  missing functions: `check_invariants`, `height`, `dump_keys`, `assert_strictly_ascending`, `compact`, `assert_min_len`, `test_levels`, `test_check_ord_chaos`, `test_check_invariants_ord_chaos`, `test_basic_large`, `test_basic_small`, `test_iter`, `test`, `test_iter_rev`, `do_test_iter_mut_mutation`, `try_from`, `test_iter_mut_mutation`, `test_values_mut`, `test_values_mut_mutation`, `test_iter_entering_root_twice`, `test_iter_descending_to_same_node_twice`, `test_iter_mixed`, `test_iter_min_max`, `range_keys`, `test_range_small`, `test_range_height_1`, `test_range_large`, `test_range_inclusive_max_value`, `test_range_equal_empty_cases`, `test_range_equal_excluded`, `test_range_backwards_1`, `test_range_backwards_2`, `test_range_backwards_3`, `test_range_backwards_4`, `test_range_finding_ill_order_in_map`, `test_range_finding_ill_order_in_range_ord`, `partial_cmp`, `cmp`, `eq`, `borrow`, `test_range_1000`, `test_range_borrowed_key`, `test_range`, `test_range_mut`, `test_range_panic_3`, `test_retain`, `empty`, `consumed_keeping_all`, `consumed_removing_all`, `consumed_removing_some`, `mutating_and_keeping`, `mutating_and_removing`, `underfull_keeping_all`, `underfull_removing_one`, `underfull_keeping_one`, `underfull_removing_all`, `height_0_keeping_all`, `height_0_removing_one`, `height_0_keeping_one`, `height_0_removing_all`, `height_0_keeping_half`, `height_1_removing_all`, `height_1_removing_one`, `height_1_keeping_one`, `height_2_removing_one`, `height_2_keeping_one`, `height_2_removing_all`, `drop_panic_leak`, `pred_panic_leak`, `pred_panic_reuse`, `test_borrow`, `get`, `get_mut`, `get_key_value`, `contains_key`, `range`, `range_mut`, `remove`, `remove_entry`, `split_off`, `test_entry`, `test_zst`, `test_bad_zst`, `test_clear`, `test_clear_drop_panic_leak`, `test_clone`, `test_clone_panic_leak`, `test_clone_panic_leak_height_0`, `test_clone_panic_leak_height_1`, `test_clone_from`, `assert_covariance`, `map_key`, `map_val`, `iter_key`, `iter_val`, `into_iter_key`, `into_iter_val`, `into_keys_key`, `into_keys_val`, `into_values_key`, `into_values_val`, `range_key`, `range_val`, `keys_key`, `keys_val`, `values_key`, `values_val`, `assert_sync`, `map`, `into_iter`, `into_keys`, `into_values`, `extract_if`, `iter`, `iter_mut`, `keys`, `values`, `values_mut`, `entry`, `occupied_entry`, `vacant_entry`, `assert_send`, `test_ord_absence`, `map_debug`, `map_clone`, `test_occupied_entry_key`, `test_vacant_entry_key`, `test_vacant_entry_no_insert`, `test_first_last_entry`, `test_pop_first_last`, `test_get_key_value`, `test_insert_into_full_height_0`, `test_insert_into_full_height_1`, `test_try_insert`, `test_append_drop_leak`, `test_append_ord_chaos`, `test_merge_drop_leak`, `test_merge_conflict_drop_leak`, `test_merge_ord_chaos`, `rand_data`, `test_split_off_empty_right`, `test_split_off_empty_left`, `test_split_off_tiny_left_height_2`, `test_split_off_tiny_right_height_2`, `test_split_off_halfway`, `test_split_off_large_random_sorted`, `test_into_iter_drop_leak_height_0`, `test_into_iter_drop_leak_kv_panic_in_key`, `test_into_iter_drop_leak_kv_panic_in_val`, `test_into_iter_drop_leak_height_1`, `test_into_keys`, `test_into_values`, `test_insert_remove_intertwined`, `test_insert_remove_intertwined_ord_chaos`, `from_array`, `test_cursor`, `test_cursor_mut`, `test_cursor_mut_key`, `test_cursor_empty`, `test_cursor_mut_insert_before_1`, `test_cursor_mut_insert_before_2`, `test_cursor_mut_insert_before_3`, `test_cursor_mut_insert_before_4`, `test_cursor_mut_insert_after_1`, `test_cursor_mut_insert_after_2`, `test_cursor_mut_insert_after_3`, `test_cursor_mut_insert_after_4`, `cursor_peek_prev_agrees_with_cursor_mut`, `test_id_based_insert`, `test_id_based_append`, `test_id_based_merge`
+  missing types: `Align32`, `Error`, `EvilTwin`, `CompositeKey`, `Bad`, `NonOrd`
+btree.Navigate                0.51       0.00       29/32         -         0     0     MISSING_FUNCS
+  missing functions: `next_checked`, `next_back_checked`, `next_back_unchecked`
+btree.DedupSortedIter [PROVE  0.70       0.00       2/2           -         0     1     MISSING_TYPES
+  missing types: `Item`
+btree.Mem [PROVENANCE-FALLBA  0.89       0.00       3/3           -         0     1     LINT
+btree.SmokeTests              0.07       0.00       13/64         10/31     0     0     LOW_SIM
+  missing functions: `test_clone_eq`, `test_intersection`, `check_intersection`, `test_intersection_size_hint`, `test_difference`, `check_difference`, `test_difference_size_hint`, `test_symmetric_difference`, `check_symmetric_difference`, `test_symmetric_difference_size_hint`, `test_union`, `check_union`, `test_union_size_hint`, `test_is_disjoint`, `test_is_subset`, `is_subset`, `test_is_superset`, `is_superset`, `test_extract_if`, `test_extract_if_drop_panic_leak`, `test_extract_if_pred_panic_leak`, `test_remove`, `test_zip`, `test_from_iter`, `test_show`, `test_extend_ref`, `test_recovery`, `eq`, `partial_cmp`, `cmp`, `assert_covariance`, `set`, `iter`, `into_iter`, `assert_sync`, `extract_if`, `difference`, `intersection`, `symmetric_difference`, `union`, `assert_send`, `assert_derives`, `hash`, `ne`, `min`, `max`, `clamp`, `set_debug`, `set_clone`, `test_append`, `test_first_last`
+  missing types: `Foo`
+btree.Node                    0.63       0.00       86/98         -         0     0     MISSING_FUNCS
+  missing functions: `init`, `clone`, `as_internal_ptr`, `as_leaf_ptr`, `eq`, `into_leaf`, `key_area_mut`, `val_area_mut`, `edge_area_mut`, `len_mut`, `drop`, `forget_node_type`
+  missing types: `BoxedNode`, `Root`, `Dropper`
+btree.Map                     0.44       0.00       67/77         -         0     0     MISSING_FUNCS
+  missing functions: `drop`, `replace`, `fmt`, `last`, `min`, `max`, `hash`, `eq`, `partial_cmp`, `cmp`
+  missing types: `Item`, `DropGuard`, `Output`
+btree.Set                     0.43       0.00       58/69         -         0     0     MISSING_FUNCS
+  missing functions: `hash`, `eq`, `partial_cmp`, `cmp`, `clone`, `clone_from`, `fmt`, `from`, `size_hint`, `min`, `max`
+  missing types: `Item`, `Output`
+btree.Range                   0.50       0.00       12/13         -         0     0     MISSING_FUNCS
+  missing functions: `fmt`
+  missing types: `Range`
+btree.MergeIter               0.30       0.00       3/5           -         0     0     LOW_SIM
+  missing functions: `clone`, `fmt`
+btree.MapEntry                0.70       0.00       15/16         -         0     0     MISSING_FUNCS
+  missing functions: `fmt`
+btree.NodeTests               0.66       0.00       4/5           2/2       0     0     MISSING_FUNCS
+  missing functions: `test_sizes`
+btree.SetVal                  0.23       0.00       1/1           -         0     0     LOW_SIM
+
+=== Porting Recommendations ===
+
+Incomplete ports (similarity < 60%): 8
+Missing files: 1
+
+Incomplete ports to complete:
+  map.tests                      similarity=0.01 function_parity=5/176 dependents=0
+    missing functions: `check_invariants`, `height`, `dump_keys`, `assert_strictly_ascending`, `compact`, `assert_min_len`, `test_levels`, `test_check_ord_chaos`, `test_check_invariants_ord_chaos`, `test_basic_large`, `test_basic_small`, `test_iter`, `test`, `test_iter_rev`, `do_test_iter_mut_mutation`, `try_from`, `test_iter_mut_mutation`, `test_values_mut`, `test_values_mut_mutation`, `test_iter_entering_root_twice`, `test_iter_descending_to_same_node_twice`, `test_iter_mixed`, `test_iter_min_max`, `range_keys`, `test_range_small`, `test_range_height_1`, `test_range_large`, `test_range_inclusive_max_value`, `test_range_equal_empty_cases`, `test_range_equal_excluded`, `test_range_backwards_1`, `test_range_backwards_2`, `test_range_backwards_3`, `test_range_backwards_4`, `test_range_finding_ill_order_in_map`, `test_range_finding_ill_order_in_range_ord`, `partial_cmp`, `cmp`, `eq`, `borrow`, `test_range_1000`, `test_range_borrowed_key`, `test_range`, `test_range_mut`, `test_range_panic_3`, `test_retain`, `empty`, `consumed_keeping_all`, `consumed_removing_all`, `consumed_removing_some`, `mutating_and_keeping`, `mutating_and_removing`, `underfull_keeping_all`, `underfull_removing_one`, `underfull_keeping_one`, `underfull_removing_all`, `height_0_keeping_all`, `height_0_removing_one`, `height_0_keeping_one`, `height_0_removing_all`, `height_0_keeping_half`, `height_1_removing_all`, `height_1_removing_one`, `height_1_keeping_one`, `height_2_removing_one`, `height_2_keeping_one`, `height_2_removing_all`, `drop_panic_leak`, `pred_panic_leak`, `pred_panic_reuse`, `test_borrow`, `get`, `get_mut`, `get_key_value`, `contains_key`, `range`, `range_mut`, `remove`, `remove_entry`, `split_off`, `test_entry`, `test_zst`, `test_bad_zst`, `test_clear`, `test_clear_drop_panic_leak`, `test_clone`, `test_clone_panic_leak`, `test_clone_panic_leak_height_0`, `test_clone_panic_leak_height_1`, `test_clone_from`, `assert_covariance`, `map_key`, `map_val`, `iter_key`, `iter_val`, `into_iter_key`, `into_iter_val`, `into_keys_key`, `into_keys_val`, `into_values_key`, `into_values_val`, `range_key`, `range_val`, `keys_key`, `keys_val`, `values_key`, `values_val`, `assert_sync`, `map`, `into_iter`, `into_keys`, `into_values`, `extract_if`, `iter`, `iter_mut`, `keys`, `values`, `values_mut`, `entry`, `occupied_entry`, `vacant_entry`, `assert_send`, `test_ord_absence`, `map_debug`, `map_clone`, `test_occupied_entry_key`, `test_vacant_entry_key`, `test_vacant_entry_no_insert`, `test_first_last_entry`, `test_pop_first_last`, `test_get_key_value`, `test_insert_into_full_height_0`, `test_insert_into_full_height_1`, `test_try_insert`, `test_append_drop_leak`, `test_append_ord_chaos`, `test_merge_drop_leak`, `test_merge_conflict_drop_leak`, `test_merge_ord_chaos`, `rand_data`, `test_split_off_empty_right`, `test_split_off_empty_left`, `test_split_off_tiny_left_height_2`, `test_split_off_tiny_right_height_2`, `test_split_off_halfway`, `test_split_off_large_random_sorted`, `test_into_iter_drop_leak_height_0`, `test_into_iter_drop_leak_kv_panic_in_key`, `test_into_iter_drop_leak_kv_panic_in_val`, `test_into_iter_drop_leak_height_1`, `test_into_keys`, `test_into_values`, `test_insert_remove_intertwined`, `test_insert_remove_intertwined_ord_chaos`, `from_array`, `test_cursor`, `test_cursor_mut`, `test_cursor_mut_key`, `test_cursor_empty`, `test_cursor_mut_insert_before_1`, `test_cursor_mut_insert_before_2`, `test_cursor_mut_insert_before_3`, `test_cursor_mut_insert_before_4`, `test_cursor_mut_insert_after_1`, `test_cursor_mut_insert_after_2`, `test_cursor_mut_insert_after_3`, `test_cursor_mut_insert_after_4`, `cursor_peek_prev_agrees_with_cursor_mut`, `test_id_based_insert`, `test_id_based_append`, `test_id_based_merge`
+    missing types: `Align32`, `Error`, `EvilTwin`, `CompositeKey`, `Bad`, `NonOrd`
+  navigate                       similarity=0.51 function_parity=29/32 dependents=1
+    missing functions: `next_checked`, `next_back_checked`, `next_back_unchecked`
+  set.tests                      similarity=0.07 function_parity=13/64 dependents=0
+    missing functions: `test_clone_eq`, `test_intersection`, `check_intersection`, `test_intersection_size_hint`, `test_difference`, `check_difference`, `test_difference_size_hint`, `test_symmetric_difference`, `check_symmetric_difference`, `test_symmetric_difference_size_hint`, `test_union`, `check_union`, `test_union_size_hint`, `test_is_disjoint`, `test_is_subset`, `is_subset`, `test_is_superset`, `is_superset`, `test_extract_if`, `test_extract_if_drop_panic_leak`, `test_extract_if_pred_panic_leak`, `test_remove`, `test_zip`, `test_from_iter`, `test_show`, `test_extend_ref`, `test_recovery`, `eq`, `partial_cmp`, `cmp`, `assert_covariance`, `set`, `iter`, `into_iter`, `assert_sync`, `extract_if`, `difference`, `intersection`, `symmetric_difference`, `union`, `assert_send`, `assert_derives`, `hash`, `ne`, `min`, `max`, `clamp`, `set_debug`, `set_clone`, `test_append`, `test_first_last`
+    missing types: `Foo`
+  map                            similarity=0.44 function_parity=67/77 dependents=0
+    missing functions: `drop`, `replace`, `fmt`, `last`, `min`, `max`, `hash`, `eq`, `partial_cmp`, `cmp`
+    missing types: `Item`, `DropGuard`, `Output`
+  set                            similarity=0.43 function_parity=58/69 dependents=0
+    missing functions: `hash`, `eq`, `partial_cmp`, `cmp`, `clone`, `clone_from`, `fmt`, `from`, `size_hint`, `min`, `max`
+    missing types: `Item`, `Output`
+  range                          similarity=0.50 function_parity=12/13 dependents=0
+    missing functions: `fmt`
+    missing types: `Range`
+  merge_iter                     similarity=0.30 function_parity=3/5 dependents=0
+    missing functions: `clone`, `fmt`
+  set_val                        similarity=0.23 function_parity=1/1 dependents=0
+
+=== Missing Files (by Dependents) ===
+
+Source File                   Expected Target                       Dependents Path
+-----------------------------------------------------------------------------------------------------------------------
+
+=== Reexport / Wiring Modules (consult, don't transliterate) ===
+
+mod                           Mod                                   0          mod.rs
+
+=== Documentation Gaps ===
+
+There is missing documentation that is hurting overall scoring.
+Documentation coverage: 1875 / 8280 lines (23%)
+Files with >20% doc gap: 13
+
+File                          Src Docs    Tgt Docs    Gap %     DocSim    DocAmt    DocEq     
+----------------------------------------------------------------------------------------------
+map                           2800        349         87%       0.75      0.12      0.44      
+set                           2274        316         86%       0.71      0.14      0.43      
+range                         1270        205         83%       0.58      0.16      0.37      
+map.entry                     612         76          87%       0.63      0.12      0.38      
+node                          722         491         31%       0.97      0.68      0.82      
+navigate                      272         176         35%       0.91      0.65      0.78      
+borrow                        62          41          33%       0.99      0.66      0.83      
+set_val                       18          10          44%       0.76      0.56      0.66      
+merge_iter                    26          19          26%       0.99      0.73      0.86      
+split                         16          12          25%       1.00      0.75      0.88      
+mem                           16          12          25%       1.00      0.75      0.88      
+dedup_sorted_iter             12          8           33%       0.75      0.67      0.71      
+remove                        8           6           25%       1.00      0.75      0.88      
+
+=== Generating Reports ===
+
+✅ Generated: port_status_report.md
+✅ Generated: high_priority_ports.md
+✅ Generated: NEXT_ACTIONS.md
+✅ Generated: port_lint_proposed_changes.md
+
+📁 All reports generated successfully!

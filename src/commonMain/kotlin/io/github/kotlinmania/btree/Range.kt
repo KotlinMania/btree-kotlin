@@ -1,4 +1,4 @@
-// port-lint: source library/core/src/ops/range.rs
+// port-lint: source range.rs
 // Derived from the Rust standard library (rust-lang/rust),
 // copyright The Rust Project Developers, dual-licensed Apache-2.0 / MIT.
 package io.github.kotlinmania.btree
@@ -262,6 +262,14 @@ sealed class Bound<out T> {
      * identity. Provided for symmetry with the upstream API.
      */
     fun asRef(): Bound<T> = this
+
+    /**
+     * Converts from `&mut Bound<T>` to `Bound<&mut T>`.
+     *
+     * Kotlin has no shared-borrow vocabulary, so the conversion is the
+     * identity. Provided for symmetry with the upstream API.
+     */
+    fun asMut(): Bound<T> = this
 
     companion object
 }

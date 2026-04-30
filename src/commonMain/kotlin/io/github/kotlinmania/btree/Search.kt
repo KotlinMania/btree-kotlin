@@ -1,4 +1,4 @@
-// port-lint: source library/alloc/src/collections/btree/search.rs
+// port-lint: source search.rs
 // Derived from the Rust standard library (rust-lang/rust),
 // copyright The Rust Project Developers, dual-licensed Apache-2.0 / MIT.
 package io.github.kotlinmania.btree

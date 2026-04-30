@@ -1,7 +1,10 @@
-// port-lint: source library/alloc/src/collections/btree/borrow.rs
+// port-lint: source borrow.rs
 // Derived from the Rust standard library (rust-lang/rust),
 // copyright The Rust Project Developers, dual-licensed Apache-2.0 / MIT.
 package io.github.kotlinmania.btree
+
+import io.github.kotlinmania.core.marker.PhantomData
+import io.github.kotlinmania.core.ptr.NonNull
 
 /**
  * Models a reborrow of some unique reference, when you know that the reborrow
@@ -16,7 +19,8 @@ package io.github.kotlinmania.btree
  * the raw pointer code needed to do this without undefined behavior.
  */
 internal class DormantMutRef<T> private constructor(
-    private val ptr: T,
+    private val ptr: NonNull<T>,
+    private val _marker: PhantomData,
 ) {
     companion object {
         /**
@@ -25,11 +29,11 @@ internal class DormantMutRef<T> private constructor(
          * original reference, but you promise to use it for a shorter period.
          */
         fun <T> new(t: T): Pair<T, DormantMutRef<T>> {
-            val ptr = t
-            // SAFETY: we hold the borrow throughout, and we expose
+            val ptr = NonNull.from(t)
+            // SAFETY: we hold the borrow throughout the scope via `_marker`, and we expose
             // only this reference, so it is unique.
-            val newRef = ptr
-            return Pair(newRef, DormantMutRef(ptr))
+            val newRef = ptr.asPtr()
+            return Pair(newRef, DormantMutRef(ptr, PhantomData))
         }
     }
 
@@ -43,7 +47,7 @@ internal class DormantMutRef<T> private constructor(
      */
     fun awaken(): T {
         // SAFETY: our own safety conditions imply this reference is again unique.
-        return ptr
+        return this.ptr.asPtr()
     }
 
     /**
@@ -56,7 +60,7 @@ internal class DormantMutRef<T> private constructor(
      */
     fun reborrow(): T {
         // SAFETY: our own safety conditions imply this reference is again unique.
-        return ptr
+        return this.ptr.asPtr()
     }
 
     /**
@@ -69,6 +73,6 @@ internal class DormantMutRef<T> private constructor(
      */
     fun reborrowShared(): T {
         // SAFETY: our own safety conditions imply this reference is again unique.
-        return ptr
+        return this.ptr.asPtr()
     }
 }

@@ -1,4 +1,4 @@
-// port-lint: source library/alloc/src/collections/btree/map/entry.rs
+// port-lint: source map/entry.rs
 // Derived from the Rust standard library (rust-lang/rust),
 // copyright The Rust Project Developers, dual-licensed Apache-2.0 / MIT.
 package io.github.kotlinmania.btree
@@ -67,10 +67,6 @@ sealed class Entry<K : Comparable<K>, V> {
     fun andModify(f: (V) -> V): Entry<K, V> {
         when (this) {
             is Occupied -> {
-                // Upstream signature: `f: FnOnce(&mut V)`. The closure mutates
-                // the value through `&mut`. Since Kotlin lambdas can't take
-                // `&mut V`, we model this as "compute the new value from the
-                // old and write it back" — semantically equivalent.
                 val old = entry.get()
                 val updated = f(old)
                 entry.insert(updated)
