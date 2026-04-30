@@ -39,6 +39,9 @@ private const val ITER_PERFORMANCE_TIPPING_SIZE_DIFF: Int = 16
  * system enforces it once at the class parameter rather than at every method.
  */
 class BTreeSet<T : Comparable<T>> : MutableSet<T> {
+    internal typealias Item = T
+    internal typealias Output = BTreeSet<T>
+
     /** Backing map; `internalIsSet = true` so range-bound errors render "BTreeSet". */
     internal val map: BTreeMap<T, SetValZst>
 
@@ -334,7 +337,7 @@ class BTreeSet<T : Comparable<T>> : MutableSet<T> {
      * Adds a value to the set, replacing the existing element, if any, that
      * is equal to the value. Returns the replaced element.
      */
-    fun replace(value: T): T? = map.replaceSetVal(value)
+    fun replace(value: T): T? = map.replace(value)
 
     /**
      * Inserts the given [value] into the set if it is not present, then
@@ -568,7 +571,6 @@ class BTreeSet<T : Comparable<T>> : MutableSet<T> {
     }
 
     override fun toString(): String {
-        // Upstream `fmt::Debug` renders as `f.debugSet().entries(self.iter()).finish()`.
         val sb = StringBuilder("{")
         var first = true
         val it = iter()

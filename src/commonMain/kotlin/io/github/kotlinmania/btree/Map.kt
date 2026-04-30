@@ -27,7 +27,10 @@ internal const val MIN_LEN: Int = MIN_LEN_AFTER_SPLIT
  * all operations.
  */
 class BTreeMap<K : Comparable<K>, V> : MutableMap<K, V> {
-    internal var root: NodeRef<Marker.Owned, K, V, Marker.LeafOrInternal>? = null
+    internal typealias Item = Pair<K, V>
+    internal typealias Output = V
+
+    var root: NodeRef<Marker.Owned, K, V, Marker.LeafOrInternal>? = null
     internal var length: Int = 0
 
     /**
@@ -794,16 +797,9 @@ class BTreeMap<K : Comparable<K>, V> : MutableMap<K, V> {
     }
 }
 
-// ============================================================================
-// Internal helpers for BTreeMap<K, SetValZst> (used by BTreeSet)
-// ============================================================================
+// Internal functionality for `BTreeSet`.
 
-/**
- * Mirrors upstream `implementation<K> BTreeMap<K, SetValZST> { public(super) function replace(...) }`.
- *
- * Not on the public surface; called from `BTreeSet.replace`.
- */
-internal fun <K : Comparable<K>> BTreeMap<K, SetValZst>.replaceSetVal(key: K): K? {
+internal fun <K : Comparable<K>> BTreeMap<K, SetValZst>.replace(key: K): K? {
     val (mapRef, dormantMap) = DormantMutRef.new(this)
     if (mapRef.root == null) {
         mapRef.root = newOwnedTree<K, SetValZst>()
@@ -823,11 +819,6 @@ internal fun <K : Comparable<K>> BTreeMap<K, SetValZst>.replaceSetVal(key: K): K
     }
 }
 
-/**
- * Mirrors upstream `implementation<K> BTreeMap<K, SetValZST> { public(super) function getOrInsertWith(...) }`.
- *
- * Not on the public surface; called from `BTreeSet.getOrInsertWith`.
- */
 internal fun <K : Comparable<K>> BTreeMap<K, SetValZst>.getOrInsertWith(
     q: K,
     f: (K) -> K,
