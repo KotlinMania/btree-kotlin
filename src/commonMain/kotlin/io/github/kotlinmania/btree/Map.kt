@@ -879,6 +879,13 @@ class Iter<K, V> internal constructor(
 
     fun max(): Pair<K, V>? = nextBack()
 
+    /** Drains the iterator into a list. */
+    fun toList(): List<Pair<K, V>> {
+        val out = ArrayList<Pair<K, V>>(length)
+        while (hasNext()) out.add(next())
+        return out
+    }
+
     override fun toString(): String = "Iter(length=$length)"
 }
 
@@ -932,6 +939,13 @@ class IterMut<K : Comparable<K>, V> internal constructor(
     fun min(): Pair<K, V>? = if (hasNext()) next() else null
 
     fun max(): Pair<K, V>? = nextBack()
+
+    /** Drains the iterator into a list. */
+    fun toList(): List<Pair<K, V>> {
+        val out = ArrayList<Pair<K, V>>(length)
+        while (hasNext()) out.add(next())
+        return out
+    }
 
     /** Returns an immutable iterator of references to the remaining items. */
     fun iter(): Iter<K, V> = Iter(range.reborrow(), length)
@@ -1003,6 +1017,13 @@ class IntoIter<K, V> internal constructor(
 
     /** Returns the maximum entry. O(1) for sorted iterators. */
     fun max(): Pair<K, V>? = nextBack()
+
+    /** Drains the iterator into a list. */
+    fun toList(): List<Pair<K, V>> {
+        val out = ArrayList<Pair<K, V>>(length)
+        while (hasNext()) out.add(next())
+        return out
+    }
 
     /**
      * Core of a `next` method returning a dying KV handle, invalidated by
@@ -1116,30 +1137,33 @@ class IntoValues<K, V> internal constructor(internal val inner: IntoIter<K, V>) 
  */
 class Range<K, V> internal constructor(
     internal var inner: LeafRange<Marker.Immut, K, V>,
-) : Iterator<MutableMap.MutableEntry<K, V>> {
+) : Iterator<Pair<K, V>> {
     private var pending: Pair<K, V>? = inner.nextChecked()
 
     override fun hasNext(): Boolean = pending != null
 
-    override fun next(): MutableMap.MutableEntry<K, V> {
+    override fun next(): Pair<K, V> {
         val out = pending ?: throw NoSuchElementException()
         pending = inner.nextChecked()
-        return ReadOnlyEntry(out.first, out.second)
+        return out
     }
 
+    /** Returns the next entry, or `null` if exhausted. */
+    fun nextOrNull(): Pair<K, V>? = if (hasNext()) next() else null
+
     /** Returns the next entry from the back, or `null` if exhausted. */
-    fun nextBack(): MutableMap.MutableEntry<K, V>? {
-        val kv = inner.nextBackChecked() ?: return null
-        return ReadOnlyEntry(kv.first, kv.second)
-    }
+    fun nextBack(): Pair<K, V>? = inner.nextBackChecked()
+
+    /** Alias for [nextBack]. */
+    fun nextBackOrNull(): Pair<K, V>? = nextBack()
 
     fun sizeHint(): Pair<Int, Int?> = Pair(0, null)
 
-    fun last(): MutableMap.MutableEntry<K, V>? = nextBack()
+    fun last(): Pair<K, V>? = nextBack()
 
-    fun min(): MutableMap.MutableEntry<K, V>? = if (hasNext()) next() else null
+    fun min(): Pair<K, V>? = if (hasNext()) next() else null
 
-    fun max(): MutableMap.MutableEntry<K, V>? = nextBack()
+    fun max(): Pair<K, V>? = nextBack()
 
     override fun toString(): String = "Range(...)"
 }

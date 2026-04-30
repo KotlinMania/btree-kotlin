@@ -614,10 +614,10 @@ class BTreeSet<T : Comparable<T>> : MutableSet<T> {
         internal val inner: io.github.kotlinmania.btree.Range<T, SetValZst>,
     ) : Iterator<T> {
         override fun hasNext(): Boolean = inner.hasNext()
-        override fun next(): T = inner.next().key
+        override fun next(): T = inner.next().first
 
         /** Returns the next element from the back of the iterator, or `null` if exhausted. */
-        fun nextBack(): T? = inner.nextBack()?.key
+        fun nextBack(): T? = inner.nextBack()?.first
 
         fun sizeHint(): Pair<Int, Int?> = Pair(0, null)
 

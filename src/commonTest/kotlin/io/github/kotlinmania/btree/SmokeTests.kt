@@ -506,11 +506,11 @@ class SmokeTests {
         a.insert(1, "hello")
         a.insert(2, "goodbye")
 
-        for (value in a.valuesMut()) {
-            a.insert(value.first, value.second + "!")
+        for (entry in a.iterMutEntries()) {
+            entry.setValue(entry.value + "!")
         }
 
-        val values = a.values().toList()
+        val values = a.values().asSequence().toList()
         assertEquals(listOf("hello!", "goodbye!"), values)
         a.check()
     }
@@ -522,15 +522,15 @@ class SmokeTests {
         map.insert(1, 1)
         val it = map.iterMut()
         val front = it.next()
-        val back = it.nextBack()
+        val back = it.nextBack()!!
         assertEquals(Pair(0, 0), front)
         assertEquals(Pair(1, 1), back)
         map.insert(front.first, 24)
         map.insert(back.first, 42)
         assertEquals(Pair(0, 24), Pair(front.first, map.get(front.first)))
         assertEquals(Pair(1, 42), Pair(back.first, map.get(back.first)))
-        assertEquals(null, it.nextOrNull())
-        assertEquals(null, it.nextBackOrNull())
+        assertFalse(it.hasNext())
+        assertEquals(null, it.nextBack())
         map.check()
     }
 
@@ -542,7 +542,7 @@ class SmokeTests {
         // Descend into first child.
         val front = it.next()
         // Descend into first child again, after running through second child.
-        while (it.nextBackOrNull() != null) {}
+        while (it.nextBack() != null) {}
         // Check immutable access.
         assertEquals(Pair(0, 0), front)
         // Perform mutable access.
@@ -559,7 +559,7 @@ class SmokeTests {
         for (i in 0 until size) map.insert(i, i)
 
         fun test(size: Int, iter: Iterator<Pair<Int, Int>>) {
-            val list = iter.toList()
+            val list = iter.asSequence().toList()
             var head = 0
             var tail = list.size - 1
             for (i in 0 until size / 4) {
@@ -583,10 +583,10 @@ class SmokeTests {
         assertEquals(null, a.iter().asSequence().maxByOrNull { it.first })
         assertEquals(null, a.iterMut().asSequence().minByOrNull { it.first })
         assertEquals(null, a.iterMut().asSequence().maxByOrNull { it.first })
-        assertEquals(null, a.range(..).asSequence().minByOrNull { it.first })
-        assertEquals(null, a.range(..).asSequence().maxByOrNull { it.first })
-        assertEquals(null, a.rangeMut(..).asSequence().minByOrNull { it.first })
-        assertEquals(null, a.rangeMut(..).asSequence().maxByOrNull { it.first })
+        assertEquals(null, a.range(RangeFull).asSequence().minByOrNull { it.first })
+        assertEquals(null, a.range(RangeFull).asSequence().maxByOrNull { it.first })
+        assertEquals(null, a.rangeMut(RangeFull).asSequence().minByOrNull { it.first })
+        assertEquals(null, a.rangeMut(RangeFull).asSequence().maxByOrNull { it.first })
         assertEquals(null, a.keys().asSequence().minOrNull())
         assertEquals(null, a.keys().asSequence().maxOrNull())
         assertEquals(null, a.values().asSequence().minOrNull())
@@ -599,9 +599,9 @@ class SmokeTests {
         assertEquals(Pair(2, 24), a.iter().asSequence().maxByOrNull { it.first })
         assertEquals(Pair(1, 42), a.iterMut().asSequence().minByOrNull { it.first })
         assertEquals(Pair(2, 24), a.iterMut().asSequence().maxByOrNull { it.first })
-        assertEquals(Pair(1, 42), a.range(..).asSequence().minByOrNull { it.first })
-        assertEquals(Pair(2, 24), a.range(..).asSequence().maxByOrNull { it.first })
-        assertEquals(Pair(1, 42), a.rangeMut(..).asSequence().minByOrNull { it.first })
+        assertEquals(Pair(1, 42), a.range(RangeFull).asSequence().minByOrNull { it.first })
+        assertEquals(Pair(2, 24), a.range(RangeFull).asSequence().maxByOrNull { it.first })
+        assertEquals(Pair(1, 42), a.rangeMut(RangeFull).asSequence().minByOrNull { it.first })
         assertEquals(Pair(2, 24), a.rangeMut(RangeFull).asSequence().maxByOrNull { it.first })
         assertEquals(1, a.keys().asSequence().minOrNull())
         assertEquals(2, a.keys().asSequence().maxOrNull())
