@@ -1165,6 +1165,13 @@ class Range<K, V> internal constructor(
 
     fun max(): Pair<K, V>? = nextBack()
 
+    /** Drains the iterator into a list. */
+    fun toList(): List<Pair<K, V>> {
+        val out = ArrayList<Pair<K, V>>()
+        while (hasNext()) out.add(next())
+        return out
+    }
+
     override fun toString(): String = "Range(...)"
 }
 
@@ -1195,6 +1202,13 @@ class RangeMut<K, V> internal constructor(
     fun min(): Pair<K, V>? = if (hasNext()) next() else null
 
     fun max(): Pair<K, V>? = nextBack()
+
+    /** Drains the iterator into a list. */
+    fun toList(): List<Pair<K, V>> {
+        val out = ArrayList<Pair<K, V>>()
+        while (hasNext()) out.add(next())
+        return out
+    }
 
     override fun toString(): String = "RangeMut(...)"
 }

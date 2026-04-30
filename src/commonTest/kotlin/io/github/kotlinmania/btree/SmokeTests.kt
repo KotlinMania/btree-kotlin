@@ -13,6 +13,7 @@ import kotlin.test.assertFailsWith
 import io.github.kotlinmania.btree.testing.Box
 import io.github.kotlinmania.btree.testing.CrashTestDummy
 import io.github.kotlinmania.btree.testing.CrashTestDummyRef
+import io.github.kotlinmania.btree.testing.Cyclic3
 import io.github.kotlinmania.btree.testing.Governed
 import io.github.kotlinmania.btree.testing.Governor
 import io.github.kotlinmania.btree.testing.Panic
@@ -613,10 +614,10 @@ class SmokeTests {
     }
 
     private fun <K : Comparable<K>, V> rangeKeys(map: BTreeMap<K, V>, range: IntoBounds<K>): List<K> {
-        val res = map.range(range).map { it.first }.toList()
-        val resMut = map.rangeMut(range).map { it.first }.toList()
+        val res = map.range(range).asSequence().map { it.first }.toList()
+        val resMut = map.rangeMut(range).asSequence().map { it.first }.toList()
         assertEquals(res, resMut)
-        val expectedKeys = map.keys().filter { range.contains(it) }.toList()
+        val expectedKeys = map.keys().asSequence().filter { range.contains(it) }.toList()
         assertEquals(expectedKeys, res)
         return res
     }
@@ -645,7 +646,7 @@ class SmokeTests {
         assertEquals(all, rangeKeys(map, boundsPair(Bound.Unbounded, Bound.Excluded(size + 1))))
         assertEquals(all, rangeKeys(map, boundsPair(Bound.Unbounded, Bound.Included(size + 1))))
         assertEquals(all, rangeKeys(map, boundsPair(Bound.Unbounded, Bound.Included(size))))
-        assertEquals(all, rangeKeys(map, RangeFull))
+        assertEquals(all, rangeKeys(map, boundsPair(Bound.Unbounded, Bound.Unbounded)))
 
         assertEquals(emptyList<Int>(), rangeKeys(map, boundsPair(Bound.Excluded(0), Bound.Excluded(1))))
         assertEquals(emptyList<Int>(), rangeKeys(map, boundsPair(Bound.Excluded(0), Bound.Included(0))))
@@ -724,7 +725,7 @@ class SmokeTests {
         assertEquals(all, rangeKeys(map, boundsPair(Bound.Unbounded, Bound.Excluded(size + 1))))
         assertEquals(all, rangeKeys(map, boundsPair(Bound.Unbounded, Bound.Included(size + 1))))
         assertEquals(all, rangeKeys(map, boundsPair(Bound.Unbounded, Bound.Included(size))))
-        assertEquals(all, rangeKeys(map, RangeFull))
+        assertEquals(all, rangeKeys(map, boundsPair(Bound.Unbounded, Bound.Unbounded)))
 
         assertEquals(emptyList<Int>(), rangeKeys(map, boundsPair(Bound.Excluded(0), Bound.Excluded(1))))
         assertEquals(emptyList<Int>(), rangeKeys(map, boundsPair(Bound.Excluded(0), Bound.Included(0))))
@@ -756,7 +757,7 @@ class SmokeTests {
         assertEquals(emptyList<Int>(), rangeKeys(map, boundsPair(Bound.Included(size + 1), Bound.Unbounded)))
 
         fun check(lhs: Iterator<Pair<Int, Int>>, rhs: List<Pair<Int, Int>>) {
-            assertEquals(lhs.toList(), rhs)
+            assertEquals(lhs.asSequence().toList(), rhs)
         }
 
         check(map.range(RangeToInclusive(100)), map.range(RangeTo(101)).toList())
@@ -871,7 +872,7 @@ class SmokeTests {
         for (i in 0 until size) map.insert(i, i)
 
         fun test(map: BTreeMap<Int, Int>, size: Int, min: Bound<Int>, max: Bound<Int>) {
-            val kvs = map.range(boundsPair(min, max)).map { it.first to it.second }.iterator()
+            val kvs = map.range(boundsPair(min, max)).asSequence().map { it.first to it.second }.iterator()
             val pairs = (0 until size).map { it to it }.iterator()
 
             while (kvs.hasNext() && pairs.hasNext()) {
@@ -913,7 +914,7 @@ class SmokeTests {
 
         for (i in 0 until size step step) {
             for (j in i until size step step) {
-                val kvs = map.range(boundsPair(Bound.Included(i), Bound.Included(j))).map { it.first to it.second }.iterator()
+                val kvs = map.range(boundsPair(Bound.Included(i), Bound.Included(j))).asSequence().map { it.first to it.second }.iterator()
                 val pairs = (i..j).map { it to it }.iterator()
 
                 while (kvs.hasNext() && pairs.hasNext()) {
@@ -937,7 +938,7 @@ class SmokeTests {
 
         for (i in 0 until size step step) {
             for (j in i until size step step) {
-                val kvs = map.rangeMut(boundsPair(Bound.Included(i), Bound.Included(j))).map { it.first to it.second }.iterator()
+                val kvs = map.rangeMut(boundsPair(Bound.Included(i), Bound.Included(j))).asSequence().map { it.first to it.second }.iterator()
                 val pairs = (i..j).map { it to it }.iterator()
 
                 while (kvs.hasNext() && pairs.hasNext()) {
