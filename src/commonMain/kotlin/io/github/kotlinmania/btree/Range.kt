@@ -40,10 +40,8 @@ data class OpsRange<Idx>(
     override fun contains(item: Idx): Boolean = (this as RangeBounds<Idx>).contains(item)
 
     /**
-     * Returns `true` if the range contains no items.
-     *
-     * The range is empty if `start >= end`. Translates Rust's
-     * `!(self.start < self.end)`.
+     * Returns `true` if the range contains no items. The range is empty if
+     * `start >= end`.
      */
     override fun isEmpty(): Boolean {
         val s = start as Comparable<Idx>
@@ -211,15 +209,8 @@ data class RangeToInclusive<Idx>(
     override fun contains(item: Idx): Boolean = (this as RangeBounds<Idx>).contains(item)
 }
 
-// RangeToInclusive<Idx> cannot implementation From<RangeTo<Idx>>
-// because underflow would be possible with (..0).into()
-
 /**
- * `Bound<T>` mirrors `core::ops::Bound`. An endpoint of a range of keys.
- *
- * Three variants — Included, Excluded, Unbounded — rendered as a sealed
- * class with per-subclass `toString()` matching upstream's Debug-derive
- * output.
+ * An endpoint of a range of keys.
  *
  * `Bound`s are range endpoints:
  *
@@ -255,20 +246,10 @@ sealed class Bound<out T> {
         is Excluded -> Excluded(f(value))
     }
 
-    /**
-     * Converts from `&Bound<T>` to `Bound<&T>`.
-     *
-     * Kotlin has no shared-borrow vocabulary, so the conversion is the
-     * identity. Provided for symmetry with the upstream API.
-     */
+    /** Returns this bound. Identity conversion in Kotlin. */
     fun asRef(): Bound<T> = this
 
-    /**
-     * Converts from `&mut Bound<T>` to `Bound<&mut T>`.
-     *
-     * Kotlin has no shared-borrow vocabulary, so the conversion is the
-     * identity. Provided for symmetry with the upstream API.
-     */
+    /** Returns this bound. Identity conversion in Kotlin. */
     fun asMut(): Bound<T> = this
 
     companion object
@@ -285,8 +266,8 @@ fun <T> Bound<T>.cloned(): Bound<T> = this
 fun <T> Bound<T>.copied(): Bound<T> = this
 
 /**
- * `RangeBounds` is implemented by Rust's built-in range types, produced
- * by range syntax like `..`, `a..`, `..b`, `..=c`, `d..e`, or `f..=g`.
+ * Implemented by the range types in this package: [RangeFull], [RangeFrom],
+ * [RangeTo], [OpsRange], [RangeInclusive], [RangeToInclusive], [BoundsPair].
  */
 interface RangeBounds<T> {
     /**
@@ -299,12 +280,7 @@ interface RangeBounds<T> {
      */
     fun endBound(): Bound<T>
 
-    /**
-     * Returns `true` if `item` is contained in the range.
-     *
-     * Mirrors `function contains(item: T) -> bool where T: Comparable<T>`.
-     * Bound values are asserted to be `Comparable<T>` at the runtime cast.
-     */
+    /** Returns `true` if `item` is contained in the range. */
     fun contains(item: T): Boolean {
         val cmpItem = item as Comparable<T>
         val startOk = when (val s = startBound()) {
@@ -351,9 +327,6 @@ interface RangeBounds<T> {
 /**
  * Used to convert a range into start and end bounds, consuming the
  * range by value.
- *
- * `IntoBounds` is implemented by Rust's built-in range types, produced
- * by range syntax like `..`, `a..`, `..b`, `..=c`, `d..e`, or `f..=g`.
  */
 interface IntoBounds<T> : RangeBounds<T> {
     /**
@@ -424,11 +397,8 @@ interface IntoBounds<T> : RangeBounds<T> {
 }
 
 /**
- * Wrapper around `(Bound<T>, Bound<T>)` that implements `RangeBounds<T>`.
- *
- * Translates `implementation<T> const RangeBounds<T> for (Bound<T>, Bound<T>)`. Kotlin
- * cannot retroactively make `Pair` implement an interface, so we provide a
- * dedicated wrapper. [boundsPair] gives a concise factory.
+ * Wrapper around a pair of [Bound]s that implements [RangeBounds]. [boundsPair]
+ * gives a concise factory.
  */
 data class BoundsPair<T>(
     val startBoundValue: Bound<T>,
@@ -439,32 +409,22 @@ data class BoundsPair<T>(
     override fun intoBounds(): Pair<Bound<T>, Bound<T>> = Pair(startBoundValue, endBoundValue)
 }
 
-/** Convenience factory mirroring Rust's `(start, end)` tuple usage. */
+/** Convenience factory for a [BoundsPair] from a start and end bound. */
 fun <T> boundsPair(start: Bound<T>, end: Bound<T>): BoundsPair<T> = BoundsPair(start, end)
 
-/**
- * `IntoBounds` implementation for [RangeFull].
- */
+/** [IntoBounds] for [RangeFull]. */
 fun RangeFull.intoBounds(): Pair<Bound<Nothing>, Bound<Nothing>> = Pair(Bound.Unbounded, Bound.Unbounded)
 
-/**
- * `IntoBounds` implementation for [RangeFrom].
- */
+/** [IntoBounds] for [RangeFrom]. */
 fun <T> RangeFrom<T>.intoBounds(): Pair<Bound<T>, Bound<T>> = Pair(Bound.Included(start), Bound.Unbounded)
 
-/**
- * `IntoBounds` implementation for [RangeTo].
- */
+/** [IntoBounds] for [RangeTo]. */
 fun <T> RangeTo<T>.intoBounds(): Pair<Bound<T>, Bound<T>> = Pair(Bound.Unbounded, Bound.Excluded(end))
 
-/**
- * `IntoBounds` implementation for [Range].
- */
+/** [IntoBounds] for [OpsRange]. */
 fun <T> OpsRange<T>.intoBounds(): Pair<Bound<T>, Bound<T>> = Pair(Bound.Included(start), Bound.Excluded(end))
 
-/**
- * `IntoBounds` implementation for [RangeInclusive].
- */
+/** [IntoBounds] for [RangeInclusive]. */
 fun <T> RangeInclusive<T>.intoBounds(): Pair<Bound<T>, Bound<T>> = Pair(
     Bound.Included(start),
     if (exhausted) {
@@ -476,9 +436,7 @@ fun <T> RangeInclusive<T>.intoBounds(): Pair<Bound<T>, Bound<T>> = Pair(
     },
 )
 
-/**
- * `IntoBounds` implementation for [RangeToInclusive].
- */
+/** [IntoBounds] for [RangeToInclusive]. */
 fun <T> RangeToInclusive<T>.intoBounds(): Pair<Bound<T>, Bound<T>> = Pair(Bound.Unbounded, Bound.Included(end))
 
 /**
@@ -512,17 +470,11 @@ interface OneSidedRange<T> : RangeBounds<T> {
     fun bound(): Pair<OneSidedRangeBound, T>
 }
 
-/**
- * `OneSidedRange` implementation for [RangeTo].
- */
+/** [OneSidedRange.bound] for [RangeTo]. */
 fun <T> RangeTo<T>.bound(): Pair<OneSidedRangeBound, T> = Pair(OneSidedRangeBound.End, end)
 
-/**
- * `OneSidedRange` implementation for [RangeFrom].
- */
+/** [OneSidedRange.bound] for [RangeFrom]. */
 fun <T> RangeFrom<T>.bound(): Pair<OneSidedRangeBound, T> = Pair(OneSidedRangeBound.StartInclusive, start)
 
-/**
- * `OneSidedRange` implementation for [RangeToInclusive].
- */
+/** [OneSidedRange.bound] for [RangeToInclusive]. */
 fun <T> RangeToInclusive<T>.bound(): Pair<OneSidedRangeBound, T> = Pair(OneSidedRangeBound.EndInclusive, end)
