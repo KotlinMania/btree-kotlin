@@ -1,4 +1,4 @@
-// port-lint: source set/tests.rs
+// port-lint: source map/tests.rs
 // Derived from the Rust standard library (rust-lang/rust),
 // copyright The Rust Project Developers, dual-licensed Apache-2.0 / MIT.
 package io.github.kotlinmania.btree
@@ -3100,4 +3100,22 @@ class SmokeTests {
         assertEquals(0, mergedKvPair.first.id)
         assertEquals("lhs_k", mergedKvPair.first.name)
     }
+
+    @Test
+    fun testExtendRef() {
+        val a = BTreeMap<Int, String>()
+        a.insert(1, "one")
+        val b = BTreeMap<Int, String>()
+        b.insert(2, "two")
+        b.insert(3, "three")
+
+        a.putAll(b)
+
+        assertEquals(3, a.size)
+        assertEquals("one", a.get(1))
+        assertEquals("two", a.get(2))
+        assertEquals("three", a.get(3))
+        a.assertStrictlyAscending()
+    }
+
 }

@@ -767,4 +767,5 @@ class SetTests {
             set.range(boundsPair(Bound.Excluded(5), Bound.Excluded(5)))
         }
     }
+
 }
