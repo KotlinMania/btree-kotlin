@@ -21,9 +21,6 @@ jobs:
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
 
-      - name: Fetch vendored Rust source (untracked, rehydrated per-clone)
-        run: ./tools/fetch-rust-source.sh
-
       - name: Compile commonMain (macosArm64)
         run: ./gradlew compileKotlinMacosArm64 --no-daemon
 
