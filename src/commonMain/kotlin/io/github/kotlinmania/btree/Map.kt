@@ -220,6 +220,13 @@ class BTreeMap<K : Comparable<K>, V> : MutableMap<K, V> {
         }
     }
 
+    /** Replaces this map's contents with a clone of [source]. */
+    fun cloneFrom(source: BTreeMap<K, V>) {
+        val cloned = source.clone()
+        this.clear()
+        for ((k, v) in cloned) put(k, v)
+    }
+
     internal fun newIn(): BTreeMap<K, V> = BTreeMap()
 
     // ---- insert / put / tryInsert ------------------------------------------
@@ -1075,6 +1082,11 @@ class Keys<K, V> internal constructor(internal val inner: Iter<K, V>) : Iterator
     fun last(): K? = nextBack()
     fun min(): K? = if (hasNext()) next() else null
     fun max(): K? = nextBack()
+    fun toList(): List<K> {
+        val out = ArrayList<K>(inner.len())
+        while (hasNext()) out.add(next())
+        return out
+    }
     override fun toString(): String = "Keys(length=${inner.len()})"
 }
 
@@ -1086,6 +1098,11 @@ class Values<K, V> internal constructor(internal val inner: Iter<K, V>) : Iterat
     fun len(): Int = inner.len()
     fun sizeHint(): Pair<Int, Int?> = inner.sizeHint()
     fun last(): V? = nextBack()
+    fun toList(): List<V> {
+        val out = ArrayList<V>(inner.len())
+        while (hasNext()) out.add(next())
+        return out
+    }
     override fun toString(): String = "Values(length=${inner.len()})"
 }
 
@@ -1098,6 +1115,11 @@ class ValuesMut<K : Comparable<K>, V> internal constructor(internal val inner: I
     fun len(): Int = inner.len()
     fun sizeHint(): Pair<Int, Int?> = inner.sizeHint()
     fun last(): V? = nextBack()
+    fun toList(): List<V> {
+        val out = ArrayList<V>(inner.len())
+        while (hasNext()) out.add(next())
+        return out
+    }
     override fun remove() = inner.remove()
     override fun toString(): String = "ValuesMut(length=${inner.len()})"
 }
@@ -1112,6 +1134,11 @@ class IntoKeys<K, V> internal constructor(internal val inner: IntoIter<K, V>) : 
     fun last(): K? = nextBack()
     fun min(): K? = if (hasNext()) next() else null
     fun max(): K? = nextBack()
+    fun toList(): List<K> {
+        val out = ArrayList<K>(inner.len())
+        while (hasNext()) out.add(next())
+        return out
+    }
     override fun toString(): String = "IntoKeys(length=${inner.len()})"
 }
 
@@ -1123,6 +1150,11 @@ class IntoValues<K, V> internal constructor(internal val inner: IntoIter<K, V>) 
     fun len(): Int = inner.len()
     fun sizeHint(): Pair<Int, Int?> = inner.sizeHint()
     fun last(): V? = nextBack()
+    fun toList(): List<V> {
+        val out = ArrayList<V>(inner.len())
+        while (hasNext()) out.add(next())
+        return out
+    }
     override fun toString(): String = "IntoValues(length=${inner.len()})"
 }
 
