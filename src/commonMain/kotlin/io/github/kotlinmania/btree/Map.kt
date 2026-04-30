@@ -24,7 +24,7 @@ internal const val MIN_LEN: Int = MIN_LEN_AFTER_SPLIT
  * all operations.
  */
 class BTreeMap<K : Comparable<K>, V> : MutableMap<K, V> {
-    var root: NodeRef<Marker.Owned, K, V, Marker.LeafOrInternal>? = null
+    internal var root: NodeRef<Marker.Owned, K, V, Marker.LeafOrInternal>? = null
     internal var length: Int = 0
 
     /**
