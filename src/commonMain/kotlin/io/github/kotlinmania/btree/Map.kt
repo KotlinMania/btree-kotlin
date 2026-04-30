@@ -718,7 +718,22 @@ class BTreeMap<K : Comparable<K>, V> : MutableMap<K, V> {
 
     // ---- iterator over entries (Kotlin idiom) ------------------------------
 
-    operator fun iterator(): MutableIterator<MutableMap.MutableEntry<K, V>> = iterMut()
+    operator fun iterator(): MutableIterator<MutableMap.MutableEntry<K, V>> =
+        iterMutEntries()
+
+    /** [iterMut] adapted to the Kotlin `MutableMap` contract. */
+    internal fun iterMutEntries(): MutableIterator<MutableMap.MutableEntry<K, V>> {
+        val inner = iterMut()
+        val map = this
+        return object : MutableIterator<MutableMap.MutableEntry<K, V>> {
+            override fun hasNext(): Boolean = inner.hasNext()
+            override fun next(): MutableMap.MutableEntry<K, V> {
+                val (k, v) = inner.next()
+                return MutEntry(map, k, v)
+            }
+            override fun remove() = inner.remove()
+        }
+    }
 
     // ---- equals / hashCode / toString --------------------------------------
 
@@ -730,7 +745,7 @@ class BTreeMap<K : Comparable<K>, V> : MutableMap<K, V> {
         while (itA.hasNext() && itB.hasNext()) {
             val a = itA.next()
             val b = itB.next()
-            if (a.key != b.key || a.value != b.value) return false
+            if (a.first != b.first || a.second != b.second) return false
         }
         return !itA.hasNext() && !itB.hasNext()
     }
@@ -837,22 +852,20 @@ internal fun <K : Comparable<K>> BTreeMap<K, SetValZst>.getOrInsertWith(
 class Iter<K, V> internal constructor(
     internal var range: LazyLeafRange<Marker.Immut, K, V>,
     internal var length: Int,
-) : Iterator<MutableMap.MutableEntry<K, V>> {
+) : Iterator<Pair<K, V>> {
     override fun hasNext(): Boolean = length > 0
 
-    override fun next(): MutableMap.MutableEntry<K, V> {
+    override fun next(): Pair<K, V> {
         if (length == 0) throw NoSuchElementException()
         length -= 1
-        val (k, v) = range.nextUnchecked()
-        return ReadOnlyEntry(k, v)
+        return range.nextUnchecked()
     }
 
     /** Returns the next entry from the back of the iterator, or `null` if exhausted. */
-    fun nextBack(): MutableMap.MutableEntry<K, V>? {
+    fun nextBack(): Pair<K, V>? {
         if (length == 0) return null
         length -= 1
-        val (k, v) = range.nextBackUnchecked()
-        return ReadOnlyEntry(k, v)
+        return range.nextBackUnchecked()
     }
 
     /** Returns the number of remaining entries. */
@@ -860,11 +873,11 @@ class Iter<K, V> internal constructor(
 
     fun sizeHint(): Pair<Int, Int?> = Pair(length, length)
 
-    fun last(): MutableMap.MutableEntry<K, V>? = nextBack()
+    fun last(): Pair<K, V>? = nextBack()
 
-    fun min(): MutableMap.MutableEntry<K, V>? = if (hasNext()) next() else null
+    fun min(): Pair<K, V>? = if (hasNext()) next() else null
 
-    fun max(): MutableMap.MutableEntry<K, V>? = nextBack()
+    fun max(): Pair<K, V>? = nextBack()
 
     override fun toString(): String = "Iter(length=$length)"
 }
@@ -888,37 +901,37 @@ class IterMut<K : Comparable<K>, V> internal constructor(
     internal var range: LazyLeafRange<Marker.ValMut, K, V>,
     internal var length: Int,
     private val map: BTreeMap<K, V>,
-) : MutableIterator<MutableMap.MutableEntry<K, V>> {
+) : MutableIterator<Pair<K, V>> {
     private var lastKey: K? = null
 
     override fun hasNext(): Boolean = length > 0
 
-    override fun next(): MutableMap.MutableEntry<K, V> {
+    override fun next(): Pair<K, V> {
         if (length == 0) throw NoSuchElementException()
         length -= 1
-        val (k, v) = range.nextUncheckedValMut()
-        lastKey = k
-        return MutEntry(map, k, v)
+        val kv = range.nextUncheckedValMut()
+        lastKey = kv.first
+        return kv
     }
 
     /** Returns the next entry from the back of the iterator, or `null` if exhausted. */
-    fun nextBack(): MutableMap.MutableEntry<K, V>? {
+    fun nextBack(): Pair<K, V>? {
         if (length == 0) return null
         length -= 1
-        val (k, v) = range.nextBackUncheckedValMut()
-        lastKey = k
-        return MutEntry(map, k, v)
+        val kv = range.nextBackUncheckedValMut()
+        lastKey = kv.first
+        return kv
     }
 
     fun len(): Int = length
 
     fun sizeHint(): Pair<Int, Int?> = Pair(length, length)
 
-    fun last(): MutableMap.MutableEntry<K, V>? = nextBack()
+    fun last(): Pair<K, V>? = nextBack()
 
-    fun min(): MutableMap.MutableEntry<K, V>? = if (hasNext()) next() else null
+    fun min(): Pair<K, V>? = if (hasNext()) next() else null
 
-    fun max(): MutableMap.MutableEntry<K, V>? = nextBack()
+    fun max(): Pair<K, V>? = nextBack()
 
     /** Returns an immutable iterator of references to the remaining items. */
     fun iter(): Iter<K, V> = Iter(range.reborrow(), length)
@@ -1034,8 +1047,8 @@ class IntoIter<K, V> internal constructor(
 /** An iterator over the keys of a `BTreeMap`. */
 class Keys<K, V> internal constructor(internal val inner: Iter<K, V>) : Iterator<K> {
     override fun hasNext(): Boolean = inner.hasNext()
-    override fun next(): K = inner.next().key
-    fun nextBack(): K? = inner.nextBack()?.key
+    override fun next(): K = inner.next().first
+    fun nextBack(): K? = inner.nextBack()?.first
     fun len(): Int = inner.len()
     fun sizeHint(): Pair<Int, Int?> = inner.sizeHint()
     fun last(): K? = nextBack()
@@ -1047,8 +1060,8 @@ class Keys<K, V> internal constructor(internal val inner: Iter<K, V>) : Iterator
 /** An iterator over the values of a `BTreeMap`. */
 class Values<K, V> internal constructor(internal val inner: Iter<K, V>) : Iterator<V> {
     override fun hasNext(): Boolean = inner.hasNext()
-    override fun next(): V = inner.next().value
-    fun nextBack(): V? = inner.nextBack()?.value
+    override fun next(): V = inner.next().second
+    fun nextBack(): V? = inner.nextBack()?.second
     fun len(): Int = inner.len()
     fun sizeHint(): Pair<Int, Int?> = inner.sizeHint()
     fun last(): V? = nextBack()
@@ -1059,8 +1072,8 @@ class Values<K, V> internal constructor(internal val inner: Iter<K, V>) : Iterat
 class ValuesMut<K : Comparable<K>, V> internal constructor(internal val inner: IterMut<K, V>) :
     MutableIterator<V> {
     override fun hasNext(): Boolean = inner.hasNext()
-    override fun next(): V = inner.next().value
-    fun nextBack(): V? = inner.nextBack()?.value
+    override fun next(): V = inner.next().second
+    fun nextBack(): V? = inner.nextBack()?.second
     fun len(): Int = inner.len()
     fun sizeHint(): Pair<Int, Int?> = inner.sizeHint()
     fun last(): V? = nextBack()
@@ -1647,7 +1660,7 @@ private class EntrySetView<K : Comparable<K>, V>(private val map: BTreeMap<K, V>
         return prior == null || prior != element.value
     }
 
-    override fun iterator(): MutableIterator<MutableMap.MutableEntry<K, V>> = map.iterMut()
+    override fun iterator(): MutableIterator<MutableMap.MutableEntry<K, V>> = map.iterMutEntries()
 
     override fun contains(element: MutableMap.MutableEntry<K, V>): Boolean {
         val v = map[element.key] ?: return false
@@ -1666,7 +1679,7 @@ private class KeySetView<K : Comparable<K>, V>(private val map: BTreeMap<K, V>) 
     override fun iterator(): MutableIterator<K> = object : MutableIterator<K> {
         private val inner = map.iterMut()
         override fun hasNext(): Boolean = inner.hasNext()
-        override fun next(): K = inner.next().key
+        override fun next(): K = inner.next().first
         override fun remove() = inner.remove()
     }
 
