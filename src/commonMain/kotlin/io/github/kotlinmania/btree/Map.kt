@@ -1253,6 +1253,13 @@ class ExtractIf<K : Comparable<K>, V, Q : Comparable<Q>> internal constructor(
         return out
     }
 
+    /** Drains the iterator into a list. */
+    fun toList(): List<Pair<K, V>> {
+        val out = ArrayList<Pair<K, V>>()
+        while (hasNext()) out.add(next())
+        return out
+    }
+
     override fun toString(): String = "ExtractIf(peek=${inner.peek()})"
 
     internal fun sizeHint(): Pair<Int, Int?> = inner.sizeHint()
