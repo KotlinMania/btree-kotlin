@@ -836,9 +836,6 @@ class SmokeTests {
 
     @Test
     fun testRangeFindingIllOrderInRangeOrd() {
-        // Mirrors upstream's `EvilTwin` (`struct EvilTwin(i32)` with an `Ord` impl
-        // backed by a static `AtomicUsize` that flips ordering after the first compare).
-        // A Kotlin singleton counter stands in for the `static AtomicUsize`.
         var compares = 0
         class EvilTwin(val value: Int) : Comparable<EvilTwin> {
             override fun compareTo(other: EvilTwin): Int {

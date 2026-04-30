@@ -600,8 +600,6 @@ class SetTests {
 
     @Test
     fun testRecovery() {
-        // Mirrors the upstream `Foo` struct that compares by string but prints by both fields.
-        // Equality is by `name` only; the integer field is incidental data.
         data class Foo(val name: String, val data: Int) : Comparable<Foo> {
             override fun compareTo(other: Foo): Int = name.compareTo(other.name)
             override fun equals(other: Any?): Boolean {

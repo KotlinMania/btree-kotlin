@@ -11,7 +11,6 @@ internal fun <K, V> NodeRef<Marker.Immut, K, V, Marker.LeafOrInternal>.assertBac
     if (f is ForceResult.Internal) {
         val node = f.value
         for (idx in 0..node.len()) {
-            // SAFETY: idx is in bounds [0, len].
             val edge = Handle.newEdge(node, idx)
             val child = edge.descend()
             assertTrue(child.ascend() is AscendResult.Ok)
@@ -28,7 +27,6 @@ internal fun <K, V> NodeRef<Marker.Immut, K, V, Marker.LeafOrInternal>.dumpKeys(
             is Position.Leaf -> {
                 val depth = this.height
                 val indent = "  ".repeat(depth)
-                // Kotlin arrays/lists of keys can be dumped easily, mimicking Rust's Debug output
                 result.append("\n").append(indent).append(pos.node.keys().toList().toString())
             }
             is Position.Internal -> {}
