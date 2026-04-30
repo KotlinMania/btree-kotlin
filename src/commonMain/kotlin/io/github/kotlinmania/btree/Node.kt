@@ -481,17 +481,14 @@ internal fun <K, V> NodeRef<Marker.Owned, K, V, Marker.LeafOrInternal>.pushInter
  * Panics if there is no internal level, i.e., if the root node is a leaf.
  */
 internal fun <K, V> NodeRef<Marker.Owned, K, V, Marker.LeafOrInternal>.popInternalLevel() {
-    check(height > 0) // assert(self.height > 0)
+    check(height > 0)
 
-    // SAFETY: we asserted to be internal.
     val internalSelf: NodeRef<Marker.Mut, K, V, Marker.Internal> =
         this.borrowMut().castToInternalUnchecked()
     val internalNode: InternalNode<K, V> = internalSelf.asInternalMut()
-    // SAFETY: the first edge is always initialized.
     node = internalNode.edges[0]!!
     height -= 1
     this.clearParentLink()
-    // SAFETY: alloc.deallocate(top, Layout::new::<InternalNode>()) — dissolved (GC).
 }
 
 /** Clears the root's link to its parent edge. */
@@ -520,12 +517,8 @@ internal fun <K, V> NodeRef<Marker.Mut, K, V, Marker.LeafOrInternal>.setParentLi
 
 /**
  * Borrows exclusive access to the data of an internal node.
- *
- * The `as` downcast is sound by the static type guarantee that the node is
- * `Marker.Internal`, i.e. the runtime instance is an `InternalNode`.
  */
 internal fun <K, V> NodeRef<Marker.Mut, K, V, Marker.Internal>.asInternalMut(): InternalNode<K, V> {
-    // SAFETY: the static node type is `Internal`, so the runtime instance is an InternalNode.
     return node as InternalNode<K, V>
 }
 
