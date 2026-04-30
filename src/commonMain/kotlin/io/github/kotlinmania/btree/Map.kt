@@ -878,6 +878,13 @@ class Iter<K, V> internal constructor(
     /** Returns the number of remaining entries. */
     fun len(): Int = length
 
+    /** Drains the iterator and returns the number of yielded entries. */
+    fun count(): Int {
+        val n = length
+        while (hasNext()) next()
+        return n
+    }
+
     fun sizeHint(): Pair<Int, Int?> = Pair(length, length)
 
     fun last(): Pair<K, V>? = nextBack()
