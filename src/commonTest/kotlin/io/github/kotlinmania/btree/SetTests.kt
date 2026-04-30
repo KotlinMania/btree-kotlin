@@ -1,4 +1,4 @@
-// port-lint: source map/tests.rs
+// port-lint: source set/tests.rs
 // Derived from the Rust standard library (rust-lang/rust),
 // copyright The Rust Project Developers, dual-licensed Apache-2.0 / MIT.
 package io.github.kotlinmania.btree
@@ -27,6 +27,37 @@ class SetTests {
         val copy = BTreeSet<Int>()
         for (v in m) copy.insert(v)
         assertEquals(copy, m)
+    }
+
+    @Test
+    fun testIterMinMax() {
+        val a = BTreeSet<Int>()
+        assertNull(a.iter().asSequence().minOrNull())
+        assertNull(a.iter().asSequence().maxOrNull())
+        assertNull(a.range(RangeFull).asSequence().minOrNull())
+        assertNull(a.range(RangeFull).asSequence().maxOrNull())
+        assertNull(a.difference(BTreeSet()).asSequence().minOrNull())
+        assertNull(a.difference(BTreeSet()).asSequence().maxOrNull())
+        assertNull(a.intersection(a).asSequence().minOrNull())
+        assertNull(a.intersection(a).asSequence().maxOrNull())
+        assertNull(a.symmetricDifference(BTreeSet()).asSequence().minOrNull())
+        assertNull(a.symmetricDifference(BTreeSet()).asSequence().maxOrNull())
+        assertNull(a.union(a).asSequence().minOrNull())
+        assertNull(a.union(a).asSequence().maxOrNull())
+        a.insert(1)
+        a.insert(2)
+        assertEquals(1, a.iter().asSequence().minOrNull())
+        assertEquals(2, a.iter().asSequence().maxOrNull())
+        assertEquals(1, a.range(RangeFull).asSequence().minOrNull())
+        assertEquals(2, a.range(RangeFull).asSequence().maxOrNull())
+        assertEquals(1, a.difference(BTreeSet()).asSequence().minOrNull())
+        assertEquals(2, a.difference(BTreeSet()).asSequence().maxOrNull())
+        assertEquals(1, a.intersection(a).asSequence().minOrNull())
+        assertEquals(2, a.intersection(a).asSequence().maxOrNull())
+        assertEquals(1, a.symmetricDifference(BTreeSet()).asSequence().minOrNull())
+        assertEquals(2, a.symmetricDifference(BTreeSet()).asSequence().maxOrNull())
+        assertEquals(1, a.union(a).asSequence().minOrNull())
+        assertEquals(2, a.union(a).asSequence().maxOrNull())
     }
 
     /**
@@ -103,6 +134,22 @@ class SetTests {
     }
 
     @Test
+    fun testIntersectionSizeHint() {
+        val x = BTreeSet.fromIterable(listOf(3, 4))
+        val y = BTreeSet.fromIterable(listOf(1, 2, 3))
+        var iter = x.intersection(y)
+        assertEquals(Pair(1, 1), iter.sizeHint())
+        assertEquals(3, iter.next())
+        assertEquals(Pair(0, 0), iter.sizeHint())
+        assertFalse(iter.hasNext())
+
+        iter = y.intersection(y)
+        assertEquals(Pair(0, 3), iter.sizeHint())
+        assertEquals(1, iter.next())
+        assertEquals(Pair(0, 2), iter.sizeHint())
+    }
+
+    @Test
     fun testDifference() {
         fun checkDifference(a: IntArray, b: IntArray, expected: IntArray) {
             check(a, b, expected) { x, y, f ->
@@ -144,6 +191,70 @@ class SetTests {
     }
 
     @Test
+    fun testDifferenceSizeHint() {
+        val s246 = BTreeSet.fromIterable(listOf(2, 4, 6))
+        val s23456 = BTreeSet.fromIterable((2..6).toList())
+        var iter = s246.difference(s23456)
+        assertEquals(Pair(0, 3), iter.sizeHint())
+        assertFalse(iter.hasNext())
+
+        val s12345 = BTreeSet.fromIterable((1..5).toList())
+        iter = s246.difference(s12345)
+        assertEquals(Pair(0, 3), iter.sizeHint())
+        assertEquals(6, iter.next())
+        assertEquals(Pair(0, 0), iter.sizeHint())
+        assertFalse(iter.hasNext())
+
+        val s34567 = BTreeSet.fromIterable((3..7).toList())
+        iter = s246.difference(s34567)
+        assertEquals(Pair(0, 3), iter.sizeHint())
+        assertEquals(2, iter.next())
+        assertEquals(Pair(0, 2), iter.sizeHint())
+        assertFalse(iter.hasNext())
+
+        val s1 = BTreeSet.fromIterable((-9..1).toList())
+        iter = s246.difference(s1)
+        assertEquals(Pair(3, 3), iter.sizeHint())
+
+        val s2 = BTreeSet.fromIterable((-9..2).toList())
+        iter = s246.difference(s2)
+        assertEquals(Pair(2, 2), iter.sizeHint())
+        assertEquals(4, iter.next())
+        assertEquals(Pair(1, 1), iter.sizeHint())
+
+        val s23 = BTreeSet.fromIterable(listOf(2, 3))
+        iter = s246.difference(s23)
+        assertEquals(Pair(1, 3), iter.sizeHint())
+        assertEquals(4, iter.next())
+        assertEquals(Pair(1, 1), iter.sizeHint())
+
+        val s4 = BTreeSet.fromIterable(listOf(4))
+        iter = s246.difference(s4)
+        assertEquals(Pair(2, 3), iter.sizeHint())
+        assertEquals(2, iter.next())
+        assertEquals(Pair(1, 2), iter.sizeHint())
+        assertEquals(6, iter.next())
+        assertEquals(Pair(0, 0), iter.sizeHint())
+        assertFalse(iter.hasNext())
+
+        val s56 = BTreeSet.fromIterable(listOf(5, 6))
+        iter = s246.difference(s56)
+        assertEquals(Pair(1, 3), iter.sizeHint())
+        assertEquals(2, iter.next())
+        assertEquals(Pair(0, 2), iter.sizeHint())
+
+        val s6 = BTreeSet.fromIterable((6..19).toList())
+        iter = s246.difference(s6)
+        assertEquals(Pair(2, 2), iter.sizeHint())
+        assertEquals(2, iter.next())
+        assertEquals(Pair(1, 1), iter.sizeHint())
+
+        val s7 = BTreeSet.fromIterable((7..19).toList())
+        iter = s246.difference(s7)
+        assertEquals(Pair(3, 3), iter.sizeHint())
+    }
+
+    @Test
     fun testSymmetricDifference() {
         fun checkSymmetricDifference(a: IntArray, b: IntArray, expected: IntArray) {
             check(a, b, expected) { x, y, f ->
@@ -170,6 +281,18 @@ class SetTests {
     }
 
     @Test
+    fun testSymmetricDifferenceSizeHint() {
+        val x = BTreeSet.fromIterable(listOf(2, 4))
+        val y = BTreeSet.fromIterable(listOf(1, 2, 3))
+        val iter = x.symmetricDifference(y)
+        assertEquals(Pair(0, 5), iter.sizeHint())
+        assertEquals(1, iter.next())
+        assertEquals(Pair(0, 4), iter.sizeHint())
+        assertEquals(3, iter.next())
+        assertEquals(Pair(0, 1), iter.sizeHint())
+    }
+
+    @Test
     fun testUnion() {
         fun checkUnion(a: IntArray, b: IntArray, expected: IntArray) {
             check(a, b, expected) { x, y, f ->
@@ -193,6 +316,18 @@ class SetTests {
             intArrayOf(-2, 1, 5, 9, 13, 19),
             intArrayOf(-2, 1, 3, 5, 9, 11, 13, 16, 19, 24),
         )
+    }
+
+    @Test
+    fun testUnionSizeHint() {
+        val x = BTreeSet.fromIterable(listOf(2, 4))
+        val y = BTreeSet.fromIterable(listOf(1, 2, 3))
+        val iter = x.union(y)
+        assertEquals(Pair(3, 5), iter.sizeHint())
+        assertEquals(1, iter.next())
+        assertEquals(Pair(2, 4), iter.sizeHint())
+        assertEquals(2, iter.next())
+        assertEquals(Pair(1, 2), iter.sizeHint())
     }
 
     @Test
@@ -281,6 +416,16 @@ class SetTests {
     }
 
     @Test
+    fun testRetain() {
+        val set = BTreeSet.fromIterable(listOf(1, 2, 3, 4, 5, 6))
+        set.retain { it % 2 == 0 }
+        assertEquals(3, set.len())
+        assertTrue(set.contains(2))
+        assertTrue(set.contains(4))
+        assertTrue(set.contains(6))
+    }
+
+    @Test
     fun testExtractIf() {
         val x = BTreeSet<Int>().also { it.insert(1) }
         val y = BTreeSet<Int>().also { it.insert(1) }
@@ -350,6 +495,15 @@ class SetTests {
         assertEquals(b.dropped(), 0)
         assertEquals(c.dropped(), 0)
         assertEquals(set.len(), 2)
+    }
+
+    @Test
+    fun testClear() {
+        val x = BTreeSet<Int>()
+        x.insert(1)
+
+        x.clear()
+        assertTrue(x.isEmpty())
     }
 
     @Test
@@ -477,6 +631,55 @@ class SetTests {
         assertNull(s.take(Foo("a", 1)))
 
         assertFalse(s.iter().hasNext())
+    }
+
+    private fun randData(len: Int): List<Int> {
+        var state = 1
+        return List(len) {
+            state = (state * 1103515245 + 12345).toUInt().toInt() and 0x7FFFFFFF
+            state
+        }
+    }
+
+    @Test
+    fun testSplitOffEmptyRight() {
+        val data = randData(173)
+
+        val set = BTreeSet.fromIterable(data)
+        val right = set.splitOff(data.maxOrNull()!! + 1)
+
+        assertEquals(data.distinct().sorted(), set.iter().asSequence().toList())
+        assertEquals(emptyList(), right.iter().asSequence().toList())
+    }
+
+    @Test
+    fun testSplitOffEmptyLeft() {
+        val data = randData(314)
+
+        val set = BTreeSet.fromIterable(data)
+        val right = set.splitOff(data.minOrNull()!!)
+
+        assertEquals(emptyList(), set.iter().asSequence().toList())
+        assertEquals(data.distinct().sorted(), right.iter().asSequence().toList())
+    }
+
+    @Test
+    fun testSplitOffLargeRandomSorted() {
+        val data = randData(1529).distinct().sorted()
+
+        val set = BTreeSet.fromIterable(data)
+        val key = data[data.size / 2]
+        val right = set.splitOff(key)
+
+        assertEquals(data.filter { it < key }, set.iter().asSequence().toList())
+        assertEquals(data.filter { it >= key }, right.iter().asSequence().toList())
+    }
+
+    @Test
+    fun fromArray() {
+        val set = BTreeSet.from(1, 2, 3, 4)
+        val unorderedDuplicates = BTreeSet.from(4, 1, 4, 3, 2)
+        assertEquals(set, unorderedDuplicates)
     }
 
     @Test
