@@ -757,6 +757,31 @@ class BTreeMap<K : Comparable<K>, V> : MutableMap<K, V> {
     }
 }
 
+/**
+ * Lexicographic ordering: returns the first non-zero comparison among the
+ * paired entries (by key, then by value), or the comparison of the maps'
+ * sizes if every paired entry compares equal.
+ */
+operator fun <K : Comparable<K>, V : Comparable<V>> BTreeMap<K, V>.compareTo(
+    other: BTreeMap<K, V>,
+): Int {
+    val itA = this.iterator()
+    val itB = other.iterator()
+    while (itA.hasNext() && itB.hasNext()) {
+        val a = itA.next()
+        val b = itB.next()
+        val k = a.key.compareTo(b.key)
+        if (k != 0) return k
+        val v = a.value.compareTo(b.value)
+        if (v != 0) return v
+    }
+    return when {
+        itA.hasNext() -> 1
+        itB.hasNext() -> -1
+        else -> 0
+    }
+}
+
 // Internal functionality for `BTreeSet`.
 
 internal fun <K : Comparable<K>> BTreeMap<K, SetValZst>.replace(key: K): K? {

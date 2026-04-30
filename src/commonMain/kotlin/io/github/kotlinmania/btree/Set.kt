@@ -519,11 +519,12 @@ class BTreeSet<T : Comparable<T>> : MutableSet<T> {
         return map.hashCode()
     }
 
-    fun eq(other: BTreeSet<T>): Boolean = this == other
-
-    fun partialCmp(other: BTreeSet<T>): Int = cmp(other)
-
-    fun cmp(other: BTreeSet<T>): Int {
+    /**
+     * Lexicographic ordering: returns the first non-zero element-comparison,
+     * or the comparison of the sets' sizes if every paired element compares
+     * equal.
+     */
+    operator fun compareTo(other: BTreeSet<T>): Int {
         val left = iter()
         val right = other.iter()
         while (left.hasNext() && right.hasNext()) {
