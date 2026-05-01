@@ -122,7 +122,7 @@ class BTreeMap<K : Comparable<K>, V> : MutableMap<K, V> {
             is EdgeKvResult.Ok -> r.handle
             is EdgeKvResult.Err -> return null
         }
-        return OccupiedEntry(handle = kv.forgetNodeTypeKv(), dormantMap = dormantMap)
+        return OccupiedEntry(handle = kv.forgetNodeType(LeafKvForgetNodeType), dormantMap = dormantMap)
     }
 
     /** Removes and returns the first element in the map. */
@@ -145,7 +145,7 @@ class BTreeMap<K : Comparable<K>, V> : MutableMap<K, V> {
             is EdgeKvResult.Ok -> r.handle
             is EdgeKvResult.Err -> return null
         }
-        return OccupiedEntry(handle = kv.forgetNodeTypeKv(), dormantMap = dormantMap)
+        return OccupiedEntry(handle = kv.forgetNodeType(LeafKvForgetNodeType), dormantMap = dormantMap)
     }
 
     /** Removes and returns the last element in the map. */
