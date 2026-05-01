@@ -882,7 +882,7 @@ class BTreeSet<T : Comparable<T>> : MutableSet<T> {
 
     /** Iterator returned by [extractIf]. */
     class ExtractIf<T : Comparable<T>> internal constructor(
-        internal val inner: io.github.kotlinmania.btree.ExtractIf<T, SetValZst, T>,
+        internal val inner: io.github.kotlinmania.btree.ExtractIf<T, SetValZst>,
     ) : Iterator<T> {
         override fun hasNext(): Boolean = inner.hasNext()
         override fun next(): T = inner.next().first
