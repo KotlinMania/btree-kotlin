@@ -1104,7 +1104,7 @@ internal fun <K, V> Handle<NodeRef<Marker.Mut, K, V, Marker.Leaf>, Marker.Edge>.
         // handle to the inserted element.
         return handle.awaken()
     } else {
-        firstSplit.forgetNodeTypeLeaf()
+        firstSplit.forgetNodeType(LeafSplitResultForgetNodeType)
     }
 
     while (true) {
@@ -1116,7 +1116,7 @@ internal fun <K, V> Handle<NodeRef<Marker.Mut, K, V, Marker.Leaf>, Marker.Edge>.
                     // handle to the inserted element.
                     return handle.awaken()
                 } else {
-                    sub.forgetNodeTypeInternal()
+                    sub.forgetNodeType(InternalSplitResultForgetNodeType)
                 }
             }
             is AscendResult.Err -> {
