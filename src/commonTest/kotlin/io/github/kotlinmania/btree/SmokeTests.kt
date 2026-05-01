@@ -147,7 +147,10 @@ internal class CrashTestDummy(val id: Int) {
     }
 }
 
-internal class CrashTestDummyRef(val dummy: CrashTestDummy, val panic: Panic) : Comparable<CrashTestDummyRef> {
+internal class CrashTestDummyRef(val dummy: CrashTestDummy, val panic: Panic) :
+    Comparable<CrashTestDummyRef>,
+    BTreeCloneable,
+    BTreeDroppable {
     override fun compareTo(other: CrashTestDummyRef): Int {
         return dummy.id.compareTo(other.dummy.id)
     }
@@ -167,12 +170,20 @@ internal class CrashTestDummyRef(val dummy: CrashTestDummy, val panic: Panic) : 
         }
     }
 
+    override fun dropForBtree() {
+        drop()
+    }
+
     fun cloneRef(): CrashTestDummyRef {
         dummy.incCloned()
         if (panic == Panic.InClone) {
             throw Exception("panic in clone")
         }
         return CrashTestDummyRef(dummy, Panic.Never)
+    }
+
+    override fun cloneForBtree() {
+        cloneRef()
     }
 
     override fun equals(other: Any?): Boolean {
@@ -1303,10 +1314,15 @@ class SmokeTests {
         map.insert(c.spawn(Panic.Never), Unit)
 
         assertFailsWith<Throwable> {
-            val iter = map.extractIf(RangeFull) { dummy, _ -> dummy.query(true) }
-            while (iter.hasNext()) {
-                val item = iter.next()
-                item.first.drop()
+            try {
+                val iter = map.extractIf(RangeFull) { dummy, _ -> dummy.query(true) }
+                while (iter.hasNext()) {
+                    val item = iter.next()
+                    item.first.drop()
+                }
+            } catch (t: Throwable) {
+                map.drop()
+                throw t
             }
         }
 
@@ -1314,11 +1330,8 @@ class SmokeTests {
         assertEquals(b.queried(), 1)
         assertEquals(c.queried(), 0)
         assertEquals(a.dropped(), 1)
-        // `b`'s `drop()` threw before incrementing the counter, so the Kotlin port
-        // observes 0 here.
-        assertEquals(b.dropped(), 0)
-        // `c` never had its `drop()` called because iteration stopped on `b`'s throw.
-        assertEquals(c.dropped(), 0)
+        assertEquals(b.dropped(), 1)
+        assertEquals(c.dropped(), 1)
     }
 
     @Test
@@ -1335,7 +1348,7 @@ class SmokeTests {
             val iter = map.extractIf(RangeFull) { dummy, _ -> dummy.query(true) }
             while (iter.hasNext()) {
                 val item = iter.next()
-                item.first.drop() // Manual drop to match Rust's implicit drop
+                item.first.drop()
             }
         }
 
@@ -1635,18 +1648,15 @@ class SmokeTests {
 
             assertFailsWith<Throwable> { map.clone() }
             for (d in dummies) {
-                assertEquals(if (d.id <= i) 1 else 0, d.cloned())
-                assertEquals(if (d.id < i) 1 else 0, d.dropped())
+                assertEquals(if (d.id <= i) 1 else 0, d.cloned(), "id=${d.id}/$i")
+                assertEquals(if (d.id < i) 1 else 0, d.dropped(), "id=${d.id}/$i")
             }
             assertEquals(size, map.len())
 
-            // manual drop since Kotlin is GC'd
-            for (dummy in dummies) {
-                dummy.spawn(Panic.Never).drop()
-            }
+            map.drop()
             for (d in dummies) {
-                assertEquals(if (d.id <= i) 1 else 0, d.cloned())
-                assertEquals(if (d.id < i) 2 else 1, d.dropped())
+                assertEquals(if (d.id <= i) 1 else 0, d.cloned(), "id=${d.id}/$i")
+                assertEquals(if (d.id < i) 2 else 1, d.dropped(), "id=${d.id}/$i")
             }
         }
     }
@@ -2191,10 +2201,7 @@ class SmokeTests {
         map.insert("e", e.spawn(Panic.Never))
 
         assertFailsWith<Throwable> {
-            val iter = map.intoIter()
-            while (iter.hasNext()) {
-                iter.next().second.drop()
-            }
+            map.intoIter().drop()
         }
 
         assertEquals(1, a.dropped())
@@ -2218,12 +2225,7 @@ class SmokeTests {
         map.insert(cK.spawn(Panic.Never), cV.spawn(Panic.Never))
 
         assertFailsWith<Throwable> {
-            val iter = map.intoIter()
-            while (iter.hasNext()) {
-                val next = iter.next()
-                next.first.drop()
-                next.second.drop()
-            }
+            map.intoIter().drop()
         }
 
         assertEquals(1, aK.dropped())
@@ -2248,12 +2250,7 @@ class SmokeTests {
         map.insert(cK.spawn(Panic.Never), cV.spawn(Panic.Never))
 
         assertFailsWith<Throwable> {
-            val iter = map.intoIter()
-            while (iter.hasNext()) {
-                val next = iter.next()
-                next.first.drop()
-                next.second.drop()
-            }
+            map.intoIter().drop()
         }
 
         assertEquals(1, aK.dropped())
@@ -2275,12 +2272,7 @@ class SmokeTests {
                 map.insert(dummies[i].spawn(Panic.Never), dummies[i].spawn(panic))
             }
             assertFailsWith<Throwable> {
-                val iter = map.intoIter()
-                while (iter.hasNext()) {
-                    val next = iter.next()
-                    next.first.drop()
-                    next.second.drop()
-                }
+                map.intoIter().drop()
             }
             for (i in 0 until size) {
                 assertEquals(2, dummies[i].dropped())

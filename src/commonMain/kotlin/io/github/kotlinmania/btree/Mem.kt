@@ -25,6 +25,44 @@ private class PanicGuard {
     }
 }
 
+internal interface BTreeCloneable {
+    fun cloneForBtree()
+}
+
+internal interface BTreeDroppable {
+    fun dropForBtree()
+}
+
+internal fun <T> cloneElement(value: T): T {
+    if (value is BTreeCloneable) value.cloneForBtree()
+    return value
+}
+
+internal fun dropElement(value: Any?) {
+    if (value is BTreeDroppable) value.dropForBtree()
+}
+
+internal fun rememberFailure(failure: Throwable?, block: () -> Unit): Throwable? {
+    var first = failure
+    try {
+        block()
+    } catch (t: Throwable) {
+        if (first == null) first = t
+    }
+    return first
+}
+
+internal fun <K, V> dropPair(pair: Pair<K, V>, failure: Throwable? = null): Throwable? {
+    var first = failure
+    first = rememberFailure(first) { dropElement(pair.first) }
+    first = rememberFailure(first) { dropElement(pair.second) }
+    return first
+}
+
+internal fun throwFailure(failure: Throwable?) {
+    if (failure != null) throw failure
+}
+
 /**
  * This replaces the value behind the `v` unique reference by calling the
  * relevant function, and returns a result obtained along the way.

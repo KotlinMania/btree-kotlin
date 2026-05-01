@@ -184,6 +184,10 @@ class BTreeSet<T : Comparable<T>> : MutableSet<T> {
         map.clear()
     }
 
+    internal fun drop() {
+        map.drop()
+    }
+
     /** Returns `true` if the set contains an element equal to [element]. */
     override fun contains(element: T): Boolean = map.containsKey(element)
 
@@ -604,6 +608,10 @@ class BTreeSet<T : Comparable<T>> : MutableSet<T> {
 
         /** Returns the maximum element. O(1) for sorted iterators. */
         fun max(): T? = nextBack()
+
+        internal fun drop() {
+            inner.drop()
+        }
 
         override fun toString(): String = "IntoIter(${inner})"
     }

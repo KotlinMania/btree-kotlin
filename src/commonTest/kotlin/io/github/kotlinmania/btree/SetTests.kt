@@ -445,23 +445,25 @@ class SetTests {
         set.insert(b.spawn(Panic.InDrop))
         set.insert(c.spawn(Panic.Never))
 
-        // Iteration triggers query(true) for each yielded element, then the explicit drop hook
-        // can throw for `b`; swallow that exception and continue the postconditions.
         try {
-            val it = set.extractIf(RangeFull) { d -> d.query(true) }
-            while (it.hasNext()) {
-                it.next().drop()
+            try {
+                val it = set.extractIf(RangeFull) { d -> d.query(true) }
+                while (it.hasNext()) {
+                    it.next().drop()
+                }
+            } catch (t: Throwable) {
+                set.drop()
+                throw t
             }
         } catch (_: Throwable) {
-            // Swallow drop failure.
         }
 
-        assertEquals(a.queried(), 1)
-        assertEquals(b.queried(), 1)
-        assertEquals(c.queried(), 0)
-        assertEquals(a.dropped(), 1)
-        assertEquals(b.dropped(), 0)
-        assertEquals(c.dropped(), 0)
+        assertEquals(1, a.queried())
+        assertEquals(1, b.queried())
+        assertEquals(0, c.queried())
+        assertEquals(1, a.dropped())
+        assertEquals(1, b.dropped())
+        assertEquals(1, c.dropped())
     }
 
     @Test
@@ -480,18 +482,15 @@ class SetTests {
                 it.next().drop()
             }
         } catch (_: Throwable) {
-            // predicate panic on `b` is caught and iteration stops.
         }
 
-        assertEquals(a.queried(), 1)
-        // Note: in Rust the panic occurs inside `query`, before `dummy.queried` is incremented for `b`.
-        // The Kotlin `query()` panics first too, so `b.queried()` stays 0.
-        assertEquals(b.queried(), 0)
-        assertEquals(c.queried(), 0)
-        assertEquals(a.dropped(), 1)
-        assertEquals(b.dropped(), 0)
-        assertEquals(c.dropped(), 0)
-        assertEquals(set.len(), 2)
+        assertEquals(1, a.queried())
+        assertEquals(1, b.queried())
+        assertEquals(0, c.queried())
+        assertEquals(1, a.dropped())
+        assertEquals(0, b.dropped())
+        assertEquals(0, c.dropped())
+        assertEquals(2, set.len())
     }
 
     @Test

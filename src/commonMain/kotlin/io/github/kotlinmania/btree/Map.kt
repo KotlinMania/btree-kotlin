@@ -45,8 +45,14 @@ class BTreeMap<K : Comparable<K>, V> : MutableMap<K, V> {
 
     /** Clears the map, removing all elements. */
     override fun clear() {
-        root = null
-        length = 0
+        throwFailure(dropEntries())
+    }
+
+    internal fun drop() = clear()
+
+    internal fun dropEntries(failure: Throwable? = null): Throwable? {
+        val iter = intoIter()
+        return iter.dropWithFailure(failure)
     }
 
     // ---- get / getKeyValue / containsKey -----------------------------------
@@ -177,8 +183,23 @@ class BTreeMap<K : Comparable<K>, V> : MutableMap<K, V> {
                         val (k, v) = kv.handle.intoKv()
                         inEdge = kv.handle.rightEdge()
 
-                        outNode.push(k, v)
-                        outTree.length += 1
+                        var clonedK: K? = null
+                        var clonedV: V? = null
+                        try {
+                            clonedK = cloneElement(k)
+                            clonedV = cloneElement(v)
+                            outNode.push(clonedK, clonedV)
+                            clonedK = null
+                            clonedV = null
+                            outTree.length += 1
+                        } catch (t: Throwable) {
+                            var failure: Throwable? = t
+                            failure = rememberFailure(failure) { dropElement(clonedK) }
+                            failure = rememberFailure(failure) { dropElement(clonedV) }
+                            failure = outTree.dropEntries(failure)
+                            if (failure != null) throw failure
+                            throw t
+                        }
                     }
                     return outTree
                 }
@@ -196,16 +217,31 @@ class BTreeMap<K : Comparable<K>, V> : MutableMap<K, V> {
                         val (k, v) = kv.handle.intoKv()
                         inEdge = kv.handle.rightEdge()
 
-                        val subtree = cloneSubtree(inEdge.descend())
-                        val subroot = subtree.root
-                        val sublength = subtree.length
-
-                        outNode.push(
-                            k,
-                            v,
-                            subroot ?: NodeRef.new<K, V>(),
-                        )
-                        outTree.length += 1 + sublength
+                        var subtree: BTreeMap<K, V>? = null
+                        var clonedK: K? = null
+                        var clonedV: V? = null
+                        try {
+                            clonedK = cloneElement(k)
+                            clonedV = cloneElement(v)
+                            subtree = cloneSubtree(inEdge.descend())
+                            val subroot = subtree.root
+                            val sublength = subtree.length
+                            outNode.push(
+                                clonedK,
+                                clonedV,
+                                subroot ?: NodeRef.new<K, V>(),
+                            )
+                            clonedK = null
+                            clonedV = null
+                            outTree.length += 1 + sublength
+                        } catch (t: Throwable) {
+                            var failure: Throwable? = subtree?.dropEntries(t) ?: t
+                            failure = rememberFailure(failure) { dropElement(clonedK) }
+                            failure = rememberFailure(failure) { dropElement(clonedV) }
+                            failure = outTree.dropEntries(failure)
+                            if (failure != null) throw failure
+                            throw t
+                        }
                     }
                     return outTree
                 }
@@ -336,7 +372,21 @@ class BTreeMap<K : Comparable<K>, V> : MutableMap<K, V> {
             return
         }
 
-        val otherIter = other.intoIter()
+        var otherIter: IntoIter<K, V>? = null
+        try {
+            otherIter = other.intoIter()
+            mergeIter(otherIter, conflict)
+        } catch (t: Throwable) {
+            var failure: Throwable? = t
+            failure = otherIter?.dropWithFailure(failure) ?: failure
+            failure = other.dropEntries(failure)
+            failure = this.dropEntries(failure)
+            if (failure != null) throw failure
+            throw t
+        }
+    }
+
+    private fun mergeIter(otherIter: IntoIter<K, V>, conflict: (K, V, V) -> V) {
         val (firstOtherKey, firstOtherVal) = otherIter.next()
 
         val selfCursor = this.lowerBoundMut(Bound.Included(firstOtherKey))
@@ -350,7 +400,20 @@ class BTreeMap<K : Comparable<K>, V> : MutableMap<K, V> {
                     val removed = selfCursor.removeNext()
                     if (removed != null) {
                         val (k, v) = removed
-                        val newV = conflict(k, v, firstOtherVal)
+                        val newV = try {
+                            conflict(k, v, firstOtherVal)
+                        } catch (t: Throwable) {
+                            var failure = dropPair(removed, t)
+                            failure = dropPair(Pair(firstOtherKey, firstOtherVal), failure)
+                            if (failure != null) throw failure
+                            throw t
+                        }
+                        val failure = rememberFailure(null) { dropElement(firstOtherKey) }
+                        if (failure != null) {
+                            var cleanup = dropPair(removed, failure)
+                            cleanup = rememberFailure(cleanup) { dropElement(firstOtherVal) }
+                            if (cleanup != null) throw cleanup
+                        }
                         // apply `conflict` to get a new (K, V), and insert it
                         // back into the next entry that the cursor is pointing at
                         selfCursor.insertAfterUnchecked(k, newV)
@@ -377,7 +440,20 @@ class BTreeMap<K : Comparable<K>, V> : MutableMap<K, V> {
                             val removed = selfCursor.removeNext()
                             if (removed != null) {
                                 val (k, v) = removed
-                                val newV = conflict(k, v, otherVal)
+                                val newV = try {
+                                    conflict(k, v, otherVal)
+                                } catch (t: Throwable) {
+                                    var failure = dropPair(removed, t)
+                                    failure = dropPair(Pair(otherKey, otherVal), failure)
+                                    if (failure != null) throw failure
+                                    throw t
+                                }
+                                val failure = rememberFailure(null) { dropElement(otherKey) }
+                                if (failure != null) {
+                                    var cleanup = dropPair(removed, failure)
+                                    cleanup = rememberFailure(cleanup) { dropElement(otherVal) }
+                                    if (cleanup != null) throw cleanup
+                                }
                                 selfCursor.insertAfterUnchecked(k, newV)
                             }
                             break
@@ -1109,6 +1185,19 @@ class IntoIter<K, V> internal constructor(
         }
     }
 
+    internal fun dropWithFailure(failure: Throwable? = null): Throwable? {
+        var first = failure
+        while (hasNext()) {
+            val kv = next()
+            first = dropPair(kv, first)
+        }
+        return first
+    }
+
+    internal fun drop() {
+        throwFailure(dropWithFailure())
+    }
+
     /**
      * Returns an immutable iterator of references over the remaining items.
      *
@@ -1450,7 +1539,9 @@ internal class ExtractIfInner<K : Comparable<K>, V>(
             }
             if (!withinRange) return null
 
-            if (pred(k, v)) {
+            val shouldRemove = pred(k, v)
+
+            if (shouldRemove) {
                 map.length -= 1
                 val (kvPair, pos) = kv.removeKvTracking {
                     // invalidate the position returned.
