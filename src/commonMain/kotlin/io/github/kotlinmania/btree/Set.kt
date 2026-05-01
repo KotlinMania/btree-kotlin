@@ -1141,7 +1141,7 @@ internal class PeekableSetIter<T>(private val source: BTreeSet.Iter<T>) {
 private fun <T> BTreeSet.Iter<T>.advance(): T? = if (hasNext()) next() else null
 
 /** An unbounded [RangeBounds] used by [BTreeSet.retain] to cover all keys. */
-private fun <T> unboundedSet(): RangeBounds<T> = object : RangeBounds<T> {
+private fun <T : Comparable<T>> unboundedSet(): RangeBounds<T> = object : RangeBounds<T> {
     override fun startBound(): Bound<T> = Bound.Unbounded
     override fun endBound(): Bound<T> = Bound.Unbounded
 }
