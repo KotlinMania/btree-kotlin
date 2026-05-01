@@ -179,7 +179,7 @@ class OccupiedEntry<K : Comparable<K>, V> internal constructor(
      */
     fun insert(value: V): V {
         val old = handle.intoValMut()
-        handle.setValMut(value)
+        handle.node.asLeafMut().vals[handle.idx] = NodeSlot.Filled(value)
         return old
     }
 

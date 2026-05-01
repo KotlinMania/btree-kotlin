@@ -1093,18 +1093,10 @@ internal fun <K, V, NodeType> Handle<NodeRef<Marker.Immut, K, V, NodeType>, Mark
 internal fun <K, V, NodeType> Handle<NodeRef<Marker.Mut, K, V, NodeType>, Marker.KV>.keyMut(): K {
     return node.asLeafMut().keys[idx].initializedValue
 }
-
-internal fun <K, V, NodeType> Handle<NodeRef<Marker.Mut, K, V, NodeType>, Marker.KV>.setKey(value: K) {
-    node.asLeafMut().keys[idx] = NodeSlot.Filled(value)
-}
 internal fun <K, V, NodeType> Handle<NodeRef<Marker.Mut, K, V, NodeType>, Marker.KV>.intoValMut(): V {
     check(idx < node.len())
     val leaf = node.intoLeafMut()
     return leaf.vals[idx].initializedValue
-}
-
-internal fun <K, V, NodeType> Handle<NodeRef<Marker.Mut, K, V, NodeType>, Marker.KV>.setValMut(value: V) {
-    node.asLeafMut().vals[idx] = NodeSlot.Filled(value)
 }
 internal fun <K, V, NodeType> Handle<NodeRef<Marker.Mut, K, V, NodeType>, Marker.KV>.intoKvMut(): Pair<K, V> {
     check(idx < node.len())
@@ -1668,24 +1660,6 @@ Handle<NodeRef<BorrowType, K, V, NodeType>, HandleType>.forgetNodeType():
     return Handle(node.forgetType(), idx)
 }
 
-internal fun <BorrowType, K, V>
-Handle<NodeRef<BorrowType, K, V, Marker.Leaf>, Marker.Edge>.forgetNodeTypeLeafEdge():
-    Handle<NodeRef<BorrowType, K, V, Marker.LeafOrInternal>, Marker.Edge> {
-    return forgetNodeType()
-}
-
-internal fun <BorrowType, K, V>
-Handle<NodeRef<BorrowType, K, V, Marker.Internal>, Marker.Edge>.forgetNodeTypeInternalEdge():
-    Handle<NodeRef<BorrowType, K, V, Marker.LeafOrInternal>, Marker.Edge> {
-    return forgetNodeType()
-}
-
-internal fun <BorrowType, K, V>
-Handle<NodeRef<BorrowType, K, V, Marker.Leaf>, Marker.KV>.forgetNodeTypeKv():
-    Handle<NodeRef<BorrowType, K, V, Marker.LeafOrInternal>, Marker.KV> {
-    return forgetNodeType()
-}
-
 internal object LeafEdgeForgetNodeType
 
 internal object InternalEdgeForgetNodeType
@@ -1696,7 +1670,7 @@ internal fun <BorrowType, K, V> Handle<NodeRef<BorrowType, K, V, Marker.Leaf>, M
     route: LeafEdgeForgetNodeType,
 ): Handle<NodeRef<BorrowType, K, V, Marker.LeafOrInternal>, Marker.Edge> {
     return when (route) {
-        LeafEdgeForgetNodeType -> forgetNodeTypeLeafEdge()
+        LeafEdgeForgetNodeType -> forgetNodeType()
     }
 }
 
@@ -1704,7 +1678,7 @@ internal fun <BorrowType, K, V> Handle<NodeRef<BorrowType, K, V, Marker.Internal
     route: InternalEdgeForgetNodeType,
 ): Handle<NodeRef<BorrowType, K, V, Marker.LeafOrInternal>, Marker.Edge> {
     return when (route) {
-        InternalEdgeForgetNodeType -> forgetNodeTypeInternalEdge()
+        InternalEdgeForgetNodeType -> forgetNodeType()
     }
 }
 
@@ -1712,7 +1686,7 @@ internal fun <BorrowType, K, V> Handle<NodeRef<BorrowType, K, V, Marker.Leaf>, M
     route: LeafKvForgetNodeType,
 ): Handle<NodeRef<BorrowType, K, V, Marker.LeafOrInternal>, Marker.KV> {
     return when (route) {
-        LeafKvForgetNodeType -> forgetNodeTypeKv()
+        LeafKvForgetNodeType -> forgetNodeType()
     }
 }
 
@@ -1822,18 +1796,6 @@ internal class SplitResult<K, V, NodeType>(
     val right: NodeRef<Marker.Owned, K, V, NodeType>,
 )
 
-/** Specialised `forgetNodeType` for `SplitResult<..., Leaf>`. */
-internal fun <K, V> SplitResult<K, V, Marker.Leaf>.forgetNodeTypeLeaf():
-    SplitResult<K, V, Marker.LeafOrInternal> {
-    return forgetNodeType()
-}
-
-/** Specialised `forgetNodeType` for `SplitResult<..., Internal>`. */
-internal fun <K, V> SplitResult<K, V, Marker.Internal>.forgetNodeTypeInternal():
-    SplitResult<K, V, Marker.LeafOrInternal> {
-    return forgetNodeType()
-}
-
 internal object LeafSplitResultForgetNodeType
 
 internal object InternalSplitResultForgetNodeType
@@ -1842,7 +1804,7 @@ internal fun <K, V> SplitResult<K, V, Marker.Leaf>.forgetNodeType(
     route: LeafSplitResultForgetNodeType,
 ): SplitResult<K, V, Marker.LeafOrInternal> {
     return when (route) {
-        LeafSplitResultForgetNodeType -> forgetNodeTypeLeaf()
+        LeafSplitResultForgetNodeType -> forgetNodeType()
     }
 }
 
@@ -1850,7 +1812,7 @@ internal fun <K, V> SplitResult<K, V, Marker.Internal>.forgetNodeType(
     route: InternalSplitResultForgetNodeType,
 ): SplitResult<K, V, Marker.LeafOrInternal> {
     return when (route) {
-        InternalSplitResultForgetNodeType -> forgetNodeTypeInternal()
+        InternalSplitResultForgetNodeType -> forgetNodeType()
     }
 }
 

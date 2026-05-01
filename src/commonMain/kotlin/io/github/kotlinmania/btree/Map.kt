@@ -850,7 +850,7 @@ internal fun <K : Comparable<K>> BTreeMap<K, SetValZst>.replace(key: K): K? {
     return when (val r = rootNode.searchTree(key)) {
         is SearchResult.Found -> {
             val keyMut = r.handle.keyMut()
-            r.handle.setKey(key)
+            r.handle.node.asLeafMut().keys[r.handle.idx] = NodeSlot.Filled(key)
             keyMut
         }
         is SearchResult.GoDown -> {

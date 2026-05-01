@@ -73,8 +73,8 @@ class NodeTests {
         root1Final.reborrow().assertBackPointers()
         root2.reborrow().assertBackPointers()
 
-        val leafEdge1a = root1Final.reborrow().firstLeafEdge().forgetNodeTypeLeafEdge()
-        val leafEdge1b = root1Final.reborrow().lastLeafEdge().forgetNodeTypeLeafEdge()
+        val leafEdge1a = root1Final.reborrow().firstLeafEdge().forgetNodeType(LeafEdgeForgetNodeType)
+        val leafEdge1b = root1Final.reborrow().lastLeafEdge().forgetNodeType(LeafEdgeForgetNodeType)
         val topEdge1 = root1Final.reborrow().firstEdge()
         val topEdge2 = root2.reborrow().firstEdge()
 
