@@ -39,20 +39,21 @@ internal class LeafRange<BorrowType, K, V>(
     }
 }
 
-internal fun <K, V> LeafRange<Marker.Immut, K, V>.nextChecked(): Pair<K, V>? {
-    return performNextChecked { kv -> kv.intoKv() }
+private fun <BorrowType : Marker.BorrowType, K, V, NodeType>
+    Handle<NodeRef<BorrowType, K, V, NodeType>, Marker.KV>.intoKvPair(): Pair<K, V> {
+    check(idx < node.len())
+    val leaf = node.node
+    val k = leaf.keys[idx].initializedValue
+    val v = leaf.vals[idx].initializedValue
+    return Pair(k, v)
 }
 
-internal fun <K, V> LeafRange<Marker.Immut, K, V>.nextBackChecked(): Pair<K, V>? {
-    return performNextBackChecked { kv -> kv.intoKv() }
+internal fun <BorrowType : Marker.BorrowType, K, V> LeafRange<BorrowType, K, V>.nextChecked(): Pair<K, V>? {
+    return performNextChecked { kv -> kv.intoKvPair() }
 }
 
-internal fun <K, V> LeafRange<Marker.ValMut, K, V>.nextCheckedValMut(): Pair<K, V>? {
-    return performNextChecked { kv -> kv.intoKvValmut() }
-}
-
-internal fun <K, V> LeafRange<Marker.ValMut, K, V>.nextBackCheckedValMut(): Pair<K, V>? {
-    return performNextBackChecked { kv -> kv.intoKvValmut() }
+internal fun <BorrowType : Marker.BorrowType, K, V> LeafRange<BorrowType, K, V>.nextBackChecked(): Pair<K, V>? {
+    return performNextBackChecked { kv -> kv.intoKvPair() }
 }
 
 /**
@@ -155,30 +156,16 @@ internal class LazyLeafRange<BorrowType, K, V>(
     }
 }
 
-internal fun <K, V> LazyLeafRange<Marker.Immut, K, V>.nextUnchecked(): Pair<K, V> {
+internal fun <BorrowType : Marker.BorrowType, K, V> LazyLeafRange<BorrowType, K, V>.nextUnchecked(): Pair<K, V> {
     val edge = initFront()!!
     val (newEdge, kv) = edge.nextUnchecked()
     front = LazyLeafHandle.Edge(newEdge)
     return kv
 }
 
-internal fun <K, V> LazyLeafRange<Marker.Immut, K, V>.nextBackUnchecked(): Pair<K, V> {
+internal fun <BorrowType : Marker.BorrowType, K, V> LazyLeafRange<BorrowType, K, V>.nextBackUnchecked(): Pair<K, V> {
     val edge = initBack()!!
     val (newEdge, kv) = edge.nextBackUnchecked()
-    back = LazyLeafHandle.Edge(newEdge)
-    return kv
-}
-
-internal fun <K, V> LazyLeafRange<Marker.ValMut, K, V>.nextUncheckedValMut(): Pair<K, V> {
-    val edge = initFront()!!
-    val (newEdge, kv) = edge.nextUncheckedValMut()
-    front = LazyLeafHandle.Edge(newEdge)
-    return kv
-}
-
-internal fun <K, V> LazyLeafRange<Marker.ValMut, K, V>.nextBackUncheckedValMut(): Pair<K, V> {
-    val edge = initBack()!!
-    val (newEdge, kv) = edge.nextBackUncheckedValMut()
     back = LazyLeafHandle.Edge(newEdge)
     return kv
 }
@@ -316,76 +303,25 @@ internal fun <BorrowType : Marker.BorrowType, K, V> fullRange(
  * The result is meaningful only if the tree is ordered by key, like the tree
  * in a [BTreeMap] is.
  */
-internal inline fun <K, reified V, Q : Comparable<Q>, R : RangeBounds<Q>>
-    NodeRef<Marker.Immut, K, V, Marker.LeafOrInternal>.rangeSearch(
+internal inline fun <BorrowType : Marker.BorrowType, K, reified V, Q : Comparable<Q>, R : RangeBounds<Q>>
+    NodeRef<BorrowType, K, V, Marker.LeafOrInternal>.rangeSearch(
     range: R,
-): LeafRange<Marker.Immut, K, V> where K : Comparable<Q> {
-    return this.findLeafEdgesSpanningRange<Marker.Immut, K, V, Q, R>(range)
+): LeafRange<BorrowType, K, V> where K : Comparable<Q> {
+    return this.findLeafEdgesSpanningRange<BorrowType, K, V, Q, R>(range)
 }
 
-internal fun <K, V, Q : Comparable<Q>, R : RangeBounds<Q>>
-    NodeRef<Marker.Immut, K, V, Marker.LeafOrInternal>.rangeSearch(
+internal fun <BorrowType : Marker.BorrowType, K, V, Q : Comparable<Q>, R : RangeBounds<Q>>
+    NodeRef<BorrowType, K, V, Marker.LeafOrInternal>.rangeSearch(
     range: R,
     isSet: Boolean,
-): LeafRange<Marker.Immut, K, V> where K : Comparable<Q> {
-    return this.findLeafEdgesSpanningRangeExplicit<Marker.Immut, K, V, Q, R>(range, isSet)
+): LeafRange<BorrowType, K, V> where K : Comparable<Q> {
+    return this.findLeafEdgesSpanningRangeExplicit<BorrowType, K, V, Q, R>(range, isSet)
 }
 
 /** Finds the pair of leaf edges delimiting an entire tree. */
-internal fun <K, V> NodeRef<Marker.Immut, K, V, Marker.LeafOrInternal>.fullRangeImmut():
-    LazyLeafRange<Marker.Immut, K, V> {
-    return fullRange(this, this)
-}
-
-/**
- * Splits a unique reference into a pair of leaf edges delimiting a specified range.
- * The result are non-unique references allowing (some) mutation, which must be used
- * carefully.
- *
- * The result is meaningful only if the tree is ordered by key, like the tree
- * in a [BTreeMap] is.
- *
- * Safety:
- * Do not use the duplicate handles to visit the same KV twice.
- */
-internal inline fun <K, reified V, Q : Comparable<Q>, R : RangeBounds<Q>>
-    NodeRef<Marker.ValMut, K, V, Marker.LeafOrInternal>.rangeSearchValMut(
-    range: R,
-): LeafRange<Marker.ValMut, K, V> where K : Comparable<Q> {
-    return this.findLeafEdgesSpanningRange<Marker.ValMut, K, V, Q, R>(range)
-}
-
-internal fun <K, V, Q : Comparable<Q>, R : RangeBounds<Q>>
-    NodeRef<Marker.ValMut, K, V, Marker.LeafOrInternal>.rangeSearchValMutExplicit(
-    range: R,
-    isSet: Boolean,
-): LeafRange<Marker.ValMut, K, V> where K : Comparable<Q> {
-    return this.findLeafEdgesSpanningRangeExplicit<Marker.ValMut, K, V, Q, R>(range, isSet)
-}
-
-/**
- * Splits a unique reference into a pair of leaf edges delimiting the full range of the tree.
- * The results are non-unique references allowing mutation (of values only), so must be used
- * with care.
- */
-internal fun <K, V> NodeRef<Marker.ValMut, K, V, Marker.LeafOrInternal>.fullRangeValMut():
-    LazyLeafRange<Marker.ValMut, K, V> {
-    // We duplicate the root NodeRef here -- we will never visit the same KV
-    // twice, and never end up with overlapping value references.
-    val self2 = NodeRef<Marker.ValMut, K, V, Marker.LeafOrInternal>(height = height, node = node)
-    return fullRange(this, self2)
-}
-
-/**
- * Splits a unique reference into a pair of leaf edges delimiting the full range of the tree.
- * The results are non-unique references allowing massively destructive mutation, so must be
- * used with the utmost care.
- */
-internal fun <K, V> NodeRef<Marker.Dying, K, V, Marker.LeafOrInternal>.fullRangeDying():
-    LazyLeafRange<Marker.Dying, K, V> {
-    // We duplicate the root NodeRef here -- we will never access it in a way
-    // that overlaps references obtained from the root.
-    val self2 = NodeRef<Marker.Dying, K, V, Marker.LeafOrInternal>(height = height, node = node)
+internal fun <BorrowType : Marker.BorrowType, K, V> NodeRef<BorrowType, K, V, Marker.LeafOrInternal>.fullRange():
+    LazyLeafRange<BorrowType, K, V> {
+    val self2 = NodeRef<BorrowType, K, V, Marker.LeafOrInternal>(height = height, node = node)
     return fullRange(this, self2)
 }
 
@@ -571,9 +507,9 @@ internal fun <K, V>
  * Safety:
  * There must be another KV in the direction travelled.
  */
-internal fun <K, V>
-    Handle<NodeRef<Marker.Immut, K, V, Marker.Leaf>, Marker.Edge>.nextUnchecked():
-    Pair<Handle<NodeRef<Marker.Immut, K, V, Marker.Leaf>, Marker.Edge>, Pair<K, V>> {
+internal fun <BorrowType : Marker.BorrowType, K, V>
+    Handle<NodeRef<BorrowType, K, V, Marker.Leaf>, Marker.Edge>.nextUnchecked():
+    Pair<Handle<NodeRef<BorrowType, K, V, Marker.Leaf>, Marker.Edge>, Pair<K, V>> {
     val (newEdge, kvRef) = replace(this) { leafEdge ->
         val kv = when (val r = leafEdge.nextKv()) {
             is NextKvResult.Ok -> r.handle
@@ -581,7 +517,7 @@ internal fun <K, V>
         }
         Pair(kv.nextLeafEdge(), kv)
     }
-    return Pair(newEdge, kvRef.intoKv())
+    return Pair(newEdge, kvRef.intoKvPair())
 }
 
 /**
@@ -590,9 +526,9 @@ internal fun <K, V>
  * Safety:
  * There must be another KV in the direction travelled.
  */
-internal fun <K, V>
-    Handle<NodeRef<Marker.Immut, K, V, Marker.Leaf>, Marker.Edge>.nextBackUnchecked():
-    Pair<Handle<NodeRef<Marker.Immut, K, V, Marker.Leaf>, Marker.Edge>, Pair<K, V>> {
+internal fun <BorrowType : Marker.BorrowType, K, V>
+    Handle<NodeRef<BorrowType, K, V, Marker.Leaf>, Marker.Edge>.nextBackUnchecked():
+    Pair<Handle<NodeRef<BorrowType, K, V, Marker.Leaf>, Marker.Edge>, Pair<K, V>> {
     val (newEdge, kvRef) = replace(this) { leafEdge ->
         val kv = when (val r = leafEdge.nextBackKv()) {
             is NextKvResult.Ok -> r.handle
@@ -600,47 +536,7 @@ internal fun <K, V>
         }
         Pair(kv.nextBackLeafEdge(), kv)
     }
-    return Pair(newEdge, kvRef.intoKv())
-}
-
-/**
- * Returns the next leaf edge handle and the key and value in between.
- *
- * Safety:
- * There must be another KV in the direction travelled.
- */
-internal fun <K, V>
-    Handle<NodeRef<Marker.ValMut, K, V, Marker.Leaf>, Marker.Edge>.nextUncheckedValMut():
-    Pair<Handle<NodeRef<Marker.ValMut, K, V, Marker.Leaf>, Marker.Edge>, Pair<K, V>> {
-    val (newEdge, kv) = replace(this) { leafEdge ->
-        val kv = when (val r = leafEdge.nextKv()) {
-            is NextKvResult.Ok -> r.handle
-            is NextKvResult.Err -> error("unreachable: caller-asserted there is another KV")
-        }
-        Pair(kv.nextLeafEdge(), kv)
-    }
-    // Doing this last is faster, according to benchmarks.
-    return Pair(newEdge, kv.intoKvValmut())
-}
-
-/**
- * Returns the previous leaf edge handle and the key and value in between.
- *
- * Safety:
- * There must be another KV in the direction travelled.
- */
-internal fun <K, V>
-    Handle<NodeRef<Marker.ValMut, K, V, Marker.Leaf>, Marker.Edge>.nextBackUncheckedValMut():
-    Pair<Handle<NodeRef<Marker.ValMut, K, V, Marker.Leaf>, Marker.Edge>, Pair<K, V>> {
-    val (newEdge, kv) = replace(this) { leafEdge ->
-        val kv = when (val r = leafEdge.nextBackKv()) {
-            is NextKvResult.Ok -> r.handle
-            is NextKvResult.Err -> error("unreachable: caller-asserted there is another KV")
-        }
-        Pair(kv.nextBackLeafEdge(), kv)
-    }
-    // Doing this last is faster, according to benchmarks.
-    return Pair(newEdge, kv.intoKvValmut())
+    return Pair(newEdge, kvRef.intoKvPair())
 }
 
 /**

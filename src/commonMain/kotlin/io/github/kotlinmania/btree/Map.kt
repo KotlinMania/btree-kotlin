@@ -493,7 +493,7 @@ class BTreeMap<K : Comparable<K>, V> : MutableMap<K, V> {
     fun range(range: RangeBounds<K>): Range<K, V> {
         val r = root
         return if (r != null) {
-            Range(r.reborrow().rangeSearch<K, V, K, RangeBounds<K>>(range, internalIsSet))
+            Range(r.reborrow().rangeSearch(range, internalIsSet))
         } else {
             Range(LeafRange.none())
         }
@@ -507,7 +507,7 @@ class BTreeMap<K : Comparable<K>, V> : MutableMap<K, V> {
     fun rangeMut(range: RangeBounds<K>): RangeMut<K, V> {
         val r = root
         return if (r != null) {
-            RangeMut(r.borrowValmut().rangeSearchValMutExplicit<K, V, K, RangeBounds<K>>(range, internalIsSet))
+            RangeMut(r.borrowValmut().rangeSearch(range, internalIsSet))
         } else {
             RangeMut(LeafRange.none())
         }
@@ -618,7 +618,7 @@ class BTreeMap<K : Comparable<K>, V> : MutableMap<K, V> {
     fun iter(): Iter<K, V> {
         val r = root
         return if (r != null) {
-            Iter(r.reborrow().fullRangeImmut(), length)
+            Iter(r.reborrow().fullRange(), length)
         } else {
             Iter(LazyLeafRange.none(), 0)
         }
@@ -628,7 +628,7 @@ class BTreeMap<K : Comparable<K>, V> : MutableMap<K, V> {
     fun iterMut(): IterMut<K, V> {
         val r = root
         return if (r != null) {
-            IterMut(r.borrowValmut().fullRangeValMut(), length, this)
+            IterMut(r.borrowValmut().fullRange(), length, this)
         } else {
             IterMut(LazyLeafRange.none(), 0, this)
         }
@@ -656,7 +656,7 @@ class BTreeMap<K : Comparable<K>, V> : MutableMap<K, V> {
         val savedLen = length
         length = 0
         return if (r != null) {
-            val fullRange = r.intoDying().fullRangeDying()
+            val fullRange = r.intoDying().fullRange()
             IntoIter(fullRange, savedLen)
         } else {
             IntoIter(LazyLeafRange.none(), 0)
@@ -1051,7 +1051,7 @@ class IterMut<K : Comparable<K>, V> internal constructor(
     override fun next(): Pair<K, V> {
         if (length == 0) throw NoSuchElementException()
         length -= 1
-        val kv = range.nextUncheckedValMut()
+        val kv = range.nextUnchecked()
         lastKey = kv.first
         return kv
     }
@@ -1060,7 +1060,7 @@ class IterMut<K : Comparable<K>, V> internal constructor(
     fun nextBack(): Pair<K, V>? {
         if (length == 0) return null
         length -= 1
-        val kv = range.nextBackUncheckedValMut()
+        val kv = range.nextBackUnchecked()
         lastKey = kv.first
         return kv
     }
@@ -1415,18 +1415,18 @@ class Range<K, V> internal constructor(
 class RangeMut<K, V> internal constructor(
     internal var inner: LeafRange<Marker.ValMut, K, V>,
 ) : Iterator<Pair<K, V>> {
-    private var pending: Pair<K, V>? = inner.nextCheckedValMut()
+    private var pending: Pair<K, V>? = inner.nextChecked()
 
     override fun hasNext(): Boolean = pending != null
 
     override fun next(): Pair<K, V> {
         val out = pending ?: throw NoSuchElementException()
-        pending = inner.nextCheckedValMut()
+        pending = inner.nextChecked()
         return out
     }
 
     /** Returns the next entry from the back, or `null` if exhausted. */
-    fun nextBack(): Pair<K, V>? = inner.nextBackCheckedValMut()
+    fun nextBack(): Pair<K, V>? = inner.nextBackChecked()
 
     fun sizeHint(): Pair<Int, Int?> = Pair(0, null)
 
