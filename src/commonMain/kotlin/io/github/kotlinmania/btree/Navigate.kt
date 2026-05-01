@@ -42,37 +42,22 @@ internal class LeafRange<BorrowType, K, V>(
             back = back?.reborrow(),
         )
     }
+}
 
-    // -------------------------------------------------------------------------
-    // LeafRange<Immut, K, V>
-    // -------------------------------------------------------------------------
+internal fun <K, V> LeafRange<Marker.Immut, K, V>.nextChecked(): Pair<K, V>? {
+    return performNextChecked { kv -> kv.intoKv() }
+}
 
-    /**
-     * Call this only when the underlying borrow type is [Marker.Immut].
-     */
-    internal fun nextChecked(): Pair<K, V>? {
-        val self = this as LeafRange<Marker.Immut, K, V>
-        return self.performNextChecked { kv -> kv.intoKv() }
-    }
+internal fun <K, V> LeafRange<Marker.Immut, K, V>.nextBackChecked(): Pair<K, V>? {
+    return performNextBackChecked { kv -> kv.intoKv() }
+}
 
-    internal fun nextBackChecked(): Pair<K, V>? {
-        val self = this as LeafRange<Marker.Immut, K, V>
-        return self.performNextBackChecked { kv -> kv.intoKv() }
-    }
+internal fun <K, V> LeafRange<Marker.ValMut, K, V>.nextCheckedValMut(): Pair<K, V>? {
+    return performNextChecked { kv -> kv.intoKvValmut() }
+}
 
-    // -------------------------------------------------------------------------
-    // LeafRange with ValMut borrow
-    // -------------------------------------------------------------------------
-
-    internal fun nextCheckedValMut(): Pair<K, V>? {
-        val self = this as LeafRange<Marker.ValMut, K, V>
-        return self.performNextChecked { kv -> kv.intoKvValmut() }
-    }
-
-    internal fun nextBackCheckedValMut(): Pair<K, V>? {
-        val self = this as LeafRange<Marker.ValMut, K, V>
-        return self.performNextBackChecked { kv -> kv.intoKvValmut() }
-    }
+internal fun <K, V> LeafRange<Marker.ValMut, K, V>.nextBackCheckedValMut(): Pair<K, V>? {
+    return performNextBackChecked { kv -> kv.intoKvValmut() }
 }
 
 /**
@@ -187,97 +172,77 @@ internal class LazyLeafRange<BorrowType, K, V>(
             back = back?.reborrow(),
         )
     }
+}
 
-    // -------------------------------------------------------------------------
-    // LazyLeafRange<Immut, K, V>
-    // -------------------------------------------------------------------------
+/**
+ * SAFETY: There must be another KV in the direction travelled.
+ */
+internal fun <K, V> LazyLeafRange<Marker.Immut, K, V>.nextUnchecked(): Pair<K, V> {
+    val edge = initFront()!!
+    val (newEdge, kv) = edge.nextUnchecked()
+    front = LazyLeafHandle.Edge(newEdge)
+    return kv
+}
 
-    /**
-     * SAFETY: There must be another KV in the direction travelled.
-     */
-    internal fun nextUnchecked(): Pair<K, V> {
-        val self = this as LazyLeafRange<Marker.Immut, K, V>
-        val edge = self.initFront()!!
-        val (newEdge, kv) = edge.nextUnchecked()
-        self.front = LazyLeafHandle.Edge(newEdge)
-        return kv
+internal fun <K, V> LazyLeafRange<Marker.Immut, K, V>.nextBackUnchecked(): Pair<K, V> {
+    val edge = initBack()!!
+    val (newEdge, kv) = edge.nextBackUnchecked()
+    back = LazyLeafHandle.Edge(newEdge)
+    return kv
+}
+
+/**
+ * SAFETY: There must be another KV in the direction travelled.
+ */
+internal fun <K, V> LazyLeafRange<Marker.ValMut, K, V>.nextUncheckedValMut(): Pair<K, V> {
+    val edge = initFront()!!
+    val (newEdge, kv) = edge.nextUncheckedValMut()
+    front = LazyLeafHandle.Edge(newEdge)
+    return kv
+}
+
+internal fun <K, V> LazyLeafRange<Marker.ValMut, K, V>.nextBackUncheckedValMut(): Pair<K, V> {
+    val edge = initBack()!!
+    val (newEdge, kv) = edge.nextBackUncheckedValMut()
+    back = LazyLeafHandle.Edge(newEdge)
+    return kv
+}
+
+internal fun <K, V> LazyLeafRange<Marker.Dying, K, V>.takeFront():
+    Handle<NodeRef<Marker.Dying, K, V, Marker.Leaf>, Marker.Edge>? {
+    val taken = front ?: return null
+    front = null
+    return when (taken) {
+        is LazyLeafHandle.Root -> taken.node.firstLeafEdge()
+        is LazyLeafHandle.Edge -> taken.edge
     }
+}
 
-    internal fun nextBackUnchecked(): Pair<K, V> {
-        val self = this as LazyLeafRange<Marker.Immut, K, V>
-        val edge = self.initBack()!!
-        val (newEdge, kv) = edge.nextBackUnchecked()
-        self.back = LazyLeafHandle.Edge(newEdge)
-        return kv
-    }
+/**
+ * SAFETY: caller has previously primed `front` to non-null; that
+ * invariant is re-checked here as a debug assertion.
+ */
+internal fun <K, V> LazyLeafRange<Marker.Dying, K, V>.deallocatingNextUnchecked():
+    Handle<NodeRef<Marker.Dying, K, V, Marker.LeafOrInternal>, Marker.KV> {
+    check(front != null)
+    val edge = initFront()!!
+    val (newEdge, kv) = edge.deallocatingNextUnchecked()
+    front = LazyLeafHandle.Edge(newEdge)
+    return kv
+}
 
-    // -------------------------------------------------------------------------
-    // LazyLeafRange with ValMut borrow
-    // -------------------------------------------------------------------------
+internal fun <K, V> LazyLeafRange<Marker.Dying, K, V>.deallocatingNextBackUnchecked():
+    Handle<NodeRef<Marker.Dying, K, V, Marker.LeafOrInternal>, Marker.KV> {
+    check(back != null)
+    val edge = initBack()!!
+    val (newEdge, kv) = edge.deallocatingNextBackUnchecked()
+    back = LazyLeafHandle.Edge(newEdge)
+    return kv
+}
 
-    /**
-     * SAFETY: There must be another KV in the direction travelled.
-     */
-    internal fun nextUncheckedValMut(): Pair<K, V> {
-        val self = this as LazyLeafRange<Marker.ValMut, K, V>
-        val edge = self.initFront()!!
-        val (newEdge, kv) = edge.nextUncheckedValMut()
-        self.front = LazyLeafHandle.Edge(newEdge)
-        return kv
-    }
-
-    internal fun nextBackUncheckedValMut(): Pair<K, V> {
-        val self = this as LazyLeafRange<Marker.ValMut, K, V>
-        val edge = self.initBack()!!
-        val (newEdge, kv) = edge.nextBackUncheckedValMut()
-        self.back = LazyLeafHandle.Edge(newEdge)
-        return kv
-    }
-
-    // -------------------------------------------------------------------------
-    // LazyLeafRange with Dying borrow
-    // -------------------------------------------------------------------------
-
-    internal fun takeFront():
-        Handle<NodeRef<Marker.Dying, K, V, Marker.Leaf>, Marker.Edge>? {
-        val self = this as LazyLeafRange<Marker.Dying, K, V>
-        val taken = self.front ?: return null
-        self.front = null
-        return when (taken) {
-            is LazyLeafHandle.Root -> taken.node.firstLeafEdge()
-            is LazyLeafHandle.Edge -> taken.edge
-        }
-    }
-
-    /**
-     * SAFETY: caller has previously primed `front` to non-null; that
-     * invariant is re-checked here as a debug assertion.
-     */
-    internal fun deallocatingNextUnchecked():
-        Handle<NodeRef<Marker.Dying, K, V, Marker.LeafOrInternal>, Marker.KV> {
-        val self = this as LazyLeafRange<Marker.Dying, K, V>
-        check(self.front != null)
-        val edge = self.initFront()!!
-        val (newEdge, kv) = edge.deallocatingNextUnchecked()
-        self.front = LazyLeafHandle.Edge(newEdge)
-        return kv
-    }
-
-    internal fun deallocatingNextBackUnchecked():
-        Handle<NodeRef<Marker.Dying, K, V, Marker.LeafOrInternal>, Marker.KV> {
-        val self = this as LazyLeafRange<Marker.Dying, K, V>
-        check(self.back != null)
-        val edge = self.initBack()!!
-        val (newEdge, kv) = edge.deallocatingNextBackUnchecked()
-        self.back = LazyLeafHandle.Edge(newEdge)
-        return kv
-    }
-
-    internal fun deallocatingEnd() {
-        val self = this as LazyLeafRange<Marker.Dying, K, V>
-        val front = self.takeFront()
-        front?.deallocatingEnd()
-    }
+internal fun <K, V> LazyLeafRange<Marker.Dying, K, V>.deallocatingEnd() {
+    val front = takeFront()
+    front?.deallocatingEnd()
 }
 
 // -------------------------------------------------------------------------
