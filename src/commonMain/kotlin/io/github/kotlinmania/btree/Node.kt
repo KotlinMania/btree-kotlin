@@ -274,6 +274,26 @@ internal class NodeRef<BorrowType, K, V, Type> internal constructor(
     }
 }
 
+internal object LeafForgetType
+
+internal object InternalForgetType
+
+internal fun <BorrowType, K, V> NodeRef<BorrowType, K, V, Marker.Leaf>.forgetType(
+    route: LeafForgetType,
+): NodeRef<BorrowType, K, V, Marker.LeafOrInternal> {
+    return when (route) {
+        LeafForgetType -> forgetType()
+    }
+}
+
+internal fun <BorrowType, K, V> NodeRef<BorrowType, K, V, Marker.Internal>.forgetType(
+    route: InternalForgetType,
+): NodeRef<BorrowType, K, V, Marker.LeafOrInternal> {
+    return when (route) {
+        InternalForgetType -> forgetType()
+    }
+}
+
 /** Real upstream root-node alias. */
 internal typealias Root<K, V> = NodeRef<Marker.Owned, K, V, Marker.LeafOrInternal>
 
@@ -1726,6 +1746,36 @@ Handle<NodeRef<BorrowType, K, V, Marker.Leaf>, Marker.KV>.forgetNodeTypeKv():
     return forgetNodeType()
 }
 
+internal object LeafEdgeForgetNodeType
+
+internal object InternalEdgeForgetNodeType
+
+internal object LeafKvForgetNodeType
+
+internal fun <BorrowType, K, V> Handle<NodeRef<BorrowType, K, V, Marker.Leaf>, Marker.Edge>.forgetNodeType(
+    route: LeafEdgeForgetNodeType,
+): Handle<NodeRef<BorrowType, K, V, Marker.LeafOrInternal>, Marker.Edge> {
+    return when (route) {
+        LeafEdgeForgetNodeType -> forgetNodeTypeLeafEdge()
+    }
+}
+
+internal fun <BorrowType, K, V> Handle<NodeRef<BorrowType, K, V, Marker.Internal>, Marker.Edge>.forgetNodeType(
+    route: InternalEdgeForgetNodeType,
+): Handle<NodeRef<BorrowType, K, V, Marker.LeafOrInternal>, Marker.Edge> {
+    return when (route) {
+        InternalEdgeForgetNodeType -> forgetNodeTypeInternalEdge()
+    }
+}
+
+internal fun <BorrowType, K, V> Handle<NodeRef<BorrowType, K, V, Marker.Leaf>, Marker.KV>.forgetNodeType(
+    route: LeafKvForgetNodeType,
+): Handle<NodeRef<BorrowType, K, V, Marker.LeafOrInternal>, Marker.KV> {
+    return when (route) {
+        LeafKvForgetNodeType -> forgetNodeTypeKv()
+    }
+}
+
 // =====================================================================
 // Handle LeafOrInternal: force, castToLeafUnchecked
 // =====================================================================
@@ -1839,6 +1889,26 @@ internal fun <K, V> SplitResult<K, V, Marker.Leaf>.forgetNodeTypeLeaf():
 internal fun <K, V> SplitResult<K, V, Marker.Internal>.forgetNodeTypeInternal():
     SplitResult<K, V, Marker.LeafOrInternal> {
     return forgetNodeType()
+}
+
+internal object LeafSplitResultForgetNodeType
+
+internal object InternalSplitResultForgetNodeType
+
+internal fun <K, V> SplitResult<K, V, Marker.Leaf>.forgetNodeType(
+    route: LeafSplitResultForgetNodeType,
+): SplitResult<K, V, Marker.LeafOrInternal> {
+    return when (route) {
+        LeafSplitResultForgetNodeType -> forgetNodeTypeLeaf()
+    }
+}
+
+internal fun <K, V> SplitResult<K, V, Marker.Internal>.forgetNodeType(
+    route: InternalSplitResultForgetNodeType,
+): SplitResult<K, V, Marker.LeafOrInternal> {
+    return when (route) {
+        InternalSplitResultForgetNodeType -> forgetNodeTypeInternal()
+    }
 }
 
 internal fun <K, V, NodeType> SplitResult<K, V, NodeType>.forgetNodeType():
