@@ -3,10 +3,6 @@
 // copyright The Rust Project Developers, dual-licensed Apache-2.0 / MIT.
 package io.github.kotlinmania.btree
 
-// ============================================================================
-// LeafRange
-// ============================================================================
-
 // `front` and `back` are always both `None` or both `Some`.
 internal class LeafRange<BorrowType, K, V>(
     var front: Handle<NodeRef<BorrowType, K, V, Marker.Leaf>, Marker.Edge>?,
@@ -25,7 +21,6 @@ internal class LeafRange<BorrowType, K, V>(
     }
 
     private fun isEmpty(): Boolean {
-        // self.front == self.back  — uses Handle::structuralEq.
         val f = front
         val b = back
         return when {
@@ -100,8 +95,6 @@ private fun <BorrowType : Marker.BorrowType, K, V, R> LeafRange<BorrowType, K, V
     return result
 }
 
-// `LeafRange.isEmpty` is private; expose a same-package shim for the
-// extension-function based `performNext*Checked` to use.
 private fun <BorrowType, K, V> LeafRange<BorrowType, K, V>.isEmptyInternal(): Boolean {
     val f = front
     val b = back
@@ -112,14 +105,6 @@ private fun <BorrowType, K, V> LeafRange<BorrowType, K, V>.isEmptyInternal(): Bo
     }
 }
 
-// ============================================================================
-// LazyLeafHandle
-// ============================================================================
-
-/**
- * `enum LazyLeafHandle<BorrowType, K, V> { Root(...), Edge(...) }`,
- * rendered as a sealed class with two variants.
- */
 internal sealed class LazyLeafHandle<BorrowType, K, V> {
     /** Not yet descended. */
     data class Root<BorrowType, K, V>(
@@ -143,10 +128,6 @@ internal fun <BorrowType, K, V> LazyLeafHandle<BorrowType, K, V>.reborrow():
     is LazyLeafHandle.Root -> LazyLeafHandle.Root(node.reborrow())
     is LazyLeafHandle.Edge -> LazyLeafHandle.Edge(edge.reborrow())
 }
-
-// ============================================================================
-// LazyLeafRange
-// ============================================================================
 
 // `front` and `back` are always both `None` or both `Some`.
 internal class LazyLeafRange<BorrowType, K, V>(
@@ -174,9 +155,6 @@ internal class LazyLeafRange<BorrowType, K, V>(
     }
 }
 
-/**
- * SAFETY: There must be another KV in the direction travelled.
- */
 internal fun <K, V> LazyLeafRange<Marker.Immut, K, V>.nextUnchecked(): Pair<K, V> {
     val edge = initFront()!!
     val (newEdge, kv) = edge.nextUnchecked()
@@ -191,9 +169,6 @@ internal fun <K, V> LazyLeafRange<Marker.Immut, K, V>.nextBackUnchecked(): Pair<
     return kv
 }
 
-/**
- * SAFETY: There must be another KV in the direction travelled.
- */
 internal fun <K, V> LazyLeafRange<Marker.ValMut, K, V>.nextUncheckedValMut(): Pair<K, V> {
     val edge = initFront()!!
     val (newEdge, kv) = edge.nextUncheckedValMut()
@@ -218,10 +193,6 @@ internal fun <K, V> LazyLeafRange<Marker.Dying, K, V>.takeFront():
     }
 }
 
-/**
- * SAFETY: caller has previously primed `front` to non-null; that
- * invariant is re-checked here as a debug assertion.
- */
 internal fun <K, V> LazyLeafRange<Marker.Dying, K, V>.deallocatingNextUnchecked():
     Handle<NodeRef<Marker.Dying, K, V, Marker.LeafOrInternal>, Marker.KV> {
     check(front != null)
@@ -245,15 +216,6 @@ internal fun <K, V> LazyLeafRange<Marker.Dying, K, V>.deallocatingEnd() {
     front?.deallocatingEnd()
 }
 
-// -------------------------------------------------------------------------
-// LazyLeafRange initFront / initBack
-// -------------------------------------------------------------------------
-
-/**
- * Returns the underlying leaf-edge handle, descending from the root if the
- * front slot is still in [LazyLeafHandle.Root] form. The caller stores the
- * returned handle back into the [front] field after any state-machine update.
- */
 internal fun <BorrowType : Marker.BorrowType, K, V> LazyLeafRange<BorrowType, K, V>.initFront():
     Handle<NodeRef<BorrowType, K, V, Marker.Leaf>, Marker.Edge>? {
     val current = front
@@ -280,10 +242,6 @@ internal fun <BorrowType : Marker.BorrowType, K, V> LazyLeafRange<BorrowType, K,
     }
 }
 
-// ============================================================================
-// NodeRef<LeafOrInternal>: findLeafEdgesSpanningRange
-// ============================================================================
-
 /**
  * Finds the distinct leaf edges delimiting a specified range in a tree.
  *
@@ -295,8 +253,8 @@ internal fun <BorrowType : Marker.BorrowType, K, V> LazyLeafRange<BorrowType, K,
  * If there are no such edges, i.e., if the tree contains no key within
  * the range, returns an empty `front` and `back`.
  *
- * # Safety
- * Unless `BorrowType` is `Immut`, do not import the handles to visit the same
+ * Safety:
+ * Unless `BorrowType` is `Immut`, do not use the handles to visit the same
  * KV twice.
  */
 internal inline fun <BorrowType : Marker.BorrowType, K, reified V, Q : Comparable<Q>, R : RangeBounds<Q>>
@@ -304,10 +262,6 @@ internal inline fun <BorrowType : Marker.BorrowType, K, reified V, Q : Comparabl
     range: R,
 ): LeafRange<BorrowType, K, V> where K : Comparable<Q> = findLeafEdgesSpanningRangeExplicit(range, isSetVal<V>())
 
-/**
- * Explicit-`isSet` variant of [findLeafEdgesSpanningRange] for non-reified
- * callers (class methods on `BTreeMap`/`BTreeSet`).
- */
 internal fun <BorrowType : Marker.BorrowType, K, V, Q : Comparable<Q>, R : RangeBounds<Q>>
     NodeRef<BorrowType, K, V, Marker.LeafOrInternal>.findLeafEdgesSpanningRangeExplicit(
     range: R,
@@ -346,10 +300,6 @@ internal fun <BorrowType : Marker.BorrowType, K, V, Q : Comparable<Q>, R : Range
     error("unreachable: while(true) above always returns or throws")
 }
 
-// ============================================================================
-// fullRange (free function)
-// ============================================================================
-
 internal fun <BorrowType : Marker.BorrowType, K, V> fullRange(
     root1: NodeRef<BorrowType, K, V, Marker.LeafOrInternal>,
     root2: NodeRef<BorrowType, K, V, Marker.LeafOrInternal>,
@@ -360,18 +310,11 @@ internal fun <BorrowType : Marker.BorrowType, K, V> fullRange(
     )
 }
 
-// ============================================================================
-// NodeRef<Immut, ...>: rangeSearch, fullRange
-// ============================================================================
-
 /**
  * Finds the pair of leaf edges delimiting a specific range in a tree.
  *
- * Renamed to [rangeSearchImmut] because Kotlin extension-function overload
- * resolution rejects same-name extensions whose receivers differ only in
- * concrete generic argument.
- *
- * The result is meaningful only if the tree is ordered by key.
+ * The result is meaningful only if the tree is ordered by key, like the tree
+ * in a [BTreeMap] is.
  */
 internal inline fun <K, reified V, Q : Comparable<Q>, R : RangeBounds<Q>>
     NodeRef<Marker.Immut, K, V, Marker.LeafOrInternal>.rangeSearch(
@@ -380,7 +323,6 @@ internal inline fun <K, reified V, Q : Comparable<Q>, R : RangeBounds<Q>>
     return this.findLeafEdgesSpanningRange<Marker.Immut, K, V, Q, R>(range)
 }
 
-/** Explicit-`isSet` variant of [rangeSearchImmut] for non-reified callers. */
 internal fun <K, V, Q : Comparable<Q>, R : RangeBounds<Q>>
     NodeRef<Marker.Immut, K, V, Marker.LeafOrInternal>.rangeSearch(
     range: R,
@@ -389,25 +331,22 @@ internal fun <K, V, Q : Comparable<Q>, R : RangeBounds<Q>>
     return this.findLeafEdgesSpanningRangeExplicit<Marker.Immut, K, V, Q, R>(range, isSet)
 }
 
-/** Finds the pair of leaf edges delimiting an entire tree (Immut). */
+/** Finds the pair of leaf edges delimiting an entire tree. */
 internal fun <K, V> NodeRef<Marker.Immut, K, V, Marker.LeafOrInternal>.fullRangeImmut():
     LazyLeafRange<Marker.Immut, K, V> {
     return fullRange(this, this)
 }
-
-// ============================================================================
-// NodeRef<ValMut, ...>: rangeSearch, fullRange
-// ============================================================================
 
 /**
  * Splits a unique reference into a pair of leaf edges delimiting a specified range.
  * The result are non-unique references allowing (some) mutation, which must be used
  * carefully.
  *
- * The result is meaningful only if the tree is ordered by key.
+ * The result is meaningful only if the tree is ordered by key, like the tree
+ * in a [BTreeMap] is.
  *
- * # Safety
- * Do not import the duplicate handles to visit the same KV twice.
+ * Safety:
+ * Do not use the duplicate handles to visit the same KV twice.
  */
 internal inline fun <K, reified V, Q : Comparable<Q>, R : RangeBounds<Q>>
     NodeRef<Marker.ValMut, K, V, Marker.LeafOrInternal>.rangeSearchValMut(
@@ -416,7 +355,6 @@ internal inline fun <K, reified V, Q : Comparable<Q>, R : RangeBounds<Q>>
     return this.findLeafEdgesSpanningRange<Marker.ValMut, K, V, Q, R>(range)
 }
 
-/** Explicit-`isSet` variant of [rangeSearchValMut] for non-reified callers. */
 internal fun <K, V, Q : Comparable<Q>, R : RangeBounds<Q>>
     NodeRef<Marker.ValMut, K, V, Marker.LeafOrInternal>.rangeSearchValMutExplicit(
     range: R,
@@ -438,10 +376,6 @@ internal fun <K, V> NodeRef<Marker.ValMut, K, V, Marker.LeafOrInternal>.fullRang
     return fullRange(this, self2)
 }
 
-// ============================================================================
-// NodeRef<Dying, ...>: fullRange
-// ============================================================================
-
 /**
  * Splits a unique reference into a pair of leaf edges delimiting the full range of the tree.
  * The results are non-unique references allowing massively destructive mutation, so must be
@@ -454,10 +388,6 @@ internal fun <K, V> NodeRef<Marker.Dying, K, V, Marker.LeafOrInternal>.fullRange
     val self2 = NodeRef<Marker.Dying, K, V, Marker.LeafOrInternal>(height = height, node = node)
     return fullRange(this, self2)
 }
-
-// ============================================================================
-// Handle<Leaf, Edge>: nextKv / nextBackKv
-// ============================================================================
 
 /** Result of [nextKv] / [nextBackKv]: either the neighbour KV (`Ok`) or the root node (`Err`). */
 internal sealed class NextKvResult<BorrowType, K, V> {
@@ -509,10 +439,6 @@ internal fun <BorrowType : Marker.BorrowType, K, V>
     }
 }
 
-// ============================================================================
-// Handle<Internal, Edge>: nextKv (private)
-// ============================================================================
-
 /** Result of [nextKvInternal]: either the neighbour KV (`Ok`) or the internal node (`Err`). */
 internal sealed class NextKvInternalResult<BorrowType, K, V> {
     data class Ok<BorrowType, K, V>(
@@ -551,10 +477,6 @@ internal fun <BorrowType : Marker.BorrowType, K, V>
     }
 }
 
-// ============================================================================
-// Handle<Dying, Leaf, Edge>: deallocatingNext / deallocatingNextBack / deallocatingEnd
-// ============================================================================
-
 /**
  * Given a leaf edge handle into a dying tree, returns the next leaf edge
  * on the right side, and the key-value pair in between, if they exist.
@@ -564,11 +486,11 @@ internal fun <BorrowType : Marker.BorrowType, K, V>
  * This implies that if no more key-value pair follows, the entire tree
  * will have been deallocated and there is nothing left to return.
  *
- * # Safety
+ * Safety:
  * - The given edge must not have been previously returned by counterpart
  *   `deallocatingNextBack`.
  * - The returned KV handle is only valid to access the key and value,
- *   and only valid until the next call to a `deallocating_` method.
+ *   and only valid until the next call to a deallocating method.
  */
 internal fun <K, V>
     Handle<NodeRef<Marker.Dying, K, V, Marker.Leaf>, Marker.Edge>.deallocatingNext():
@@ -643,16 +565,11 @@ internal fun <K, V>
     }
 }
 
-// ============================================================================
-// Handle<Immut, Leaf, Edge>: nextUnchecked / nextBackUnchecked
-// ============================================================================
-
 /**
- * Returns a `Pair<newEdge, kv>` while advancing across one KV. The caller
- * assigns the new edge back into whatever slot held the receiver (always
- * [LazyLeafRange.front] or [LazyLeafRange.back] here).
+ * Returns the next leaf edge handle and the key and value in between.
  *
- * SAFETY: There must be another KV in the direction travelled.
+ * Safety:
+ * There must be another KV in the direction travelled.
  */
 internal fun <K, V>
     Handle<NodeRef<Marker.Immut, K, V, Marker.Leaf>, Marker.Edge>.nextUnchecked():
@@ -667,7 +584,12 @@ internal fun <K, V>
     return Pair(newEdge, kvRef.intoKv())
 }
 
-/** Mirror of [nextUnchecked] for the previous leaf edge. */
+/**
+ * Returns the previous leaf edge handle and the key and value in between.
+ *
+ * Safety:
+ * There must be another KV in the direction travelled.
+ */
 internal fun <K, V>
     Handle<NodeRef<Marker.Immut, K, V, Marker.Leaf>, Marker.Edge>.nextBackUnchecked():
     Pair<Handle<NodeRef<Marker.Immut, K, V, Marker.Leaf>, Marker.Edge>, Pair<K, V>> {
@@ -681,14 +603,11 @@ internal fun <K, V>
     return Pair(newEdge, kvRef.intoKv())
 }
 
-// ============================================================================
-// Handle<ValMut, Leaf, Edge>: nextUnchecked / nextBackUnchecked
-// ============================================================================
-
 /**
- * Caller must ensure there is another KV in the direction travelled. The
- * [intoKvValmut] call is deferred until after the swap as a micro
- * optimisation ("Doing this last is faster, according to benchmarks").
+ * Returns the next leaf edge handle and the key and value in between.
+ *
+ * Safety:
+ * There must be another KV in the direction travelled.
  */
 internal fun <K, V>
     Handle<NodeRef<Marker.ValMut, K, V, Marker.Leaf>, Marker.Edge>.nextUncheckedValMut():
@@ -704,7 +623,12 @@ internal fun <K, V>
     return Pair(newEdge, kv.intoKvValmut())
 }
 
-/** Mirror of [nextUncheckedValMut] for the previous leaf edge. */
+/**
+ * Returns the previous leaf edge handle and the key and value in between.
+ *
+ * Safety:
+ * There must be another KV in the direction travelled.
+ */
 internal fun <K, V>
     Handle<NodeRef<Marker.ValMut, K, V, Marker.Leaf>, Marker.Edge>.nextBackUncheckedValMut():
     Pair<Handle<NodeRef<Marker.ValMut, K, V, Marker.Leaf>, Marker.Edge>, Pair<K, V>> {
@@ -719,12 +643,12 @@ internal fun <K, V>
     return Pair(newEdge, kv.intoKvValmut())
 }
 
-// ============================================================================
-// Handle<Dying, Leaf, Edge>: deallocatingNextUnchecked / deallocatingNextBackUnchecked
-// ============================================================================
-
 /**
- * SAFETY:
+ * Moves the leaf edge handle to the next leaf edge and returns the key and value
+ * in between, deallocating any node left behind while leaving the corresponding
+ * edge in its parent node dangling.
+ *
+ * Safety:
  * - There must be another KV in the direction travelled.
  * - That KV was not previously returned by counterpart
  *   `deallocatingNextBackUnchecked` on any copy of the handles
@@ -744,7 +668,20 @@ internal fun <K, V>
     }
 }
 
-/** Mirror of [deallocatingNextUnchecked] for the previous leaf edge. */
+/**
+ * Moves the leaf edge handle to the previous leaf edge and returns the key and value
+ * in between, deallocating any node left behind while leaving the corresponding
+ * edge in its parent node dangling.
+ *
+ * Safety:
+ * - There must be another KV in the direction travelled.
+ * - That leaf edge was not previously returned by counterpart
+ *   `deallocatingNextUnchecked` on any copy of the handles
+ *   being used to traverse the tree.
+ *
+ * The only safe way to proceed with the updated handle is to compare it, drop it,
+ * or call this method or counterpart `deallocatingNextUnchecked` again.
+ */
 internal fun <K, V>
     Handle<NodeRef<Marker.Dying, K, V, Marker.Leaf>, Marker.Edge>.deallocatingNextBackUnchecked():
     Pair<
@@ -755,10 +692,6 @@ internal fun <K, V>
         leafEdge.deallocatingNextBack() ?: error("unreachable: caller-asserted KV present")
     }
 }
-
-// ============================================================================
-// NodeRef<LeafOrInternal>: firstLeafEdge / lastLeafEdge
-// ============================================================================
 
 /**
  * Returns the leftmost leaf edge in or underneath a node - in other words, the edge
@@ -791,10 +724,6 @@ internal fun <BorrowType : Marker.BorrowType, K, V>
         }
     }
 }
-
-// ============================================================================
-// Position<BorrowType, K, V>: visitNodesInOrder, calcLength
-// ============================================================================
 
 internal sealed class Position<BorrowType, K, V> {
     data class Leaf<BorrowType, K, V>(
@@ -862,10 +791,6 @@ internal fun <K, V> NodeRef<Marker.Immut, K, V, Marker.LeafOrInternal>.calcLengt
     return result
 }
 
-// ============================================================================
-// Handle<LeafOrInternal, KV>: nextLeafEdge / nextBackLeafEdge
-// ============================================================================
-
 /** Returns the leaf edge closest to a KV for forward navigation. */
 internal fun <BorrowType : Marker.BorrowType, K, V>
     Handle<NodeRef<BorrowType, K, V, Marker.LeafOrInternal>, Marker.KV>.nextLeafEdge():
@@ -893,10 +818,6 @@ internal fun <BorrowType : Marker.BorrowType, K, V>
         }
     }
 }
-
-// ============================================================================
-// NodeRef<LeafOrInternal>: lowerBound / upperBound
-// ============================================================================
 
 /**
  * Returns the leaf edge corresponding to the first point at which the
