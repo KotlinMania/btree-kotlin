@@ -508,7 +508,7 @@ class BTreeSet<T : Comparable<T>> : MutableSet<T> {
         if (other !is BTreeSet<*>) return false
         if (this.size != other.size) return false
         val itA = this.iter()
-        val itB = (other as BTreeSet<T>).iter()
+        val itB = other.iterator()
         while (itA.hasNext() && itB.hasNext()) {
             if (itA.next() != itB.next()) return false
         }
