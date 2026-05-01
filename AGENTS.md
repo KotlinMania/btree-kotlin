@@ -213,6 +213,33 @@ have `Borrow`, so:
    `k.compareTo(key).inv()` — the sign flip preserves the Rust
    orientation (positive = key > stored, etc.).
 
+### Marker-specific impl overloads use typed routers
+
+Rust often expresses typestate-specific behavior as several `impl`
+blocks whose methods have the same Rust name but different marker
+parameters, such as one `next_checked` for immutable ranges and
+another for value-mutable ranges. Kotlin/JVM erases generic receiver
+arguments, so same-name extension overloads that differ only by
+`Marker.Immut` versus `Marker.ValMut` are not a portable KMP shape.
+
+Use a router shape instead:
+
+- Keep the generic storage type marker-parameterized (`LeafRange<BorrowType, K, V>`).
+- Put marker-specific operations on typed receiver helpers, using
+  distinct Kotlin names when erased signatures would collide
+  (`nextChecked`, `nextCheckedValMut`, `nextUnchecked`,
+  `nextUncheckedValMut`).
+- Route shared movement logic through generic private helpers that take
+  the marker-specific extraction as a lambda.
+- Do not use `@JvmName`, `@Suppress`, JVM imports, fake typealiases, or
+  unchecked casts to force Rust's same-name impl layout into Kotlin.
+
+This is a faithful porting pattern. `ast_distance` may report missing
+or extra functions because it expects all Rust impl methods with the
+same name to collapse to one lowerCamelCase Kotlin name. Treat that as
+tooling noise once manual review confirms every upstream behavior is
+present and the typed routers compile warning-free across all targets.
+
 ### `ExactSizeIterator` has no Kotlin equivalent
 
 Rust's `I: ExactSizeIterator` gives `.len()` on the iterator. Kotlin's
