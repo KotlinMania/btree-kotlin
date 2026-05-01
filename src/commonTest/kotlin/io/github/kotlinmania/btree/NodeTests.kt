@@ -69,7 +69,7 @@ class NodeTests {
         root1.borrowMut().push(1, Unit)
         val internalNode = NodeRef.newInternal<Int, Unit>(root1.forgetType())
         var root1Final = internalNode.forgetType()
-        val root2 = newOwnedTree<Int, Unit>()
+        val root2 = NodeRef.new<Int, Unit>()
         root1Final.reborrow().assertBackPointers()
         root2.reborrow().assertBackPointers()
 

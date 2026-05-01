@@ -72,7 +72,7 @@ internal fun <K, V, Q : Comparable<Q>> NodeRef<Marker.Owned, K, V, Marker.LeafOr
 
 /** Creates a tree consisting of empty nodes. */
 private fun <K, V> newPillar(height: Int): NodeRef<Marker.Owned, K, V, Marker.LeafOrInternal> {
-    val root = newOwnedTree<K, V>()
+    val root = NodeRef.new<K, V>()
     for (i in 0 until height) {
         root.pushInternalLevel()
     }

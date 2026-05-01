@@ -48,7 +48,7 @@ internal fun <K, V> NodeRef<Marker.Owned, K, V, Marker.LeafOrInternal>.bulkPush(
 
             // Push key-value pair and new right subtree.
             val treeHeight = openNode.height() - 1
-            val rightTree = newOwnedTree<K, V>()
+            val rightTree = NodeRef.new<K, V>()
             for (i in 0 until treeHeight) {
                 rightTree.pushInternalLevel()
             }

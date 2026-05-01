@@ -476,11 +476,6 @@ internal fun <K, V, Type> NodeRef<Marker.Owned, K, V, Type>.intoDying():
 
 // ---- Owned, LeafOrInternal: tree-shape mutators -------------------------
 
-/** Returns a new owned tree, with its own root node that is initially empty. */
-internal fun <K, V> newOwnedTree(): NodeRef<Marker.Owned, K, V, Marker.LeafOrInternal> {
-    return NodeRef.new<K, V>()
-}
-
 /**
  * Adds a new internal node with a single edge pointing to the previous root node,
  * make that new node the root node, and return it. This increases the height by 1

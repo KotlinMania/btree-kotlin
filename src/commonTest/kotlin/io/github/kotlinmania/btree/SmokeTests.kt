@@ -66,7 +66,7 @@ private fun <K : Comparable<K>, V> BTreeMap<K, V>.assertStrictlyAscending() {
 private fun <K : Comparable<K>, V> BTreeMap<K, V>.compact() {
     val iter = this.intoIter()
     if (iter.hasNext()) {
-        this.root = newOwnedTree<K, V>()
+        this.root = NodeRef.new<K, V>()
         val len = intArrayOf(0)
         this.root!!.bulkPush(iter, len)
         this.length = len[0]

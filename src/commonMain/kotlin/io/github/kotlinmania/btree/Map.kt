@@ -161,7 +161,7 @@ class BTreeMap<K : Comparable<K>, V> : MutableMap<K, V> {
                 is ForceResult.Leaf -> {
                     val leaf = f.value
                     val outTree = BTreeMap<K, V>()
-                    outTree.root = newOwnedTree<K, V>()
+                    outTree.root = NodeRef.new<K, V>()
 
                     val outRoot = outTree.root!!
                     val outNode = when (val r = outRoot.borrowMut().force()) {
@@ -203,7 +203,7 @@ class BTreeMap<K : Comparable<K>, V> : MutableMap<K, V> {
                         outNode.push(
                             k,
                             v,
-                            subroot ?: newOwnedTree<K, V>(),
+                            subroot ?: NodeRef.new<K, V>(),
                         )
                         outTree.length += 1 + sublength
                     }
@@ -643,7 +643,7 @@ class BTreeMap<K : Comparable<K>, V> : MutableMap<K, V> {
         internal fun <K : Comparable<K>, V> bulkBuildFromSortedIter(
             iter: Iterator<Pair<K, V>>,
         ): BTreeMap<K, V> {
-            val root = newOwnedTree<K, V>()
+            val root = NodeRef.new<K, V>()
             val length = IntArray(1)
             root.bulkPush(DedupSortedIter<K, V, Iterator<Pair<K, V>>>(iter), length)
             val out = BTreeMap<K, V>()
@@ -844,7 +844,7 @@ operator fun <K : Comparable<K>, V : Comparable<V>> BTreeMap<K, V>.compareTo(
 internal fun <K : Comparable<K>> BTreeMap<K, SetValZst>.replace(key: K): K? {
     val (mapRef, dormantMap) = DormantMutRef.new(this)
     if (mapRef.root == null) {
-        mapRef.root = newOwnedTree<K, SetValZst>()
+        mapRef.root = NodeRef.new<K, SetValZst>()
     }
     val rootNode = mapRef.root!!.borrowMut()
     return when (val r = rootNode.searchTree(key)) {
@@ -867,7 +867,7 @@ internal fun <K : Comparable<K>> BTreeMap<K, SetValZst>.getOrInsertWith(
 ): K {
     val (mapRef, dormantMap) = DormantMutRef.new(this)
     if (mapRef.root == null) {
-        mapRef.root = newOwnedTree<K, SetValZst>()
+        mapRef.root = NodeRef.new<K, SetValZst>()
     }
     val rootNode = mapRef.root!!.borrowMut()
     return when (val r = rootNode.searchTree(q)) {
