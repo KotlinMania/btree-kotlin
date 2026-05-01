@@ -45,20 +45,13 @@ private const val EDGE_IDX_LEFT_OF_CENTER: Int = B - 1
 private const val EDGE_IDX_RIGHT_OF_CENTER: Int = B
 
 internal sealed interface NodeSlot<out T> {
-    data object Empty : NodeSlot<Nothing>
+    val initializedValue: T
 
-    data class Filled<out T>(val value: T) : NodeSlot<T>
-}
-
-private fun <T> emptySlot(): NodeSlot<T> = NodeSlot.Empty
-
-private fun <T> filledSlot(value: T): NodeSlot<T> = NodeSlot.Filled(value)
-
-private fun <T> NodeSlot<T>.assumeInitialized(): T {
-    return when (this) {
-        NodeSlot.Empty -> error("uninitialized node slot")
-        is NodeSlot.Filled -> value
+    data object Empty : NodeSlot<Nothing> {
+        override val initializedValue: Nothing get() = error("uninitialized node slot")
     }
+
+    data class Filled<out T>(override val initializedValue: T) : NodeSlot<T>
 }
 
 /**
@@ -85,8 +78,8 @@ internal open class LeafNode<K, V> {
      * The fixed-size storage areas holding the actual data of the node. Only the first
      * `len` elements of each storage area are initialized and valid.
      */
-    val keys: MutableList<NodeSlot<K>> = MutableList(CAPACITY) { emptySlot() }
-    val vals: MutableList<NodeSlot<V>> = MutableList(CAPACITY) { emptySlot() }
+    val keys: MutableList<NodeSlot<K>> = MutableList(CAPACITY) { NodeSlot.Empty }
+    val vals: MutableList<NodeSlot<V>> = MutableList(CAPACITY) { NodeSlot.Empty }
 
     companion object {
         /** Initializes a new [LeafNode] in-place. */
@@ -392,7 +385,7 @@ internal fun <BorrowType : Marker.BorrowType, K, V, Type> NodeRef<BorrowType, K,
         override val size: Int get() = n
         override fun get(index: Int): K {
             if (index < 0 || index >= n) throw IndexOutOfBoundsException("index $index out of bounds [0, $n)")
-            return node.keys[index].assumeInitialized()
+            return node.keys[index].initializedValue
         }
     }
 }
@@ -579,19 +572,8 @@ internal fun <K, V, Type> NodeRef<Marker.Mut, K, V, Type>.intoLeafMut(): LeafNod
     return node
 }
 
-/**
- * Borrows exclusive access to the length of the node, exposed as
- * getter/setter helpers ([setLen] / [incLen]).
- */
-internal fun <K, V, Type> NodeRef<Marker.Mut, K, V, Type>.setLen(newLen: Int) {
-    asLeafMut().len = newLen
-}
-
+/** Borrows exclusive access to the length of the node. */
 internal fun <K, V, Type> NodeRef<Marker.Mut, K, V, Type>.lenMut(): Int = asLeafMut().len
-
-internal fun <K, V, Type> NodeRef<Marker.Mut, K, V, Type>.incLen(by: Int = 1) {
-    asLeafMut().len += by
-}
 
 // ---- NodeRef<Dying, ..., Type> -----------------------------------------
 
@@ -604,22 +586,6 @@ internal fun <K, V, Type> NodeRef<Marker.Dying, K, V, Type>.asLeafDying(): LeafN
 
 // ---- NodeRef<Mut, ..., Type>: key/val area accessors -------------------
 
-/**
- * Writes [value] into the key slot at [idx]. Caller must ensure `idx` is
- * in bounds of `0..CAPACITY`.
- */
-internal fun <K, V, Type> NodeRef<Marker.Mut, K, V, Type>.writeKeyArea(idx: Int, value: K) {
-    keyAreaMut()[idx] = filledSlot(value)
-}
-
-/**
- * Writes [value] into the value slot at [idx]. Caller must ensure `idx` is
- * in bounds of `0..CAPACITY`.
- */
-internal fun <K, V, Type> NodeRef<Marker.Mut, K, V, Type>.writeValArea(idx: Int, value: V) {
-    valAreaMut()[idx] = filledSlot(value)
-}
-
 /** Borrows exclusive access to the key storage area. */
 internal fun <K, V, Type> NodeRef<Marker.Mut, K, V, Type>.keyAreaMut(): MutableList<NodeSlot<K>> =
     asLeafMut().keys
@@ -628,41 +594,9 @@ internal fun <K, V, Type> NodeRef<Marker.Mut, K, V, Type>.keyAreaMut(): MutableL
 internal fun <K, V, Type> NodeRef<Marker.Mut, K, V, Type>.valAreaMut(): MutableList<NodeSlot<V>> =
     asLeafMut().vals
 
-/**
- * Reads (and conceptually moves out of) the key slot at [idx]. Caller must
- * ensure `idx` is in bounds of `0..len` and the slot is initialised.
- */
-internal fun <K, V, Type> NodeRef<Marker.Mut, K, V, Type>.readKeyArea(idx: Int): K {
-    return asLeafMut().keys[idx].assumeInitialized()
-}
-internal fun <K, V, Type> NodeRef<Marker.Mut, K, V, Type>.readValArea(idx: Int): V {
-    return asLeafMut().vals[idx].assumeInitialized()
-}
-
-/**
- * Writes [edge] into the edge slot at [idx]. Internal-node only. Caller must
- * ensure `idx` is in bounds of `0..CAPACITY + 1`.
- */
-internal fun <K, V> NodeRef<Marker.Mut, K, V, Marker.Internal>.writeEdgeArea(
-    idx: Int,
-    edge: LeafNode<K, V>,
-) {
-    edgeAreaMut()[idx] = edge
-}
-
 /** Borrows exclusive access to the edge storage area. */
 internal fun <K, V> NodeRef<Marker.Mut, K, V, Marker.Internal>.edgeAreaMut(): MutableList<LeafNode<K, V>?> {
     return asInternalMut().edges
-}
-
-/**
- * Reads (and conceptually moves out of) the edge slot at [idx].
- *
- * # Safety
- * `idx` is in bounds of `0..len + 1`, slot is initialised.
- */
-internal fun <K, V> NodeRef<Marker.Mut, K, V, Marker.Internal>.readEdgeArea(idx: Int): LeafNode<K, V> {
-    return asInternalMut().edges[idx]!!
 }
 
 // ---- NodeRef<ValMut, ...> ----------------------------------------------
@@ -671,12 +605,12 @@ internal fun <K, V> NodeRef<Marker.Mut, K, V, Marker.Internal>.readEdgeArea(idx:
  * # Safety
  * - The node has more than `idx` initialized elements.
  *
- * The caller can write back via [writeValArea] if desired. Reading the
+ * The caller can write back via [valAreaMut] if desired. Reading the
  * value is the only operation Search.kt-and-below need.
  */
 internal fun <K, V, Type> NodeRef<Marker.ValMut, K, V, Type>.intoKeyValMutAt(idx: Int): Pair<K, V> {
-    val key = node.keys[idx].assumeInitialized()
-    val v = node.vals[idx].assumeInitialized()
+    val key = node.keys[idx].initializedValue
+    val v = node.vals[idx].initializedValue
     return Pair(key, v)
 }
 
@@ -713,9 +647,9 @@ internal fun <K, V> NodeRef<Marker.Mut, K, V, Marker.Leaf>.pushWithHandle(
 ): Handle<NodeRef<Marker.Mut, K, V, Marker.Leaf>, Marker.KV> {
     val idx = this.len()
     check(idx < CAPACITY)
-    setLen(idx + 1)
-    this.writeKeyArea(idx, key)
-    this.writeValArea(idx, value)
+    asLeafMut().len = idx + 1
+    keyAreaMut()[idx] = NodeSlot.Filled(key)
+    valAreaMut()[idx] = NodeSlot.Filled(value)
     return Handle.newKv(NodeRef(height = height, node = node), idx)
 }
 
@@ -743,10 +677,10 @@ internal fun <K, V> NodeRef<Marker.Mut, K, V, Marker.Internal>.push(
 
     val idx = this.len()
     check(idx < CAPACITY)
-    setLen(idx + 1)
-    this.writeKeyArea(idx, key)
-    this.writeValArea(idx, value)
-    this.writeEdgeArea(idx + 1, edge.node)
+    asLeafMut().len = idx + 1
+    keyAreaMut()[idx] = NodeSlot.Filled(key)
+    valAreaMut()[idx] = NodeSlot.Filled(value)
+    edgeAreaMut()[idx + 1] = edge.node
     Handle.newEdge(this.reborrowMut(), idx + 1).correctParentLink()
 }
 
@@ -991,9 +925,9 @@ private fun <K, V> Handle<NodeRef<Marker.Mut, K, V, Marker.Leaf>, Marker.Edge>.i
     check(node.len() < CAPACITY)
     val newLen = node.len() + 1
 
-    sliceInsert(node.asLeafMut().keys, newLen, idx, filledSlot(key))
-    sliceInsert(node.asLeafMut().vals, newLen, idx, filledSlot(value))
-    node.setLen(newLen)
+    sliceInsert(node.asLeafMut().keys, newLen, idx, NodeSlot.Filled(key))
+    sliceInsert(node.asLeafMut().vals, newLen, idx, NodeSlot.Filled(value))
+    node.asLeafMut().len = newLen
 
     return Handle.newKv(node, idx)
 }
@@ -1060,10 +994,10 @@ private fun <K, V> Handle<NodeRef<Marker.Mut, K, V, Marker.Internal>, Marker.Edg
     val newLen = node.len() + 1
 
     val internal = node.asInternalMut()
-    sliceInsert(internal.keys, newLen, idx, filledSlot(key))
-    sliceInsert(internal.vals, newLen, idx, filledSlot(value))
+    sliceInsert(internal.keys, newLen, idx, NodeSlot.Filled(key))
+    sliceInsert(internal.vals, newLen, idx, NodeSlot.Filled(value))
     sliceInsert(internal.edges, newLen + 1, idx + 1, edge.node)
-    node.setLen(newLen)
+    node.asLeafMut().len = newLen
 
     node.correctChildrensParentLinks(idx + 1..newLen)
 }
@@ -1167,8 +1101,8 @@ Handle<NodeRef<BorrowType, K, V, Marker.Internal>, Marker.Edge>.descend():
 internal fun <K, V, NodeType> Handle<NodeRef<Marker.Immut, K, V, NodeType>, Marker.KV>.intoKv(): Pair<K, V> {
     check(idx < node.len())
     val leaf = node.node
-    val k = leaf.keys[idx].assumeInitialized()
-    val v = leaf.vals[idx].assumeInitialized()
+    val k = leaf.keys[idx].initializedValue
+    val v = leaf.vals[idx].initializedValue
     return Pair(k, v)
 }
 
@@ -1176,33 +1110,33 @@ internal fun <K, V, NodeType> Handle<NodeRef<Marker.Immut, K, V, NodeType>, Mark
 // Handle Mut KV: keyMut, intoValMut, intoKvMut, kvMut, replaceKv
 // =====================================================================
 internal fun <K, V, NodeType> Handle<NodeRef<Marker.Mut, K, V, NodeType>, Marker.KV>.keyMut(): K {
-    return node.asLeafMut().keys[idx].assumeInitialized()
+    return node.asLeafMut().keys[idx].initializedValue
 }
 
 internal fun <K, V, NodeType> Handle<NodeRef<Marker.Mut, K, V, NodeType>, Marker.KV>.setKey(value: K) {
-    node.asLeafMut().keys[idx] = filledSlot(value)
+    node.asLeafMut().keys[idx] = NodeSlot.Filled(value)
 }
 internal fun <K, V, NodeType> Handle<NodeRef<Marker.Mut, K, V, NodeType>, Marker.KV>.intoValMut(): V {
     check(idx < node.len())
     val leaf = node.intoLeafMut()
-    return leaf.vals[idx].assumeInitialized()
+    return leaf.vals[idx].initializedValue
 }
 
 internal fun <K, V, NodeType> Handle<NodeRef<Marker.Mut, K, V, NodeType>, Marker.KV>.setValMut(value: V) {
-    node.asLeafMut().vals[idx] = filledSlot(value)
+    node.asLeafMut().vals[idx] = NodeSlot.Filled(value)
 }
 internal fun <K, V, NodeType> Handle<NodeRef<Marker.Mut, K, V, NodeType>, Marker.KV>.intoKvMut(): Pair<K, V> {
     check(idx < node.len())
     val leaf = node.intoLeafMut()
-    val k = leaf.keys[idx].assumeInitialized()
-    val v = leaf.vals[idx].assumeInitialized()
+    val k = leaf.keys[idx].initializedValue
+    val v = leaf.vals[idx].initializedValue
     return Pair(k, v)
 }
 internal fun <K, V, NodeType> Handle<NodeRef<Marker.Mut, K, V, NodeType>, Marker.KV>.kvMut(): Pair<K, V> {
     check(idx < node.len())
     val leaf = node.asLeafMut()
-    val key = leaf.keys[idx].assumeInitialized()
-    val v = leaf.vals[idx].assumeInitialized()
+    val key = leaf.keys[idx].initializedValue
+    val v = leaf.vals[idx].initializedValue
     return Pair(key, v)
 }
 
@@ -1212,10 +1146,10 @@ internal fun <K, V, NodeType> Handle<NodeRef<Marker.Mut, K, V, NodeType>, Marker
     v: V,
 ): Pair<K, V> {
     val leaf = node.asLeafMut()
-    val oldK = leaf.keys[idx].assumeInitialized()
-    val oldV = leaf.vals[idx].assumeInitialized()
-    leaf.keys[idx] = filledSlot(k)
-    leaf.vals[idx] = filledSlot(v)
+    val oldK = leaf.keys[idx].initializedValue
+    val oldV = leaf.vals[idx].initializedValue
+    leaf.keys[idx] = NodeSlot.Filled(k)
+    leaf.vals[idx] = NodeSlot.Filled(v)
     return Pair(oldK, oldV)
 }
 
@@ -1240,8 +1174,8 @@ internal fun <K, V, NodeType> Handle<NodeRef<Marker.Dying, K, V, NodeType>, Mark
     Pair<K, V> {
     check(idx < node.len())
     val leaf = node.asLeafDying()
-    val key = leaf.keys[idx].assumeInitialized()
-    val v = leaf.vals[idx].assumeInitialized()
+    val key = leaf.keys[idx].initializedValue
+    val v = leaf.vals[idx].initializedValue
     return Pair(key, v)
 }
 
@@ -1271,13 +1205,13 @@ private fun <K, V, NodeType> Handle<NodeRef<Marker.Mut, K, V, NodeType>, Marker.
     val newLen = oldLen - idx - 1
     newNode.len = newLen
     val leaf = node.asLeafMut()
-    val k = leaf.keys[idx].assumeInitialized()
-    val v = leaf.vals[idx].assumeInitialized()
+    val k = leaf.keys[idx].initializedValue
+    val v = leaf.vals[idx].initializedValue
 
-    moveToSlice(leaf.keys, idx + 1, newNode.keys, 0, newLen, emptySlot())
-    moveToSlice(leaf.vals, idx + 1, newNode.vals, 0, newLen, emptySlot())
+    moveToSlice(leaf.keys, idx + 1, newNode.keys, 0, newLen, NodeSlot.Empty)
+    moveToSlice(leaf.vals, idx + 1, newNode.vals, 0, newLen, NodeSlot.Empty)
 
-    node.setLen(idx)
+    node.asLeafMut().len = idx
     return Pair(k, v)
 }
 
@@ -1307,9 +1241,9 @@ internal fun <K, V> Handle<NodeRef<Marker.Mut, K, V, Marker.Leaf>, Marker.KV>.re
     Pair<Pair<K, V>, Handle<NodeRef<Marker.Mut, K, V, Marker.Leaf>, Marker.Edge>> {
     val oldLen = node.len()
     val leaf = node.asLeafMut()
-    val k = sliceRemove(leaf.keys, oldLen, idx, emptySlot()).assumeInitialized()
-    val v = sliceRemove(leaf.vals, oldLen, idx, emptySlot()).assumeInitialized()
-    node.setLen(oldLen - 1)
+    val k = sliceRemove(leaf.keys, oldLen, idx, NodeSlot.Empty).initializedValue
+    val v = sliceRemove(leaf.vals, oldLen, idx, NodeSlot.Empty).initializedValue
+    node.asLeafMut().len = oldLen - 1
     return Pair(Pair(k, v), this.leftEdge())
 }
 
@@ -1483,30 +1417,30 @@ private inline fun <K, V, R> BalancingContext<K, V>.doMerge(
 
     check(newLeftLen <= CAPACITY)
 
-    leftNode.setLen(newLeftLen)
+    leftNode.asLeafMut().len = newLeftLen
 
-    val parentKey = sliceRemove(parentNode.asLeafMut().keys, oldParentLen, parentIdx, emptySlot())
-    leftNode.writeKeyArea(oldLeftLen, parentKey.assumeInitialized())
+    val parentKey = sliceRemove(parentNode.asLeafMut().keys, oldParentLen, parentIdx, NodeSlot.Empty)
+    leftNode.keyAreaMut()[oldLeftLen] = parentKey
     moveToSlice(
         rightNode.asLeafMut().keys, 0,
         leftNode.asLeafMut().keys, oldLeftLen + 1,
         rightLen,
-        emptySlot(),
+        NodeSlot.Empty,
     )
 
-    val parentVal = sliceRemove(parentNode.asLeafMut().vals, oldParentLen, parentIdx, emptySlot())
-    leftNode.writeValArea(oldLeftLen, parentVal.assumeInitialized())
+    val parentVal = sliceRemove(parentNode.asLeafMut().vals, oldParentLen, parentIdx, NodeSlot.Empty)
+    leftNode.valAreaMut()[oldLeftLen] = parentVal
     moveToSlice(
         rightNode.asLeafMut().vals, 0,
         leftNode.asLeafMut().vals, oldLeftLen + 1,
         rightLen,
-        emptySlot(),
+        NodeSlot.Empty,
     )
 
     val parentInternal = parentNode.asInternalMut()
     sliceRemove(parentInternal.edges, oldParentLen + 1, parentIdx + 1, null)
     parentNode.correctChildrensParentLinks(parentIdx + 1 until oldParentLen)
-    parentNode.setLen(oldParentLen - 1)
+    parentNode.asLeafMut().len = oldParentLen - 1
 
     if (parentNode.height > 1) {
         // of the node of this edge, thus above zero, so they are internal.
@@ -1612,8 +1546,8 @@ internal fun <K, V> BalancingContext<K, V>.bulkStealLeft(count: Int) {
 
     val newLeftLen = oldLeftLen - count
     val newRightLen = oldRightLen + count
-    leftNode.setLen(newLeftLen)
-    rightNode.setLen(newRightLen)
+    leftNode.asLeafMut().len = newLeftLen
+    rightNode.asLeafMut().len = newRightLen
 
     // Move leaf data.
     run {
@@ -1624,17 +1558,17 @@ internal fun <K, V> BalancingContext<K, V>.bulkStealLeft(count: Int) {
         sliceShr(rightLeaf.vals, newRightLen, count)
 
         // Move elements from the left child to the right one.
-        moveToSlice(leftLeaf.keys, newLeftLen + 1, rightLeaf.keys, 0, count - 1, emptySlot())
-        moveToSlice(leftLeaf.vals, newLeftLen + 1, rightLeaf.vals, 0, count - 1, emptySlot())
+        moveToSlice(leftLeaf.keys, newLeftLen + 1, rightLeaf.keys, 0, count - 1, NodeSlot.Empty)
+        moveToSlice(leftLeaf.vals, newLeftLen + 1, rightLeaf.vals, 0, count - 1, NodeSlot.Empty)
 
         // Move the leftmost stolen pair to the parent.
-        val k = leftLeaf.keys[newLeftLen].assumeInitialized()
-        val v = leftLeaf.vals[newLeftLen].assumeInitialized()
+        val k = leftLeaf.keys[newLeftLen].initializedValue
+        val v = leftLeaf.vals[newLeftLen].initializedValue
         val (pk, pv) = parent.replaceKv(k, v)
 
         // Move parent's key-value pair to the right child.
-        rightLeaf.keys[count - 1] = filledSlot(pk)
-        rightLeaf.vals[count - 1] = filledSlot(pv)
+        rightLeaf.keys[count - 1] = NodeSlot.Filled(pk)
+        rightLeaf.vals[count - 1] = NodeSlot.Filled(pv)
     }
 
     when (val lf = leftNode.reborrowMut().force()) {
@@ -1684,25 +1618,25 @@ internal fun <K, V> BalancingContext<K, V>.bulkStealRight(count: Int) {
 
     val newLeftLen = oldLeftLen + count
     val newRightLen = oldRightLen - count
-    leftNode.setLen(newLeftLen)
-    rightNode.setLen(newRightLen)
+    leftNode.asLeafMut().len = newLeftLen
+    rightNode.asLeafMut().len = newRightLen
 
     // Move leaf data.
     run {
         val leftLeaf = leftNode.asLeafMut()
         val rightLeaf = rightNode.asLeafMut()
         // Move the rightmost stolen pair to the parent.
-        val k = rightLeaf.keys[count - 1].assumeInitialized()
-        val v = rightLeaf.vals[count - 1].assumeInitialized()
+        val k = rightLeaf.keys[count - 1].initializedValue
+        val v = rightLeaf.vals[count - 1].initializedValue
         val (pk, pv) = parent.replaceKv(k, v)
 
         // Move parent's key-value pair to the left child.
-        leftLeaf.keys[oldLeftLen] = filledSlot(pk)
-        leftLeaf.vals[oldLeftLen] = filledSlot(pv)
+        leftLeaf.keys[oldLeftLen] = NodeSlot.Filled(pk)
+        leftLeaf.vals[oldLeftLen] = NodeSlot.Filled(pv)
 
         // Move elements from the right child to the left one.
-        moveToSlice(rightLeaf.keys, 0, leftLeaf.keys, oldLeftLen + 1, count - 1, emptySlot())
-        moveToSlice(rightLeaf.vals, 0, leftLeaf.vals, oldLeftLen + 1, count - 1, emptySlot())
+        moveToSlice(rightLeaf.keys, 0, leftLeaf.keys, oldLeftLen + 1, count - 1, NodeSlot.Empty)
+        moveToSlice(rightLeaf.vals, 0, leftLeaf.vals, oldLeftLen + 1, count - 1, NodeSlot.Empty)
 
         // Fill gap where stolen elements used to be.
         sliceShl(rightLeaf.keys, oldRightLen, count)
@@ -1848,20 +1782,20 @@ internal fun <K, V> Handle<NodeRef<Marker.Mut, K, V, Marker.LeafOrInternal>, Mar
     check(leftNode.height == rightNode.height)
 
     if (newRightLen > 0) {
-        leftNode.setLen(newLeftLen)
-        rightNode.setLen(newRightLen)
+        leftNode.asLeafMut().len = newLeftLen
+        rightNode.asLeafMut().len = newRightLen
 
         moveToSlice(
             leftNode.asLeafMut().keys, newLeftLen,
             rightNode.asLeafMut().keys, 0,
             newRightLen,
-            emptySlot(),
+            NodeSlot.Empty,
         )
         moveToSlice(
             leftNode.asLeafMut().vals, newLeftLen,
             rightNode.asLeafMut().vals, 0,
             newRightLen,
-            emptySlot(),
+            NodeSlot.Empty,
         )
         when (val lf = leftNode.force()) {
             is ForceResult.Internal -> when (val rf = rightNode.force()) {
