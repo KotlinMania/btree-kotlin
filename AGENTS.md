@@ -16,7 +16,7 @@ port easier.
 
 - Maintain file structure and organization from the Rust source.
 - Translate functions in the same order they appear upstream.
-- Preserve every comment, inline note, and `# Safety`/`# Panics` block —
+- Preserve every comment, inline note, and safety/panic doc section —
   translate the language conventions to KDoc but keep the intent verbatim. This means translating Rust concepts in comments (e.g. `traits`, `lifetimes`, `ZSTs`) to their exact Kotlin API equivalents.
 - **NO PORTING NOTES**: Do not add comments explaining Kotlin workarounds, "Rust vs Kotlin" rationale, or any other porting narratives to the source code.
 - **NO RUST IN COMMENTS**: Never leave untranslated Rust code snippets or snake_case identifiers in the Kotlin KDocs. Ensure the documentation accurately describes the Kotlin API.
@@ -71,7 +71,9 @@ limitation. Keep porting from the Rust source and validate via the test gate.
 ## Rust → Kotlin translation rules (binding)
 
 These rules are enforced by code review and by the `port-lint` check.
-Deviations need a one-line comment explaining the reason.
+Deviations are documented in AGENTS.md, commit messages, or review notes,
+not in source comments. Source comments must be upstream Rust comments
+translated to Kotlin-facing API names and signatures.
 
 ### Type-level idioms
 
@@ -87,7 +89,7 @@ Deviations need a one-line comment explaining the reason.
 | `core::mem::replace(&mut x, y)` | inline swap helper or direct read-then-write |
 | `core::ptr::drop_in_place` | omit — GC |
 | `core::ptr::read(p)` / `core::ptr::write(p, v)` | direct field access |
-| `unsafe { ... }` block | regular Kotlin code; add `// SAFETY: <reason>` line marking the original boundary |
+| `unsafe { ... }` block | regular Kotlin code; keep only upstream comments, translated to Kotlin KDoc/source-comment style |
 | `'a` lifetime parameter | regular generic type parameter; lifetimes don't translate |
 | `where K: Ord` | `where K : Comparable<K>` (or `Comparator<in K>` field) |
 | `where K: ?Sized` | irrelevant in Kotlin; drop the bound |
@@ -233,6 +235,9 @@ Use a router shape instead:
   the marker-specific extraction as a lambda.
 - Do not use `@JvmName`, `@Suppress`, JVM imports, fake typealiases, or
   unchecked casts to force Rust's same-name impl layout into Kotlin.
+- Do not add source comments explaining the router. Source comments in
+  the translated file still come only from upstream Rust comments,
+  rewritten for the Kotlin API.
 
 This is a faithful porting pattern. `ast_distance` may report missing
 or extra functions because it expects all Rust impl methods with the
