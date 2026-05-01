@@ -3,13 +3,6 @@
 // copyright The Rust Project Developers, dual-licensed Apache-2.0 / MIT.
 package io.github.kotlinmania.btree
 
-// Cross-iterator state machines:
-//   - `DifferenceInner` / `IntersectionInner` translate as private sealed
-//     classes (`Stitch` / `Search` / `Iterate` / `Answer`).
-//   - `Peekable<Iter<T>>` in `DifferenceInner.Stitch` inlines a small
-//     one-element-buffer adapter (`PeekableSetIter`), since Kotlin stdlib has
-//     no `Peekable`.
-
 /** Estimated relative size at which searching beats iterating. */
 private const val ITER_PERFORMANCE_TIPPING_SIZE_DIFF: Int = 16
 
@@ -30,9 +23,6 @@ private const val ITER_PERFORMANCE_TIPPING_SIZE_DIFF: Int = 16
  * Iterators returned by [iter] and [iterator] produce their items in order,
  * and take worst-case logarithmic and amortized constant time per item
  * returned.
- *
- * Implements [MutableSet] so consumers can import the Kotlin collections idioms
- * for free.
  */
 class BTreeSet<T : Comparable<T>> : MutableSet<T> {
     /** Backing map; `internalIsSet = true` so range-bound errors render "BTreeSet". */
@@ -583,6 +573,11 @@ class BTreeSet<T : Comparable<T>> : MutableSet<T> {
         fun clone(): Iter<T> = Iter(inner.clone())
 
         override fun toString(): String = "Iter(${inner})"
+
+        companion object {
+            /** Creates an empty [BTreeSet.Iter]. */
+            fun <T> default(): Iter<T> = Iter(io.github.kotlinmania.btree.Iter.default())
+        }
     }
 
     /** An owning iterator over the items of a `BTreeSet` in ascending order. */
@@ -614,6 +609,11 @@ class BTreeSet<T : Comparable<T>> : MutableSet<T> {
         }
 
         override fun toString(): String = "IntoIter(${inner})"
+
+        companion object {
+            /** Creates an empty [BTreeSet.IntoIter]. */
+            fun <T> default(): IntoIter<T> = IntoIter(io.github.kotlinmania.btree.IntoIter.default())
+        }
     }
 
     /**
@@ -640,6 +640,11 @@ class BTreeSet<T : Comparable<T>> : MutableSet<T> {
         fun clone(): Range<T> = Range(inner.clone())
 
         override fun toString(): String = "Range(${inner})"
+
+        companion object {
+            /** Creates an empty [BTreeSet.Range]. */
+            fun <T> default(): Range<T> = Range(io.github.kotlinmania.btree.Range.default())
+        }
     }
 
     /**
