@@ -132,14 +132,14 @@ class VacantEntry<K : Comparable<K>, V> internal constructor(
                 // stacking the new handle on the original borrow.
                 val leaf = root.borrowMut().castToLeafUnchecked()
                 val pushed = leaf.pushWithHandle(this.key, value)
-                pushed.forgetNodeTypeKv()
+                pushed.forgetNodeType(LeafKvForgetNodeType)
             } else {
                 h.insertRecursing(this.key, value) { ins ->
                     // handles to existing nodes.
                     val map = dormantMap.reborrow()
                     val root = map.root!! // same as ins.left
                     root.pushInternalLevel().push(ins.kv.first, ins.kv.second, ins.right)
-                }.forgetNodeTypeKv()
+                }.forgetNodeType(LeafKvForgetNodeType)
             }
         dormantMap.reborrow().length += 1
 
