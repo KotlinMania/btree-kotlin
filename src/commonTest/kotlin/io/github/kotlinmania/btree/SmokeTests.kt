@@ -8,14 +8,6 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 import kotlin.test.assertFailsWith
-import io.github.kotlinmania.btree.testing.Box
-import io.github.kotlinmania.btree.testing.CrashTestDummy
-import io.github.kotlinmania.btree.testing.CrashTestDummyRef
-import io.github.kotlinmania.btree.testing.Cyclic3
-import io.github.kotlinmania.btree.testing.Governed
-import io.github.kotlinmania.btree.testing.Governor
-import io.github.kotlinmania.btree.testing.Panic
-import io.github.kotlinmania.btree.testing.testAllRefs
 
 private const val MIN_INSERTS_HEIGHT_1: Int = CAPACITY + 1
 private const val MIN_INSERTS_HEIGHT_2: Int = 89
@@ -89,6 +81,122 @@ private fun <K, V> NodeRef<Marker.Immut, K, V, Marker.LeafOrInternal>.assertMinL
         for (idx in 0..node.len()) {
             val edge = Handle.newEdge(node, idx)
             edge.descend().assertMinLen(MIN_LEN)
+        }
+    }
+}
+
+internal class Governor {
+    var flipped: Boolean = false
+
+    fun flip() {
+        flipped = !flipped
+    }
+
+    companion object {
+        fun new(): Governor = Governor()
+    }
+}
+
+internal class Governed(val id: Int, val gov: Governor) : Comparable<Governed> {
+    override fun compareTo(other: Governed): Int {
+        val cmp = id.compareTo(other.id)
+        return if (gov.flipped) -cmp else cmp
+    }
+
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (other !is Governed) return false
+        return id == other.id
+    }
+
+    override fun hashCode(): Int = id.hashCode()
+
+    override fun toString(): String = "Governed($id)"
+}
+
+internal enum class Panic {
+    Never,
+    InClone,
+    InDrop,
+    InQuery,
+}
+
+internal class CrashTestDummy(val id: Int) {
+    private var queriedCount: Int = 0
+    private var droppedCount: Int = 0
+    private var clonedCount: Int = 0
+
+    fun spawn(panic: Panic): CrashTestDummyRef = CrashTestDummyRef(this, panic)
+
+    fun queried(): Int = queriedCount
+
+    fun dropped(): Int = droppedCount
+
+    fun cloned(): Int = clonedCount
+
+    fun incQueried() {
+        queriedCount++
+    }
+
+    fun incDropped() {
+        droppedCount++
+    }
+
+    fun incCloned() {
+        clonedCount++
+    }
+}
+
+internal class CrashTestDummyRef(val dummy: CrashTestDummy, val panic: Panic) : Comparable<CrashTestDummyRef> {
+    override fun compareTo(other: CrashTestDummyRef): Int {
+        return dummy.id.compareTo(other.dummy.id)
+    }
+
+    fun query(v: Boolean): Boolean {
+        dummy.incQueried()
+        if (panic == Panic.InQuery) {
+            throw Exception("panic in query")
+        }
+        return v
+    }
+
+    fun drop() {
+        dummy.incDropped()
+        if (panic == Panic.InDrop) {
+            throw Exception("panic in drop")
+        }
+    }
+
+    fun cloneRef(): CrashTestDummyRef {
+        dummy.incCloned()
+        if (panic == Panic.InClone) {
+            throw Exception("panic in clone")
+        }
+        return CrashTestDummyRef(dummy, Panic.Never)
+    }
+
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (other !is CrashTestDummyRef) return false
+        return dummy.id == other.dummy.id
+    }
+
+    override fun hashCode(): Int = dummy.id.hashCode()
+
+    override fun toString(): String = "CrashTestDummyRef(${dummy.id})"
+}
+
+internal sealed class Cyclic3 : Comparable<Cyclic3> {
+    data object A : Cyclic3()
+    data object B : Cyclic3()
+    data object C : Cyclic3()
+
+    override fun compareTo(other: Cyclic3): Int {
+        if (this == other) return 0
+        return when (this) {
+            A -> if (other == B) -1 else 1
+            B -> if (other == C) -1 else 1
+            C -> if (other == A) -1 else 1
         }
     }
 }
@@ -407,13 +515,12 @@ class SmokeTests {
         val a = BTreeMap<Int, Int>()
         for (i in 0 until MIN_INSERTS_HEIGHT_2) a.insert(i, i)
 
-        val boxedValues = mutableListOf<Box<Int>>()
+        val values = mutableListOf<Int>()
         val iter = a.valuesMut()
         while (iter.hasNext()) {
-            boxedValues.add(Box(iter.next()))
+            values.add(iter.next())
         }
-        val dummy = Box(13)
-        testAllRefs(dummy, boxedValues.iterator())
+        assertEquals((0 until MIN_INSERTS_HEIGHT_2).toList(), values)
         a.check()
     }
 
@@ -1283,52 +1390,62 @@ class SmokeTests {
         map1.insert("0", 1)
         assertEquals(1, map1.get("0"))
 
-        val map2 = BTreeMap<Box<Int>, Int>()
-        map2.insert(Box(0), 1)
-        assertEquals(1, map2.get(Box(0)))
+        val map2 = BTreeMap<Int, Int>()
+        map2.insert(0, 1)
+        assertEquals(1, map2.get(0))
 
-        val map3 = BTreeMap<Box<IntArray>, Int>()
-        map3.insert(Box(intArrayOf(0, 1)), 1)
-        assertEquals(1, map3.get(Box(intArrayOf(0, 1))))
+        data class SliceKey(val values: List<Int>) : Comparable<SliceKey> {
+            override fun compareTo(other: SliceKey): Int {
+                val n = minOf(values.size, other.values.size)
+                for (i in 0 until n) {
+                    val cmp = values[i].compareTo(other.values[i])
+                    if (cmp != 0) return cmp
+                }
+                return values.size.compareTo(other.values.size)
+            }
+        }
+        val map3 = BTreeMap<SliceKey, Int>()
+        map3.insert(SliceKey(listOf(0, 1)), 1)
+        assertEquals(1, map3.get(SliceKey(listOf(0, 1))))
 
-        val map4 = BTreeMap<Box<Int>, Int>()
-        map4.insert(Box(0), 1)
-        assertEquals(1, map4.get(Box(0)))
+        val map4 = BTreeMap<Int, Int>()
+        map4.insert(0, 1)
+        assertEquals(1, map4.get(0))
 
-        fun <T : Comparable<T>> get(v: BTreeMap<Box<T>, Unit>, t: T) {
-            val _ignore = v.get(Box(t))
+        fun <T : Comparable<T>> get(v: BTreeMap<T, Unit>, t: T) {
+            val _ignore = v.get(t)
         }
 
-        fun <T : Comparable<T>> getMut(v: BTreeMap<Box<T>, Unit>, t: T) {
-            val _ignore = v.getMut(Box(t))
+        fun <T : Comparable<T>> getMut(v: BTreeMap<T, Unit>, t: T) {
+            val _ignore = v.getMut(t)
         }
 
-        fun <T : Comparable<T>> getKeyValue(v: BTreeMap<Box<T>, Unit>, t: T) {
-            val _ignore = v.getKeyValue(Box(t))
+        fun <T : Comparable<T>> getKeyValue(v: BTreeMap<T, Unit>, t: T) {
+            val _ignore = v.getKeyValue(t)
         }
 
-        fun <T : Comparable<T>> containsKey(v: BTreeMap<Box<T>, Unit>, t: T) {
-            val _ignore = v.containsKey(Box(t))
+        fun <T : Comparable<T>> containsKey(v: BTreeMap<T, Unit>, t: T) {
+            val _ignore = v.containsKey(t)
         }
 
-        fun <T : Comparable<T>> range(v: BTreeMap<Box<T>, Unit>, t: T) {
-            val _ignore = v.range(RangeFrom(Box(t)))
+        fun <T : Comparable<T>> range(v: BTreeMap<T, Unit>, t: T) {
+            val _ignore = v.range(RangeFrom(t))
         }
 
-        fun <T : Comparable<T>> rangeMut(v: BTreeMap<Box<T>, Unit>, t: T) {
-            val _ignore = v.rangeMut(RangeFrom(Box(t)))
+        fun <T : Comparable<T>> rangeMut(v: BTreeMap<T, Unit>, t: T) {
+            val _ignore = v.rangeMut(RangeFrom(t))
         }
 
-        fun <T : Comparable<T>> remove(v: BTreeMap<Box<T>, Unit>, t: T) {
-            v.remove(Box(t))
+        fun <T : Comparable<T>> remove(v: BTreeMap<T, Unit>, t: T) {
+            v.remove(t)
         }
 
-        fun <T : Comparable<T>> removeEntry(v: BTreeMap<Box<T>, Unit>, t: T) {
-            v.removeEntry(Box(t))
+        fun <T : Comparable<T>> removeEntry(v: BTreeMap<T, Unit>, t: T) {
+            v.removeEntry(t)
         }
 
-        fun <T : Comparable<T>> splitOff(v: BTreeMap<Box<T>, Unit>, t: T) {
-            v.splitOff(Box(t))
+        fun <T : Comparable<T>> splitOff(v: BTreeMap<T, Unit>, t: T) {
+            v.splitOff(t)
         }
     }
 

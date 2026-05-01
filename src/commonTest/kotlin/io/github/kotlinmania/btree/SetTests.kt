@@ -3,9 +3,6 @@
 // copyright The Rust Project Developers, dual-licensed Apache-2.0 / MIT.
 package io.github.kotlinmania.btree
 
-import io.github.kotlinmania.btree.testing.CrashTestDummy
-import io.github.kotlinmania.btree.testing.CrashTestDummyRef
-import io.github.kotlinmania.btree.testing.Panic
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFails
