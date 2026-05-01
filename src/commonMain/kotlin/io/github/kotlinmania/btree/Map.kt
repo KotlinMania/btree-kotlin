@@ -1233,9 +1233,9 @@ class IntoIter<K, V> internal constructor(
 
     internal fun dropWithFailure(failure: Throwable? = null): Throwable? {
         var first = failure
-        while (hasNext()) {
-            val kv = next()
-            first = dropPair(kv, first)
+        while (true) {
+            val kv = dyingNext() ?: break
+            first = rememberFailure(first) { kv.dropKeyVal() }
         }
         return first
     }

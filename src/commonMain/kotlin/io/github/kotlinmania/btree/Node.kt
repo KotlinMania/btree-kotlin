@@ -1155,6 +1155,15 @@ internal fun <K, V, NodeType> Handle<NodeRef<Marker.Dying, K, V, NodeType>, Mark
  */
 internal fun <K, V, NodeType> Handle<NodeRef<Marker.Dying, K, V, NodeType>, Marker.KV>.dropKeyVal() {
     check(idx < node.len())
+    val leaf = node.asLeafDying()
+    val key = leaf.keys[idx].initializedValue
+    val v = leaf.vals[idx].initializedValue
+    leaf.keys[idx] = NodeSlot.Empty
+    leaf.vals[idx] = NodeSlot.Empty
+    var failure: Throwable? = null
+    failure = rememberFailure(failure) { dropElement(key) }
+    failure = rememberFailure(failure) { dropElement(v) }
+    throwFailure(failure)
 }
 
 // =====================================================================
