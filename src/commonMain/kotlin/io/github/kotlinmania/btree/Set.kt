@@ -1024,6 +1024,28 @@ class BTreeSet<T : Comparable<T>> : MutableSet<T> {
     }
 }
 
+object SharedSetIntoIter
+
+object CopiedSetExtend
+
+fun <T : Comparable<T>> BTreeSet<T>.intoIter(route: SharedSetIntoIter): BTreeSet.Iter<T> {
+    return when (route) {
+        SharedSetIntoIter -> iter()
+    }
+}
+
+fun <T : Comparable<T>> BTreeSet<T>.extend(iter: Iterable<T>, route: CopiedSetExtend) {
+    when (route) {
+        CopiedSetExtend -> extend(iter)
+    }
+}
+
+fun <T : Comparable<T>> BTreeSet<T>.extendOne(value: T, route: CopiedSetExtend) {
+    when (route) {
+        CopiedSetExtend -> extendOne(value)
+    }
+}
+
 // ============================================================================
 // Internal sum types for Difference / Intersection state machines
 // ============================================================================
