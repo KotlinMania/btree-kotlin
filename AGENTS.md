@@ -131,10 +131,15 @@ cursor variants. Each translates to a Kotlin class implementing
 ### Drop semantics
 
 Rust's `BTreeMap` does careful cleanup in its `Drop` impl. Kotlin's
-GC obviates this: omit drop translations entirely. If a function name
-upstream is `dying_*`, port the body but drop the leading `dying_` —
-e.g. `dying_remove_kv` becomes `removeKv`. Document the rename in
-the function's KDoc.
+GC obviates cleanup whose only purpose is freeing memory: omit those
+drop translations. If a function name upstream is `dying_*`, port the
+body but drop the leading `dying_` — e.g. `dying_remove_kv` becomes
+`removeKv`. Document the rename in the function's KDoc.
+
+There is one important exception: when upstream behavior observes
+`Drop` side effects, especially through `catch_unwind` tests, model
+that behavior deterministically. Do not rely on GC timing and do not
+rewrite the test to weaker expectations.
 
 ## Patterns from Phase 1 (binding for downstream phases)
 
@@ -244,6 +249,39 @@ or extra functions because it expects all Rust impl methods with the
 same name to collapse to one lowerCamelCase Kotlin name. Treat that as
 tooling noise once manual review confirms every upstream behavior is
 present and the typed routers compile warning-free across all targets.
+
+### Observable `Drop` / `Clone` side effects use internal hooks
+
+Most Rust `Drop` impls disappear in Kotlin because GC owns memory, but
+some upstream tests deliberately make `Drop` or `Clone` observable by
+incrementing counters or panicking. Those cases are semantic behavior,
+not allocator plumbing.
+
+Use internal opt-in hooks in `commonMain` for the owning collection
+paths that need to trigger those effects:
+
+- Define narrow internal interfaces for the side effects, such as
+  `BTreeDroppable.dropForBtree()` and `BTreeCloneable.cloneForBtree()`.
+- Keep the hooks opt-in. Ordinary user values that do not implement
+  the interface are left alone.
+- Call clone hooks from translated `clone()` paths before inserting
+  cloned keys or values into the new tree.
+- Call drop hooks from deterministic owner cleanup paths: `clear()`,
+  owning iterators, and panic cleanup around operations like
+  `append()` / `merge()`.
+- When a drop hook throws, keep dropping the remaining owned elements
+  and rethrow the first failure. This mirrors Rust's drop guards around
+  unwinding.
+- In tests that correspond to Rust `catch_unwind(move || drop(x))`,
+  explicitly call the Kotlin owner cleanup method for `x`; do not wait
+  for GC and do not lower the assertion to "eventually dropped".
+- Do not expose these hooks as public API, do not add JVM-only
+  annotations, and do not use them to inflate ast_distance scores.
+
+This pattern is allowed even though `ast_distance` will report the hook
+functions as extra Kotlin symbols. The manual check is whether the
+upstream Rust behavior is observable and the ported tests prove the
+same observable effect.
 
 ### `ExactSizeIterator` has no Kotlin equivalent
 
