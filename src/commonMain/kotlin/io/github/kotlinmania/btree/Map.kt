@@ -711,11 +711,15 @@ class BTreeMap<K : Comparable<K>, V> : MutableMap<K, V> {
          * Initializes a `BTreeMap` from an array of key-value pairs.
          */
         fun <K : Comparable<K>, V> from(arr: Array<Pair<K, V>>): BTreeMap<K, V> {
-            val map = BTreeMap<K, V>()
-            for (kv in arr) {
-                map.insert(kv.first, kv.second)
+            if (arr.isEmpty()) {
+                return new()
             }
-            return map
+
+            val inputs = arr.toMutableList()
+
+            // use stable sort to preserve the insertion order.
+            inputs.sortWith(Comparator { a, b -> a.first.compareTo(b.first) })
+            return bulkBuildFromSortedIter(inputs.iterator())
         }
 
         /** Creates an empty `BTreeMap`. */
@@ -770,7 +774,10 @@ class BTreeMap<K : Comparable<K>, V> : MutableMap<K, V> {
      * than the given bound.
      */
     fun lowerBound(bound: Bound<K>): Cursor<K, V> {
-        val rootNode = this.root?.reborrow() ?: return Cursor(current = null, root = null)
+        val rootNode = when (val rootNode = this.root) {
+            null -> return Cursor(current = null, root = null)
+            else -> rootNode.reborrow()
+        }
         val edge = rootNode.lowerBound(SearchBound.fromRange(bound))
         return Cursor(current = edge, root = this.root)
     }
@@ -781,10 +788,24 @@ class BTreeMap<K : Comparable<K>, V> : MutableMap<K, V> {
      */
     fun lowerBoundMut(bound: Bound<K>): CursorMut<K, V> {
         val (mapRef, dormantMap) = DormantMutRef.new(this)
-        val rootNode = mapRef.root?.borrowMut()
-            ?: return CursorMut(CursorMutKey(current = null, dormantMap = dormantMap))
+        val rootNode = when (val root = mapRef.root) {
+            null -> {
+                return CursorMut(
+                    CursorMutKey(
+                        current = null,
+                        dormantMap = dormantMap,
+                    ),
+                )
+            }
+            else -> root.borrowMut()
+        }
         val edge = rootNode.lowerBound(SearchBound.fromRange(bound))
-        return CursorMut(CursorMutKey(current = edge, dormantMap = dormantMap))
+        return CursorMut(
+            CursorMutKey(
+                current = edge,
+                dormantMap = dormantMap,
+            ),
+        )
     }
 
     /**
@@ -792,7 +813,10 @@ class BTreeMap<K : Comparable<K>, V> : MutableMap<K, V> {
      * than the given bound.
      */
     fun upperBound(bound: Bound<K>): Cursor<K, V> {
-        val rootNode = this.root?.reborrow() ?: return Cursor(current = null, root = null)
+        val rootNode = when (val rootNode = this.root) {
+            null -> return Cursor(current = null, root = null)
+            else -> rootNode.reborrow()
+        }
         val edge = rootNode.upperBound(SearchBound.fromRange(bound))
         return Cursor(current = edge, root = this.root)
     }
@@ -803,10 +827,24 @@ class BTreeMap<K : Comparable<K>, V> : MutableMap<K, V> {
      */
     fun upperBoundMut(bound: Bound<K>): CursorMut<K, V> {
         val (mapRef, dormantMap) = DormantMutRef.new(this)
-        val rootNode = mapRef.root?.borrowMut()
-            ?: return CursorMut(CursorMutKey(current = null, dormantMap = dormantMap))
+        val rootNode = when (val root = mapRef.root) {
+            null -> {
+                return CursorMut(
+                    CursorMutKey(
+                        current = null,
+                        dormantMap = dormantMap,
+                    ),
+                )
+            }
+            else -> root.borrowMut()
+        }
         val edge = rootNode.upperBound(SearchBound.fromRange(bound))
-        return CursorMut(CursorMutKey(current = edge, dormantMap = dormantMap))
+        return CursorMut(
+            CursorMutKey(
+                current = edge,
+                dormantMap = dormantMap,
+            ),
+        )
     }
 
     // ---- MutableMap views: entries / keys / values --------------------------
