@@ -1,8 +1,6 @@
 // port-lint: source node.rs
 // Derived from the Rust standard library (rust-lang/rust),
 // copyright The Rust Project Developers, dual-licensed Apache-2.0 / MIT.
-@file:Suppress("UNCHECKED_CAST", "RemoveExplicitTypeArguments", "ConvertTwoComparisonsToRangeCheck")
-
 package io.github.kotlinmania.btree
 
 // The data layout is an array-backed B-tree node modelled as a class

@@ -1,7 +1,6 @@
 // port-lint: source map.rs
 // Derived from the Rust standard library (rust-lang/rust),
 // copyright The Rust Project Developers, dual-licensed Apache-2.0 / MIT.
-@file:Suppress("UNCHECKED_CAST")
 package io.github.kotlinmania.btree
 
 /**
@@ -491,7 +490,7 @@ class BTreeMap<K : Comparable<K>, V> : MutableMap<K, V> {
     fun extractIf(
         range: RangeBounds<K>,
         pred: (K, V) -> Boolean,
-    ): ExtractIf<K, V, K> {
+    ): ExtractIf<K, V> {
         val inner = extractIfInner(range)
         return ExtractIf(inner, pred)
     }
@@ -499,9 +498,9 @@ class BTreeMap<K : Comparable<K>, V> : MutableMap<K, V> {
     fun extractIf(
         range: RangeFull,
         pred: (K, V) -> Boolean,
-    ): ExtractIf<K, V, K> = extractIf(unbounded(), pred)
+    ): ExtractIf<K, V> = extractIf(unbounded(), pred)
 
-    internal fun extractIfInner(range: RangeBounds<K>): ExtractIfInner<K, V, K> {
+    internal fun extractIfInner(range: RangeBounds<K>): ExtractIfInner<K, V> {
         val r = root
         return if (r == null) {
             ExtractIfInner(
@@ -601,9 +600,21 @@ class BTreeMap<K : Comparable<K>, V> : MutableMap<K, V> {
         }
     }
 
+    fun extend(iter: Iterable<Pair<K, V>>, route: CopiedMapExtend) {
+        when (route) {
+            CopiedMapExtend -> extend(iter)
+        }
+    }
+
     /** Inserts a single entry into this map. */
     fun extendOne(entry: Pair<K, V>) {
         insert(entry.first, entry.second)
+    }
+
+    fun extendOne(entry: Pair<K, V>, route: CopiedMapExtend) {
+        when (route) {
+            CopiedMapExtend -> insert(entry.first, entry.second)
+        }
     }
 
     companion object {
@@ -643,7 +654,15 @@ class BTreeMap<K : Comparable<K>, V> : MutableMap<K, V> {
 
         /** Constructs a `BTreeMap` from any source of `(K, V)` pairs. */
         fun <K : Comparable<K>, V> fromIter(iter: Iterable<Pair<K, V>>): BTreeMap<K, V> {
-            return fromIterable(iter)
+            val inputs = iter.toMutableList()
+
+            if (inputs.isEmpty()) {
+                return new()
+            }
+
+            // use stable sort to preserve the insertion order.
+            inputs.sortWith(Comparator { a, b -> a.first.compareTo(b.first) })
+            return bulkBuildFromSortedIter(inputs.iterator())
         }
 
         /** Constructs a `BTreeMap` from an iterable of pairs. */
@@ -746,11 +765,11 @@ class BTreeMap<K : Comparable<K>, V> : MutableMap<K, V> {
         if (other !is BTreeMap<*, *>) return false
         if (this.size != other.size) return false
         val itA = this.iter()
-        val itB = (other as BTreeMap<K, V>).iter()
+        val itB = other.entries.iterator()
         while (itA.hasNext() && itB.hasNext()) {
             val a = itA.next()
             val b = itB.next()
-            if (a.first != b.first || a.second != b.second) return false
+            if (a.first != b.key || a.second != b.value) return false
         }
         return !itA.hasNext() && !itB.hasNext()
     }
@@ -774,6 +793,24 @@ class BTreeMap<K : Comparable<K>, V> : MutableMap<K, V> {
         }
         sb.append("}")
         return sb.toString()
+    }
+}
+
+object SharedMapIntoIter
+
+object MutableMapIntoIter
+
+object CopiedMapExtend
+
+fun <K : Comparable<K>, V> BTreeMap<K, V>.intoIter(route: SharedMapIntoIter): Iter<K, V> {
+    return when (route) {
+        SharedMapIntoIter -> iter()
+    }
+}
+
+fun <K : Comparable<K>, V> BTreeMap<K, V>.intoIter(route: MutableMapIntoIter): IterMut<K, V> {
+    return when (route) {
+        MutableMapIntoIter -> iterMut()
     }
 }
 
@@ -893,7 +930,14 @@ class Iter<K, V> internal constructor(
         return out
     }
 
-    override fun toString(): String = "Iter(length=$length)"
+    override fun toString(): String = clone().toList().toString()
+
+    companion object {
+        /**
+         * Creates an empty [Iter].
+         */
+        fun <K, V> default(): Iter<K, V> = Iter(LazyLeafRange.none(), 0)
+    }
 }
 
 /** An immutable entry shape: `setValue` is unsupported. */
@@ -964,7 +1008,15 @@ class IterMut<K : Comparable<K>, V> internal constructor(
         lastKey = null
     }
 
-    override fun toString(): String = "IterMut(length=$length)"
+    override fun toString(): String = iter().toList().toString()
+
+    companion object {
+        /**
+         * Creates an empty [IterMut].
+         */
+        fun <K : Comparable<K>, V> default(): IterMut<K, V> =
+            IterMut(LazyLeafRange.none(), 0, BTreeMap())
+    }
 }
 
 /**
@@ -1065,7 +1117,14 @@ class IntoIter<K, V> internal constructor(
      */
     internal fun iter(): Iter<K, V> = Iter(range.reborrow(), length)
 
-    override fun toString(): String = "IntoIter(length=$length)"
+    override fun toString(): String = iter().toList().toString()
+
+    companion object {
+        /**
+         * Creates an empty [IntoIter].
+         */
+        fun <K, V> default(): IntoIter<K, V> = IntoIter(LazyLeafRange.none(), 0)
+    }
 }
 
 // ============================================================================
@@ -1087,7 +1146,15 @@ class Keys<K, V> internal constructor(internal val inner: Iter<K, V>) : Iterator
         while (hasNext()) out.add(next())
         return out
     }
-    override fun toString(): String = "Keys(length=${inner.len()})"
+    fun clone(): Keys<K, V> = Keys(inner.clone())
+    override fun toString(): String = clone().toList().toString()
+
+    companion object {
+        /**
+         * Creates an empty [Keys].
+         */
+        fun <K, V> default(): Keys<K, V> = Keys(Iter.default())
+    }
 }
 
 /** An iterator over the values of a `BTreeMap`. */
@@ -1103,7 +1170,15 @@ class Values<K, V> internal constructor(internal val inner: Iter<K, V>) : Iterat
         while (hasNext()) out.add(next())
         return out
     }
-    override fun toString(): String = "Values(length=${inner.len()})"
+    fun clone(): Values<K, V> = Values(inner.clone())
+    override fun toString(): String = clone().toList().toString()
+
+    companion object {
+        /**
+         * Creates an empty [Values].
+         */
+        fun <K, V> default(): Values<K, V> = Values(Iter.default())
+    }
 }
 
 /** A mutable iterator over the values of a `BTreeMap`. */
@@ -1121,7 +1196,14 @@ class ValuesMut<K : Comparable<K>, V> internal constructor(internal val inner: I
         return out
     }
     override fun remove() = inner.remove()
-    override fun toString(): String = "ValuesMut(length=${inner.len()})"
+    override fun toString(): String = inner.iter().toList().map { it.second }.toString()
+
+    companion object {
+        /**
+         * Creates an empty [ValuesMut].
+         */
+        fun <K : Comparable<K>, V> default(): ValuesMut<K, V> = ValuesMut(IterMut.default())
+    }
 }
 
 /** An owning iterator over the keys of a `BTreeMap`. */
@@ -1139,7 +1221,14 @@ class IntoKeys<K, V> internal constructor(internal val inner: IntoIter<K, V>) : 
         while (hasNext()) out.add(next())
         return out
     }
-    override fun toString(): String = "IntoKeys(length=${inner.len()})"
+    override fun toString(): String = inner.iter().toList().map { it.first }.toString()
+
+    companion object {
+        /**
+         * Creates an empty [IntoKeys].
+         */
+        fun <K, V> default(): IntoKeys<K, V> = IntoKeys(IntoIter.default())
+    }
 }
 
 /** An owning iterator over the values of a `BTreeMap`. */
@@ -1155,7 +1244,14 @@ class IntoValues<K, V> internal constructor(internal val inner: IntoIter<K, V>) 
         while (hasNext()) out.add(next())
         return out
     }
-    override fun toString(): String = "IntoValues(length=${inner.len()})"
+    override fun toString(): String = inner.iter().toList().map { it.second }.toString()
+
+    companion object {
+        /**
+         * Creates an empty [IntoValues].
+         */
+        fun <K, V> default(): IntoValues<K, V> = IntoValues(IntoIter.default())
+    }
 }
 
 // ============================================================================
@@ -1205,7 +1301,14 @@ class Range<K, V> internal constructor(
         return out
     }
 
-    override fun toString(): String = "Range(...)"
+    override fun toString(): String = clone().toList().toString()
+
+    companion object {
+        /**
+         * Creates an empty [Range].
+         */
+        fun <K, V> default(): Range<K, V> = Range(LeafRange.none())
+    }
 }
 
 /**
@@ -1243,7 +1346,14 @@ class RangeMut<K, V> internal constructor(
         return out
     }
 
-    override fun toString(): String = "RangeMut(...)"
+    override fun toString(): String = Range(inner.reborrow()).toList().toString()
+
+    companion object {
+        /**
+         * Creates an empty [RangeMut].
+         */
+        fun <K, V> default(): RangeMut<K, V> = RangeMut(LeafRange.none())
+    }
 }
 
 // ============================================================================
@@ -1259,8 +1369,8 @@ class RangeMut<K, V> internal constructor(
  * elements stay in the map; consumers must drive the iterator to completion
  * if they want every match removed.
  */
-class ExtractIf<K : Comparable<K>, V, Q : Comparable<Q>> internal constructor(
-    internal val inner: ExtractIfInner<K, V, Q>,
+class ExtractIf<K : Comparable<K>, V> internal constructor(
+    internal val inner: ExtractIfInner<K, V>,
     internal val pred: (K, V) -> Boolean,
 ) : Iterator<Pair<K, V>> {
     private var pending: Pair<K, V>? = null
@@ -1302,14 +1412,14 @@ class ExtractIf<K : Comparable<K>, V, Q : Comparable<Q>> internal constructor(
  * State machine of an [ExtractIf]. Internal because `BTreeSet.ExtractIf`
  * reuses the same shape.
  */
-internal class ExtractIfInner<K : Comparable<K>, V, Q : Comparable<Q>>(
+internal class ExtractIfInner<K : Comparable<K>, V>(
     internal val map: BTreeMap<K, V>,
     /** Buried reference to the root field in the borrowed map. */
     internal var dormantRoot: DormantMutRef<NodeRef<Marker.Owned, K, V, Marker.LeafOrInternal>>?,
     /** Contains a leaf edge preceding the next element to be returned, or the last leaf edge. */
     internal var curLeafEdge: Handle<NodeRef<Marker.Mut, K, V, Marker.Leaf>, Marker.Edge>?,
     /** Range over which iteration was requested. */
-    internal val range: RangeBounds<Q>,
+    internal val range: RangeBounds<K>,
 ) {
     internal fun sizeHint(): Pair<Int, Int?> = Pair(0, map.len())
 
@@ -1322,7 +1432,7 @@ internal class ExtractIfInner<K : Comparable<K>, V, Q : Comparable<Q>>(
         }
     }
 
-    /** Implementation of a typical `ExtractIf::next` method, given the predicate. */
+    /** Implementation of a typical [ExtractIf.next] method, given the predicate. */
     internal fun next(pred: (K, V) -> Boolean): Pair<K, V>? {
         while (true) {
             val edge = curLeafEdge ?: return null
@@ -1333,16 +1443,9 @@ internal class ExtractIfInner<K : Comparable<K>, V, Q : Comparable<Q>>(
             }
             val (k, v) = kv.kvMut()
 
-            // On creation, we navigated directly to the left bound, so we
-            // need only check the right bound to decide whether to stop.
-            // K is comparable to it (the static `K : Comparable<Q>` constraint
-            // can't be expressed here because Kotlin doesn't allow a class
-            // type parameter to be re-bounded against a method-level Q).
-            // The cast `(end.value as Comparable<Any?>).compareTo(k)` would
-            // also work; we import the K-side compareTo via an unchecked cast.
             val withinRange = when (val end = range.endBound()) {
-                is Bound.Included -> (k as Comparable<Q>).compareTo(end.value) <= 0
-                is Bound.Excluded -> (k as Comparable<Q>).compareTo(end.value) < 0
+                is Bound.Included -> k.compareTo(end.value) <= 0
+                is Bound.Excluded -> k.compareTo(end.value) < 0
                 Bound.Unbounded -> true
             }
             if (!withinRange) return null
@@ -1477,10 +1580,38 @@ class CursorMut<K : Comparable<K>, V> internal constructor(
 
     // ---- editing ops --------------------------------------------------------
 
-    /** SAFETY: caller must ensure the new key preserves sorted order and uniqueness. */
+    /**
+     * Inserts a new key-value pair into the map in the gap that the cursor is
+     * currently pointing to.
+     *
+     * After the insertion the cursor will be pointing at the gap after the
+     * newly inserted element.
+     *
+     * # Safety
+     *
+     * You must ensure that the [BTreeMap] invariants are maintained.
+     * Specifically:
+     *
+     * * The key of the newly inserted element must be unique in the tree.
+     * * All keys in the tree must remain in sorted order.
+     */
     fun insertAfterUnchecked(key: K, value: V) = inner.insertAfterUnchecked(key, value)
 
-    /** SAFETY: caller must ensure the new key preserves sorted order and uniqueness. */
+    /**
+     * Inserts a new key-value pair into the map in the gap that the cursor is
+     * currently pointing to.
+     *
+     * After the insertion the cursor will be pointing at the gap after the
+     * newly inserted element.
+     *
+     * # Safety
+     *
+     * You must ensure that the [BTreeMap] invariants are maintained.
+     * Specifically:
+     *
+     * * The key of the newly inserted element must be unique in the tree.
+     * * All keys in the tree must remain in sorted order.
+     */
     fun insertBeforeUnchecked(key: K, value: V) = inner.insertBeforeUnchecked(key, value)
 
     /** Inserts before, returning [Result.failure] containing [UnorderedKeyError] on order violation. */
@@ -1574,8 +1705,13 @@ class CursorMutKey<K : Comparable<K>, V> internal constructor(
      * Inserts a new key-value pair into the gap that the cursor is pointing
      * to. After insertion the cursor points at the gap before the new element.
      *
-     * SAFETY: caller must ensure the new key preserves sorted order and
-     * uniqueness.
+     * # Safety
+     *
+     * You must ensure that the [BTreeMap] invariants are maintained.
+     * Specifically:
+     *
+     * * The key of the newly inserted element must be unique in the tree.
+     * * All keys in the tree must remain in sorted order.
      */
     fun insertAfterUnchecked(key: K, value: V) {
         val cur = current
@@ -1607,8 +1743,13 @@ class CursorMutKey<K : Comparable<K>, V> internal constructor(
      * Inserts a new key-value pair into the gap that the cursor is pointing
      * to. After insertion the cursor points at the gap after the new element.
      *
-     * SAFETY: caller must ensure the new key preserves sorted order and
-     * uniqueness.
+     * # Safety
+     *
+     * You must ensure that the [BTreeMap] invariants are maintained.
+     * Specifically:
+     *
+     * * The key of the newly inserted element must be unique in the tree.
+     * * All keys in the tree must remain in sorted order.
      */
     fun insertBeforeUnchecked(key: K, value: V) {
         val cur = current
