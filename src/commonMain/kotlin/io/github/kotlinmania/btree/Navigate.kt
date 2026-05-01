@@ -410,12 +410,12 @@ internal fun <BorrowType : Marker.BorrowType, K, V>
     Handle<NodeRef<BorrowType, K, V, Marker.Leaf>, Marker.Edge>.nextKv():
     NextKvResult<BorrowType, K, V> {
     var edge: Handle<NodeRef<BorrowType, K, V, Marker.LeafOrInternal>, Marker.Edge> =
-        this.forgetNodeTypeLeafEdge()
+        this.forgetNodeType(LeafEdgeForgetNodeType)
     while (true) {
         edge = when (val rk = edge.rightKv()) {
             is EdgeKvResult.Ok -> return NextKvResult.Ok(rk.handle)
             is EdgeKvResult.Err -> when (val asc = rk.handle.intoNode().ascend()) {
-                is AscendResult.Ok -> asc.handle.forgetNodeTypeInternalEdge()
+                is AscendResult.Ok -> asc.handle.forgetNodeType(InternalEdgeForgetNodeType)
                 is AscendResult.Err -> return NextKvResult.Err(asc.node)
             }
         }
@@ -427,12 +427,12 @@ internal fun <BorrowType : Marker.BorrowType, K, V>
     Handle<NodeRef<BorrowType, K, V, Marker.Leaf>, Marker.Edge>.nextBackKv():
     NextKvResult<BorrowType, K, V> {
     var edge: Handle<NodeRef<BorrowType, K, V, Marker.LeafOrInternal>, Marker.Edge> =
-        this.forgetNodeTypeLeafEdge()
+        this.forgetNodeType(LeafEdgeForgetNodeType)
     while (true) {
         edge = when (val lk = edge.leftKv()) {
             is EdgeKvResult.Ok -> return NextKvResult.Ok(lk.handle)
             is EdgeKvResult.Err -> when (val asc = lk.handle.intoNode().ascend()) {
-                is AscendResult.Ok -> asc.handle.forgetNodeTypeInternalEdge()
+                is AscendResult.Ok -> asc.handle.forgetNodeType(InternalEdgeForgetNodeType)
                 is AscendResult.Err -> return NextKvResult.Err(asc.node)
             }
         }
@@ -499,7 +499,7 @@ internal fun <K, V>
         Handle<NodeRef<Marker.Dying, K, V, Marker.LeafOrInternal>, Marker.KV>,
         >? {
     var edge: Handle<NodeRef<Marker.Dying, K, V, Marker.LeafOrInternal>, Marker.Edge> =
-        this.forgetNodeTypeLeafEdge()
+        this.forgetNodeType(LeafEdgeForgetNodeType)
     while (true) {
         edge = when (val rk = edge.rightKv()) {
             is EdgeKvResult.Ok -> {
@@ -510,7 +510,7 @@ internal fun <K, V>
                 val node = rk.handle.intoNode()
                 val parent = node.deallocateAndAscend()
                 if (parent != null) {
-                    parent.forgetNodeTypeInternalEdge()
+                    parent.forgetNodeType(InternalEdgeForgetNodeType)
                 } else {
                     return null
                 }
@@ -527,7 +527,7 @@ internal fun <K, V>
         Handle<NodeRef<Marker.Dying, K, V, Marker.LeafOrInternal>, Marker.KV>,
         >? {
     var edge: Handle<NodeRef<Marker.Dying, K, V, Marker.LeafOrInternal>, Marker.Edge> =
-        this.forgetNodeTypeLeafEdge()
+        this.forgetNodeType(LeafEdgeForgetNodeType)
     while (true) {
         edge = when (val lk = edge.leftKv()) {
             is EdgeKvResult.Ok -> {
@@ -538,7 +538,7 @@ internal fun <K, V>
                 val node = lk.handle.intoNode()
                 val parent = node.deallocateAndAscend()
                 if (parent != null) {
-                    parent.forgetNodeTypeInternalEdge()
+                    parent.forgetNodeType(InternalEdgeForgetNodeType)
                 } else {
                     return null
                 }
@@ -558,10 +558,10 @@ internal fun <K, V>
 internal fun <K, V>
     Handle<NodeRef<Marker.Dying, K, V, Marker.Leaf>, Marker.Edge>.deallocatingEnd() {
     var edge: Handle<NodeRef<Marker.Dying, K, V, Marker.LeafOrInternal>, Marker.Edge> =
-        this.forgetNodeTypeLeafEdge()
+        this.forgetNodeType(LeafEdgeForgetNodeType)
     while (true) {
         val parent = edge.intoNode().deallocateAndAscend() ?: return
-        edge = parent.forgetNodeTypeInternalEdge()
+        edge = parent.forgetNodeType(InternalEdgeForgetNodeType)
     }
 }
 
