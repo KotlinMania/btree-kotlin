@@ -1,16 +1,17 @@
 import com.vanniktech.maven.publish.SonatypeHost
+import org.gradle.language.base.plugins.LifecycleBasePlugin
 import org.jetbrains.kotlin.gradle.ExperimentalWasmDsl
 import org.jetbrains.kotlin.gradle.plugin.mpp.apple.XCFramework
 
 plugins {
     kotlin("multiplatform") version "2.3.20"
     kotlin("plugin.serialization") version "2.3.20"
-    id("com.android.kotlin.multiplatform.library") version "8.6.0"
+    id("com.android.kotlin.multiplatform.library") version "9.2.0"
     id("com.vanniktech.maven.publish") version "0.30.0"
 }
 
 group = "io.github.kotlinmania"
-version = "0.1.3"
+version = "0.1.4"
 
 val androidSdkDir: String? =
     providers.environmentVariable("ANDROID_SDK_ROOT").orNull
@@ -34,6 +35,10 @@ if (androidSdkDir != null && file(androidSdkDir).exists()) {
 kotlin {
     applyDefaultHierarchyTemplate()
 
+    compilerOptions {
+        allWarningsAsErrors.set(true)
+    }
+
     sourceSets.all {
         languageSettings.optIn("kotlin.time.ExperimentalTime")
         languageSettings.optIn("kotlin.concurrent.atomics.ExperimentalAtomicApi")
@@ -42,12 +47,6 @@ kotlin {
     val xcf = XCFramework("BTreeKotlin")
 
     macosArm64 {
-        binaries.framework {
-            baseName = "BTreeKotlin"
-            xcf.add(this)
-        }
-    }
-    macosX64 {
         binaries.framework {
             baseName = "BTreeKotlin"
             xcf.add(this)
@@ -88,10 +87,14 @@ kotlin {
         flattenPackage = "io.github.kotlinmania.btree"
     }
 
-    androidLibrary {
+    android {
         namespace = "io.github.kotlinmania.btree"
         compileSdk = 34
         minSdk = 24
+        withHostTestBuilder {}.configure {}
+        withDeviceTestBuilder {
+            sourceSetTreeName = "test"
+        }
     }
 
     sourceSets {
@@ -100,6 +103,12 @@ kotlin {
         val commonTest by getting { dependencies { implementation(kotlin("test")) } }
     }
     jvmToolchain(21)
+}
+
+tasks.register("test") {
+    group = LifecycleBasePlugin.VERIFICATION_GROUP
+    description = "Runs the Kotlin Multiplatform test aggregate."
+    dependsOn("allTests")
 }
 
 

@@ -24,32 +24,32 @@ private const val ITER_PERFORMANCE_TIPPING_SIZE_DIFF: Int = 16
  * and take worst-case logarithmic and amortized constant time per item
  * returned.
  */
-class BTreeSet<T : Comparable<T>> : MutableSet<T> {
-    /** Backing map; `internalIsSet = true` so range-bound errors render "BTreeSet". */
-    internal val map: BTreeMap<T, SetValZst>
-
+class BTreeSet<T> private constructor(
+    private val comparator: Comparator<in T>?,
+    internal val map: BTreeMap<T, SetValZst>,
+) : MutableSet<T> {
     /** Makes a new, empty `BTreeSet`. Does not allocate anything on its own. */
-    constructor() {
-        this.map = BTreeMap<T, SetValZst>()
+    constructor(comparator: Comparator<in T>? = null) : this(comparator, BTreeMap<T, SetValZst>(comparator))
+
+    init {
         this.map.internalIsSet = true
     }
 
     /** Internal constructor wrapping a pre-built map (used by [splitOff]). */
-    internal constructor(map: BTreeMap<T, SetValZst>) {
-        this.map = map
-        this.map.internalIsSet = true
-    }
+    internal constructor(map: BTreeMap<T, SetValZst>) : this(map.comparator, map)
+
+    internal fun compareElements(left: T, right: T): Int = map.compareKeys(left, right)
 
     /** Makes a new `BTreeSet` with a reasonable choice of B. */
     companion object {
         /** Makes a new, empty `BTreeSet`. Does not allocate anything on its own. */
-        fun <T : Comparable<T>> new(): BTreeSet<T> = BTreeSet()
+        fun <T> new(): BTreeSet<T> = BTreeSet()
 
         /** Makes a new, empty `BTreeSet` with a reasonable choice of B. */
-        fun <T : Comparable<T>> newIn(): BTreeSet<T> = BTreeSet()
+        fun <T> newIn(): BTreeSet<T> = BTreeSet()
 
         /** Creates an empty `BTreeSet`. */
-        fun <T : Comparable<T>> default(): BTreeSet<T> = BTreeSet()
+        fun <T> default(): BTreeSet<T> = BTreeSet()
 
         /** Constructs a `BTreeSet` from any source of values. */
         fun <T : Comparable<T>> fromIter(iter: Iterable<T>): BTreeSet<T> = fromIterable(iter)
@@ -67,7 +67,7 @@ class BTreeSet<T : Comparable<T>> : MutableSet<T> {
 
         fun <T : Comparable<T>> from(vararg values: T): BTreeSet<T> = fromIterable(values.asIterable())
 
-        internal fun <T : Comparable<T>> fromSortedIter(iter: Iterator<T>): BTreeSet<T> {
+        internal fun <T> fromSortedIter(iter: Iterator<T>): BTreeSet<T> {
             val mapped = object : Iterator<Pair<T, SetValZst>> {
                 override fun hasNext(): Boolean = iter.hasNext()
                 override fun next(): Pair<T, SetValZst> = Pair(iter.next(), SetValZst)
@@ -100,8 +100,8 @@ class BTreeSet<T : Comparable<T>> : MutableSet<T> {
         val otherMin = other.first()
         val otherMax = other.last()
         if (selfMin != null && selfMax != null && otherMin != null && otherMax != null) {
-            val cmpMinMax = selfMin.compareTo(otherMax)
-            val cmpMaxMin = selfMax.compareTo(otherMin)
+            val cmpMinMax = compareElements(selfMin, otherMax)
+            val cmpMaxMin = compareElements(selfMax, otherMin)
             val inner: DifferenceInner<T> = when {
                 cmpMinMax > 0 || cmpMaxMin < 0 -> DifferenceInner.Iterate(this.iter())
                 cmpMinMax == 0 -> {
@@ -121,9 +121,9 @@ class BTreeSet<T : Comparable<T>> : MutableSet<T> {
                     otherIter = PeekableSetIter(other.iter()),
                 )
             }
-            return Difference(inner)
+            return Difference(inner, ::compareElements)
         }
-        return Difference(DifferenceInner.Iterate(this.iter()))
+        return Difference(DifferenceInner.Iterate(this.iter()), ::compareElements)
     }
 
     /**
@@ -132,7 +132,7 @@ class BTreeSet<T : Comparable<T>> : MutableSet<T> {
      * order.
      */
     fun symmetricDifference(other: BTreeSet<T>): SymmetricDifference<T> =
-        SymmetricDifference(MergeIterInner(this.iter(), other.iter()))
+        SymmetricDifference(MergeIterInner(this.iter(), other.iter()), ::compareElements)
 
     /**
      * Visits the elements representing the intersection, i.e., the elements
@@ -144,8 +144,8 @@ class BTreeSet<T : Comparable<T>> : MutableSet<T> {
         val otherMin = other.first()
         val otherMax = other.last()
         if (selfMin != null && selfMax != null && otherMin != null && otherMax != null) {
-            val cmpMinMax = selfMin.compareTo(otherMax)
-            val cmpMaxMin = selfMax.compareTo(otherMin)
+            val cmpMinMax = compareElements(selfMin, otherMax)
+            val cmpMaxMin = compareElements(selfMax, otherMin)
             val inner: IntersectionInner<T> = when {
                 cmpMinMax > 0 || cmpMaxMin < 0 -> IntersectionInner.Answer(null)
                 cmpMinMax == 0 -> IntersectionInner.Answer(selfMin)
@@ -156,16 +156,16 @@ class BTreeSet<T : Comparable<T>> : MutableSet<T> {
                     IntersectionInner.Search(smallIter = other.iter(), largeSet = this)
                 else -> IntersectionInner.Stitch(a = this.iter(), b = other.iter())
             }
-            return Intersection(inner)
+            return Intersection(inner, ::compareElements)
         }
-        return Intersection(IntersectionInner.Answer(null))
+        return Intersection(IntersectionInner.Answer(null), ::compareElements)
     }
 
     /**
      * Visits the elements representing the union, i.e., all the elements in
      * `self` or [other], without duplicates, in ascending order.
      */
-    fun union(other: BTreeSet<T>): Union<T> = Union(MergeIterInner(this.iter(), other.iter()))
+    fun union(other: BTreeSet<T>): Union<T> = Union(MergeIterInner(this.iter(), other.iter()), ::compareElements)
 
     // ---- clear / contains / get --------------------------------------------
 
@@ -207,7 +207,7 @@ class BTreeSet<T : Comparable<T>> : MutableSet<T> {
         val otherMax = other.last() ?: return false
         val selfIter = this.iter()
         when {
-            selfMin < otherMin -> return false // other does not contain selfMin
+            compareElements(selfMin, otherMin) < 0 -> return false // other does not contain selfMin
             selfMin == otherMin -> {
                 selfIter.next() // selfMin is contained in other, so remove it from consideration
                 // otherMin is now not in selfIter (used below)
@@ -216,7 +216,7 @@ class BTreeSet<T : Comparable<T>> : MutableSet<T> {
         }
 
         when {
-            selfMax > otherMax -> return false // other does not contain selfMax
+            compareElements(selfMax, otherMax) > 0 -> return false // other does not contain selfMax
             selfMax == otherMax -> {
                 selfIter.nextBack() // selfMax is contained in other, so remove it from consideration
                 // otherMax is now not in selfIter (used below)
@@ -240,7 +240,7 @@ class BTreeSet<T : Comparable<T>> : MutableSet<T> {
                 var matched = false
                 while (otherIter.hasNext()) {
                     val other1 = otherIter.next()
-                    val cmp = other1.compareTo(self1)
+                    val cmp = compareElements(other1, self1)
                     if (cmp < 0) continue // skip over elements that are smaller
                     if (cmp == 0) { matched = true; break } // self1 is in other
                     /* cmp > 0 */ return false // self1 is not in other
@@ -425,11 +425,10 @@ class BTreeSet<T : Comparable<T>> : MutableSet<T> {
         insert(value)
     }
 
-    fun clone(): BTreeSet<T> = fromSortedIter(iter().asSequence().toList().iterator())
+    fun clone(): BTreeSet<T> = BTreeSet(map.clone())
 
     fun cloneFrom(source: BTreeSet<T>) {
-        clear()
-        extend(source.iter().asSequence().toList())
+        map.cloneFrom(source.map)
     }
 
     /** Returns `true` if the set contains no elements. */
@@ -522,7 +521,7 @@ class BTreeSet<T : Comparable<T>> : MutableSet<T> {
         val left = iter()
         val right = other.iter()
         while (left.hasNext() && right.hasNext()) {
-            val order = left.next().compareTo(right.next())
+            val order = compareElements(left.next(), right.next())
             if (order != 0) return order
         }
         return when {
@@ -650,8 +649,9 @@ class BTreeSet<T : Comparable<T>> : MutableSet<T> {
     /**
      * A lazy iterator producing elements in the difference of `BTreeSet`s.
      */
-    class Difference<T : Comparable<T>> internal constructor(
+    class Difference<T> internal constructor(
         internal var inner: DifferenceInner<T>,
+        private val compare: (T, T) -> Int,
     ) : Iterator<T> {
         private var pending: T? = null
         private var primed: Boolean = false
@@ -662,7 +662,7 @@ class BTreeSet<T : Comparable<T>> : MutableSet<T> {
                     var selfNext = inner.selfIter.advance() ?: return null
                     while (true) {
                         val peeked = inner.otherIter.peek()
-                        val cmp = if (peeked == null) -1 else selfNext.compareTo(peeked)
+                        val cmp = if (peeked == null) -1 else compare(selfNext, peeked)
                         when {
                             cmp < 0 -> return selfNext
                             cmp == 0 -> {
@@ -708,7 +708,7 @@ class BTreeSet<T : Comparable<T>> : MutableSet<T> {
                 is DifferenceInner.Search -> DifferenceInner.Search(inner.selfIter.clone(), inner.otherSet)
                 is DifferenceInner.Iterate -> DifferenceInner.Iterate(inner.iter.clone())
             }
-            val cloned = Difference(clonedInner)
+            val cloned = Difference(clonedInner, compare)
             cloned.pending = pending
             cloned.primed = primed
             return cloned
@@ -730,15 +730,16 @@ class BTreeSet<T : Comparable<T>> : MutableSet<T> {
      * A lazy iterator producing elements in the symmetric difference of
      * `BTreeSet`s.
      */
-    class SymmetricDifference<T : Comparable<T>> internal constructor(
+    class SymmetricDifference<T> internal constructor(
         internal val inner: MergeIterInner<T>,
+        private val compare: (T, T) -> Int,
     ) : Iterator<T> {
         private var pending: T? = null
         private var primed: Boolean = false
 
         private fun computeNext(): T? {
             while (true) {
-                val (a, b) = inner.nexts { x, y -> x.compareTo(y) }
+                val (a, b) = inner.nexts(compare)
                 if (a != null && b != null) continue // both produced => equal => skip both
                 return a ?: b
             }
@@ -760,7 +761,7 @@ class BTreeSet<T : Comparable<T>> : MutableSet<T> {
         fun min(): T? = if (hasNext()) next() else null
 
         fun clone(): SymmetricDifference<T> {
-            val cloned = SymmetricDifference(inner.clone())
+            val cloned = SymmetricDifference(inner.clone(), compare)
             cloned.pending = pending
             cloned.primed = primed
             return cloned
@@ -777,8 +778,9 @@ class BTreeSet<T : Comparable<T>> : MutableSet<T> {
     /**
      * A lazy iterator producing elements in the intersection of `BTreeSet`s.
      */
-    class Intersection<T : Comparable<T>> internal constructor(
+    class Intersection<T> internal constructor(
         internal var inner: IntersectionInner<T>,
+        private val compare: (T, T) -> Int,
     ) : Iterator<T> {
         private var pending: T? = null
         private var primed: Boolean = false
@@ -789,7 +791,7 @@ class BTreeSet<T : Comparable<T>> : MutableSet<T> {
                     var aNext = inner.a.advance() ?: return null
                     var bNext = inner.b.advance() ?: return null
                     while (true) {
-                        val cmp = aNext.compareTo(bNext)
+                        val cmp = compare(aNext, bNext)
                         when {
                             cmp < 0 -> aNext = inner.a.advance() ?: return null
                             cmp > 0 -> bNext = inner.b.advance() ?: return null
@@ -834,7 +836,7 @@ class BTreeSet<T : Comparable<T>> : MutableSet<T> {
                 is IntersectionInner.Search -> IntersectionInner.Search(inner.smallIter.clone(), inner.largeSet)
                 is IntersectionInner.Answer -> IntersectionInner.Answer(inner.value)
             }
-            val cloned = Intersection(clonedInner)
+            val cloned = Intersection(clonedInner, compare)
             cloned.pending = pending
             cloned.primed = primed
             return cloned
@@ -852,14 +854,15 @@ class BTreeSet<T : Comparable<T>> : MutableSet<T> {
     /**
      * A lazy iterator producing elements in the union of `BTreeSet`s.
      */
-    class Union<T : Comparable<T>> internal constructor(
+    class Union<T> internal constructor(
         internal val inner: MergeIterInner<T>,
+        private val compare: (T, T) -> Int,
     ) : Iterator<T> {
         private var pending: T? = null
         private var primed: Boolean = false
 
         private fun computeNext(): T? {
-            val (a, b) = inner.nexts { x, y -> x.compareTo(y) }
+            val (a, b) = inner.nexts(compare)
             return a ?: b
         }
 
@@ -879,7 +882,7 @@ class BTreeSet<T : Comparable<T>> : MutableSet<T> {
         fun min(): T? = if (hasNext()) next() else null
 
         fun clone(): Union<T> {
-            val cloned = Union(inner.clone())
+            val cloned = Union(inner.clone(), compare)
             cloned.pending = pending
             cloned.primed = primed
             return cloned
@@ -894,7 +897,7 @@ class BTreeSet<T : Comparable<T>> : MutableSet<T> {
     }
 
     /** Iterator returned by [extractIf]. */
-    class ExtractIf<T : Comparable<T>> internal constructor(
+    class ExtractIf<T> internal constructor(
         internal val inner: io.github.kotlinmania.btree.ExtractIf<T, SetValZst>,
     ) : Iterator<T> {
         override fun hasNext(): Boolean = inner.hasNext()
@@ -920,7 +923,7 @@ class BTreeSet<T : Comparable<T>> : MutableSet<T> {
      *
      * A `Cursor` is created with [BTreeSet.lowerBound] and [BTreeSet.upperBound].
      */
-    class Cursor<K : Comparable<K>> internal constructor(
+    class Cursor<K> internal constructor(
         internal val inner: io.github.kotlinmania.btree.Cursor<K, SetValZst>,
     ) {
         /**
@@ -944,7 +947,7 @@ class BTreeSet<T : Comparable<T>> : MutableSet<T> {
     /**
      * A cursor over a `BTreeSet` with editing operations.
      */
-    class CursorMut<T : Comparable<T>> internal constructor(
+    class CursorMut<T> internal constructor(
         internal val inner: io.github.kotlinmania.btree.CursorMut<T, SetValZst>,
     ) {
         /** Advances the cursor to the next gap, returning the moved-over element. */
@@ -995,7 +998,7 @@ class BTreeSet<T : Comparable<T>> : MutableSet<T> {
      * SAFETY: callers must ensure all elements remain in sorted order and
      * unique while the cursor is held.
      */
-    class CursorMutKey<T : Comparable<T>> internal constructor(
+    class CursorMutKey<T> internal constructor(
         internal val inner: io.github.kotlinmania.btree.CursorMutKey<T, SetValZst>,
     ) {
         /** Advances the cursor to the next gap, returning the moved-over element. */
@@ -1041,19 +1044,19 @@ object SharedSetIntoIter
 
 object CopiedSetExtend
 
-fun <T : Comparable<T>> BTreeSet<T>.intoIter(route: SharedSetIntoIter): BTreeSet.Iter<T> {
+fun <T> BTreeSet<T>.intoIter(route: SharedSetIntoIter): BTreeSet.Iter<T> {
     return when (route) {
         SharedSetIntoIter -> iter()
     }
 }
 
-fun <T : Comparable<T>> BTreeSet<T>.extend(iter: Iterable<T>, route: CopiedSetExtend) {
+fun <T> BTreeSet<T>.extend(iter: Iterable<T>, route: CopiedSetExtend) {
     when (route) {
         CopiedSetExtend -> extend(iter)
     }
 }
 
-fun <T : Comparable<T>> BTreeSet<T>.extendOne(value: T, route: CopiedSetExtend) {
+fun <T> BTreeSet<T>.extendOne(value: T, route: CopiedSetExtend) {
     when (route) {
         CopiedSetExtend -> extendOne(value)
     }
@@ -1064,9 +1067,9 @@ fun <T : Comparable<T>> BTreeSet<T>.extendOne(value: T, route: CopiedSetExtend) 
 // ============================================================================
 
 /** State for [BTreeSet.Difference]. */
-internal sealed class DifferenceInner<T : Comparable<T>> {
+internal sealed class DifferenceInner<T> {
     /** Iterate all of `self` and some of `other`, spotting matches along the way. */
-    class Stitch<T : Comparable<T>>(
+    class Stitch<T>(
         val selfIter: BTreeSet.Iter<T>,
         val otherIter: PeekableSetIter<T>,
     ) : DifferenceInner<T>() {
@@ -1074,7 +1077,7 @@ internal sealed class DifferenceInner<T : Comparable<T>> {
     }
 
     /** Iterate `self`, look up in `other`. */
-    class Search<T : Comparable<T>>(
+    class Search<T>(
         val selfIter: BTreeSet.Iter<T>,
         val otherSet: BTreeSet<T>,
     ) : DifferenceInner<T>() {
@@ -1082,15 +1085,15 @@ internal sealed class DifferenceInner<T : Comparable<T>> {
     }
 
     /** Simply produce all elements in `self`. */
-    class Iterate<T : Comparable<T>>(val iter: BTreeSet.Iter<T>) : DifferenceInner<T>() {
+    class Iterate<T>(val iter: BTreeSet.Iter<T>) : DifferenceInner<T>() {
         override fun toString(): String = "Iterate($iter)"
     }
 }
 
 /** State for [BTreeSet.Intersection]. */
-internal sealed class IntersectionInner<T : Comparable<T>> {
+internal sealed class IntersectionInner<T> {
     /** Iterate similarly sized sets jointly, spotting matches along the way. */
-    class Stitch<T : Comparable<T>>(
+    class Stitch<T>(
         val a: BTreeSet.Iter<T>,
         val b: BTreeSet.Iter<T>,
     ) : IntersectionInner<T>() {
@@ -1098,7 +1101,7 @@ internal sealed class IntersectionInner<T : Comparable<T>> {
     }
 
     /** Iterate a small set, look up in the large set. */
-    class Search<T : Comparable<T>>(
+    class Search<T>(
         val smallIter: BTreeSet.Iter<T>,
         val largeSet: BTreeSet<T>,
     ) : IntersectionInner<T>() {
@@ -1106,7 +1109,7 @@ internal sealed class IntersectionInner<T : Comparable<T>> {
     }
 
     /** Return a specific element or emptiness. Mutable so the answer can be taken once. */
-    class Answer<T : Comparable<T>>(var value: T?) : IntersectionInner<T>() {
+    class Answer<T>(var value: T?) : IntersectionInner<T>() {
         override fun toString(): String = "Answer($value)"
     }
 }
@@ -1154,7 +1157,7 @@ internal class PeekableSetIter<T>(private val source: BTreeSet.Iter<T>) {
 private fun <T> BTreeSet.Iter<T>.advance(): T? = if (hasNext()) next() else null
 
 /** An unbounded [RangeBounds] used by [BTreeSet.retain] to cover all keys. */
-private fun <T : Comparable<T>> unboundedSet(): RangeBounds<T> = object : RangeBounds<T> {
+private fun <T> unboundedSet(): RangeBounds<T> = object : RangeBounds<T> {
     override fun startBound(): Bound<T> = Bound.Unbounded
     override fun endBound(): Bound<T> = Bound.Unbounded
 }
@@ -1163,12 +1166,12 @@ private fun <T : Comparable<T>> unboundedSet(): RangeBounds<T> = object : RangeB
  *
  * This `enum` is constructed from the [`BTreeSet.entry`] method.
  */
-sealed class SetEntry<T : Comparable<T>> {
+sealed class SetEntry<T> {
     /** A view into an occupied entry in a `BTreeSet`. */
-    class Occupied<T : Comparable<T>>(val entry: SetOccupiedEntry<T>) : SetEntry<T>()
+    class Occupied<T>(val entry: SetOccupiedEntry<T>) : SetEntry<T>()
 
     /** A view into a vacant entry in a `BTreeSet`. */
-    class Vacant<T : Comparable<T>>(val entry: SetVacantEntry<T>) : SetEntry<T>()
+    class Vacant<T>(val entry: SetVacantEntry<T>) : SetEntry<T>()
 
     fun get(): T = when (this) {
         is Occupied -> entry.get()
@@ -1176,14 +1179,14 @@ sealed class SetEntry<T : Comparable<T>> {
     }
 }
 
-class SetOccupiedEntry<T : Comparable<T>> internal constructor(
+class SetOccupiedEntry<T> internal constructor(
     internal val inner: OccupiedEntry<T, SetValZst>
 ) {
     fun get(): T = inner.key()
     fun remove(): T = inner.removeEntry().first
 }
 
-class SetVacantEntry<T : Comparable<T>> internal constructor(
+class SetVacantEntry<T> internal constructor(
     internal val inner: VacantEntry<T, SetValZst>
 ) {
     fun get(): T = inner.key()

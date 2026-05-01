@@ -677,6 +677,36 @@ class SetTests {
     }
 
     @Test
+    fun testOrdAbsence() {
+        fun <K> set(set: BTreeSet<K>) {
+            val _ignore1 = set.isEmpty()
+            val _ignore2 = set.len()
+            set.clear()
+            val _ignore3 = set.iter()
+            val _ignore4 = set.intoIter()
+        }
+
+        fun <K> setDebug(set: BTreeSet<K>) {
+            val _ignore1 = set.toString()
+            val _ignore2 = set.iter().toString()
+            val _ignore3 = set.intoIter().toString()
+        }
+
+        fun <K> setClone(set: BTreeSet<K>) {
+            val clone = set.clone()
+            set.cloneFrom(clone)
+        }
+
+        class NonOrd {
+            override fun toString(): String = "NonOrd"
+        }
+
+        set(BTreeSet<NonOrd>())
+        setDebug(BTreeSet<NonOrd>())
+        setClone(BTreeSet.default<NonOrd>())
+    }
+
+    @Test
     fun testAppend() {
         val a = BTreeSet<Int>()
         a.insert(1)

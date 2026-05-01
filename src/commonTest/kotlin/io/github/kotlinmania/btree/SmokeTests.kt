@@ -1708,7 +1708,7 @@ class SmokeTests {
 
     @Test
     fun testOrdAbsence() {
-        fun <K : Comparable<K>> map(map: BTreeMap<K, Unit>) {
+        fun <K> map(map: BTreeMap<K, Unit>) {
             val _ignore1 = map.isEmpty()
             val _ignore2 = map.len()
             map.clear()
@@ -1726,7 +1726,7 @@ class SmokeTests {
             }
         }
 
-        fun <K : Comparable<K>> mapDebug(map: BTreeMap<K, Unit>) {
+        fun <K> mapDebug(map: BTreeMap<K, Unit>) {
             val _ignore1 = map.toString()
             val _ignore2 = map.iter().toString()
             val _ignore3 = map.iterMut().toString()
@@ -1742,13 +1742,13 @@ class SmokeTests {
             }
         }
 
-        fun <K : Comparable<K>> mapClone(map: BTreeMap<K, Unit>) {
+        fun <K> mapClone(map: BTreeMap<K, Unit>) {
             val clone = map.clone()
             map.cloneFrom(clone)
         }
 
-        class NonOrd : Comparable<NonOrd> {
-            override fun compareTo(other: NonOrd): Int = 0
+        class NonOrd {
+            override fun toString(): String = "NonOrd"
         }
 
         map(BTreeMap<NonOrd, Unit>())

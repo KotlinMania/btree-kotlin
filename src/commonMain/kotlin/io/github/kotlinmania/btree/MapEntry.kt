@@ -8,14 +8,14 @@ package io.github.kotlinmania.btree
  *
  * This sealed class is constructed by [BTreeMap.entry].
  */
-sealed class Entry<K : Comparable<K>, V> {
+sealed class Entry<K, V> {
     /** A vacant entry. */
-    class Vacant<K : Comparable<K>, V>(val entry: VacantEntry<K, V>) : Entry<K, V>() {
+    class Vacant<K, V>(val entry: VacantEntry<K, V>) : Entry<K, V>() {
         override fun toString(): String = "Entry($entry)"
     }
 
     /** An occupied entry. */
-    class Occupied<K : Comparable<K>, V>(val entry: OccupiedEntry<K, V>) : Entry<K, V>() {
+    class Occupied<K, V>(val entry: OccupiedEntry<K, V>) : Entry<K, V>() {
         override fun toString(): String = "Entry($entry)"
     }
 
@@ -98,7 +98,7 @@ sealed class Entry<K : Comparable<K>, V> {
 /**
  * A view into a vacant entry in a `BTreeMap`. It is part of the [Entry] enum.
  */
-class VacantEntry<K : Comparable<K>, V> internal constructor(
+class VacantEntry<K, V> internal constructor(
     internal var key: K,
     /** `null` for an (empty) map without root. */
     internal var handle: Handle<NodeRef<Marker.Mut, K, V, Marker.Leaf>, Marker.Edge>?,
@@ -152,7 +152,7 @@ class VacantEntry<K : Comparable<K>, V> internal constructor(
 /**
  * A view into an occupied entry in a `BTreeMap`. It is part of the [Entry] enum.
  */
-class OccupiedEntry<K : Comparable<K>, V> internal constructor(
+class OccupiedEntry<K, V> internal constructor(
     internal var handle: Handle<NodeRef<Marker.Mut, K, V, Marker.LeafOrInternal>, Marker.KV>,
     internal val dormantMap: DormantMutRef<BTreeMap<K, V>>,
 ) {

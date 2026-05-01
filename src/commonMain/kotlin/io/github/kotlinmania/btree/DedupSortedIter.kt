@@ -29,14 +29,14 @@ private class Peekable<K, V>(private val source: Iterator<Pair<K, V>>) {
  *
  * Used by [BTreeMap.bulkBuildFromSortedIter].
  */
-internal class DedupSortedIter<K : Any, V, I : Iterator<Pair<K, V>>>(
+internal class DedupSortedIter<K, V, I : Iterator<Pair<K, V>>>(
     iter: I,
 ) : Iterator<Pair<K, V>> {
     private val iter = Peekable(iter)
     private var pending: Pair<K, V>? = null
 
     companion object {
-        internal fun <K : Any, V, I : Iterator<Pair<K, V>>> new(iter: I): DedupSortedIter<K, V, I> {
+        internal fun <K, V, I : Iterator<Pair<K, V>>> new(iter: I): DedupSortedIter<K, V, I> {
             return DedupSortedIter(iter)
         }
     }

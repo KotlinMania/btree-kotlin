@@ -31,16 +31,17 @@ internal fun <K, V> calcSplitLength(
  * If `self` respects all `BTreeMap` tree invariants, then both
  * `self` and the returned tree will respect those invariants.
  */
-internal fun <K, V, Q : Comparable<Q>> NodeRef<Marker.Owned, K, V, Marker.LeafOrInternal>.splitOff(
+internal fun <K, V, Q> NodeRef<Marker.Owned, K, V, Marker.LeafOrInternal>.splitOff(
     key: Q,
-): NodeRef<Marker.Owned, K, V, Marker.LeafOrInternal> where K : Comparable<Q> {
+    compare: (K, Q) -> Int,
+): NodeRef<Marker.Owned, K, V, Marker.LeafOrInternal> {
     val leftRoot = this
     val rightRoot = newPillar<K, V>(leftRoot.height())
     var leftNode = leftRoot.borrowMut()
     var rightNode = rightRoot.borrowMut()
 
     while (true) {
-        val splitEdge = when (val r = leftNode.searchNode(key)) {
+        val splitEdge = when (val r = leftNode.searchNode(key, compare)) {
             // key is going to the right tree
             is SearchResult.Found -> r.handle.leftEdge()
             is SearchResult.GoDown -> r.handle
@@ -69,6 +70,11 @@ internal fun <K, V, Q : Comparable<Q>> NodeRef<Marker.Owned, K, V, Marker.LeafOr
     rightRoot.fixLeftBorder()
     return rightRoot
 }
+
+internal fun <K, V, Q : Comparable<Q>> NodeRef<Marker.Owned, K, V, Marker.LeafOrInternal>.splitOff(
+    key: Q,
+): NodeRef<Marker.Owned, K, V, Marker.LeafOrInternal> where K : Comparable<Q> =
+    splitOff(key) { stored, query -> stored.compareTo(query) }
 
 /** Creates a tree consisting of empty nodes. */
 private fun <K, V> newPillar(height: Int): NodeRef<Marker.Owned, K, V, Marker.LeafOrInternal> {

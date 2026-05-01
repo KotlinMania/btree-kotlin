@@ -249,12 +249,21 @@ internal inline fun <BorrowType : Marker.BorrowType, K, reified V, Q : Comparabl
     range: R,
 ): LeafRange<BorrowType, K, V> where K : Comparable<Q> = findLeafEdgesSpanningRangeExplicit(range, isSetVal<V>())
 
-internal fun <BorrowType : Marker.BorrowType, K, V, Q : Comparable<Q>, R : RangeBounds<Q>>
+internal fun <BorrowType : Marker.BorrowType, K, V, Q, R : RangeBounds<Q>>
     NodeRef<BorrowType, K, V, Marker.LeafOrInternal>.findLeafEdgesSpanningRangeExplicit(
     range: R,
     isSet: Boolean,
-): LeafRange<BorrowType, K, V> where K : Comparable<Q> {
-    when (val r = this.searchTreeForBifurcationExplicit<BorrowType, K, V, Q, R>(range, isSet)) {
+    compare: (K, Q) -> Int,
+    compareBounds: (Q, Q) -> Int,
+): LeafRange<BorrowType, K, V> {
+    when (
+        val r = this.searchTreeForBifurcationExplicit<BorrowType, K, V, Q, R>(
+            range,
+            isSet,
+            compare,
+            compareBounds,
+        )
+    ) {
         is BifurcationResult.LeafEdge -> return LeafRange.none()
         is BifurcationResult.Ok -> {
             val bif = r.value
@@ -271,9 +280,9 @@ internal fun <BorrowType : Marker.BorrowType, K, V, Q : Comparable<Q>, R : Range
                     return LeafRange(front = lowerForced.value, back = upperForced.value)
                 } else if (lowerForced is ForceResult.Internal && upperForced is ForceResult.Internal) {
                     val (newLowerEdge, newLowerBound) =
-                        lowerForced.value.descend().findLowerBoundEdge(lowerChildBound)
+                        lowerForced.value.descend().findLowerBoundEdge(lowerChildBound, compare)
                     val (newUpperEdge, newUpperBound) =
-                        upperForced.value.descend().findUpperBoundEdge(upperChildBound)
+                        upperForced.value.descend().findUpperBoundEdge(upperChildBound, compare)
                     lowerEdge = newLowerEdge
                     upperEdge = newUpperEdge
                     lowerChildBound = newLowerBound
@@ -286,6 +295,18 @@ internal fun <BorrowType : Marker.BorrowType, K, V, Q : Comparable<Q>, R : Range
     }
     error("unreachable: while(true) above always returns or throws")
 }
+
+internal fun <BorrowType : Marker.BorrowType, K, V, Q : Comparable<Q>, R : RangeBounds<Q>>
+    NodeRef<BorrowType, K, V, Marker.LeafOrInternal>.findLeafEdgesSpanningRangeExplicit(
+    range: R,
+    isSet: Boolean,
+): LeafRange<BorrowType, K, V> where K : Comparable<Q> =
+    findLeafEdgesSpanningRangeExplicit(
+        range,
+        isSet,
+        { stored, query -> stored.compareTo(query) },
+        { left, right -> left.compareTo(right) },
+    )
 
 internal fun <BorrowType : Marker.BorrowType, K, V> fullRange(
     root1: NodeRef<BorrowType, K, V, Marker.LeafOrInternal>,
@@ -316,6 +337,21 @@ internal fun <BorrowType : Marker.BorrowType, K, V, Q : Comparable<Q>, R : Range
     isSet: Boolean,
 ): LeafRange<BorrowType, K, V> where K : Comparable<Q> {
     return this.findLeafEdgesSpanningRangeExplicit<BorrowType, K, V, Q, R>(range, isSet)
+}
+
+internal fun <BorrowType : Marker.BorrowType, K, V, Q, R : RangeBounds<Q>>
+    NodeRef<BorrowType, K, V, Marker.LeafOrInternal>.rangeSearch(
+    range: R,
+    isSet: Boolean,
+    compare: (K, Q) -> Int,
+    compareBounds: (Q, Q) -> Int,
+): LeafRange<BorrowType, K, V> {
+    return this.findLeafEdgesSpanningRangeExplicit<BorrowType, K, V, Q, R>(
+        range,
+        isSet,
+        compare,
+        compareBounds,
+    )
 }
 
 /** Finds the pair of leaf edges delimiting an entire tree. */
@@ -719,14 +755,15 @@ internal fun <BorrowType : Marker.BorrowType, K, V>
  * Returns the leaf edge corresponding to the first point at which the
  * given bound is true.
  */
-internal fun <BorrowType : Marker.BorrowType, K, V, Q : Comparable<Q>>
+internal fun <BorrowType : Marker.BorrowType, K, V, Q>
     NodeRef<BorrowType, K, V, Marker.LeafOrInternal>.lowerBound(
     bound: SearchBound<Q>,
-): Handle<NodeRef<BorrowType, K, V, Marker.Leaf>, Marker.Edge> where K : Comparable<Q> {
+    compare: (K, Q) -> Int,
+): Handle<NodeRef<BorrowType, K, V, Marker.Leaf>, Marker.Edge> {
     var node = this
     var b = bound
     while (true) {
-        val (edge, newBound) = node.findLowerBoundEdge(b)
+        val (edge, newBound) = node.findLowerBoundEdge(b, compare)
         when (val f = edge.force()) {
             is ForceResult.Leaf -> return f.value
             is ForceResult.Internal -> {
@@ -737,18 +774,25 @@ internal fun <BorrowType : Marker.BorrowType, K, V, Q : Comparable<Q>>
     }
 }
 
+internal fun <BorrowType : Marker.BorrowType, K, V, Q : Comparable<Q>>
+    NodeRef<BorrowType, K, V, Marker.LeafOrInternal>.lowerBound(
+    bound: SearchBound<Q>,
+): Handle<NodeRef<BorrowType, K, V, Marker.Leaf>, Marker.Edge> where K : Comparable<Q> =
+    lowerBound(bound) { stored, query -> stored.compareTo(query) }
+
 /**
  * Returns the leaf edge corresponding to the last point at which the
  * given bound is true.
  */
-internal fun <BorrowType : Marker.BorrowType, K, V, Q : Comparable<Q>>
+internal fun <BorrowType : Marker.BorrowType, K, V, Q>
     NodeRef<BorrowType, K, V, Marker.LeafOrInternal>.upperBound(
     bound: SearchBound<Q>,
-): Handle<NodeRef<BorrowType, K, V, Marker.Leaf>, Marker.Edge> where K : Comparable<Q> {
+    compare: (K, Q) -> Int,
+): Handle<NodeRef<BorrowType, K, V, Marker.Leaf>, Marker.Edge> {
     var node = this
     var b = bound
     while (true) {
-        val (edge, newBound) = node.findUpperBoundEdge(b)
+        val (edge, newBound) = node.findUpperBoundEdge(b, compare)
         when (val f = edge.force()) {
             is ForceResult.Leaf -> return f.value
             is ForceResult.Internal -> {
@@ -758,3 +802,9 @@ internal fun <BorrowType : Marker.BorrowType, K, V, Q : Comparable<Q>>
         }
     }
 }
+
+internal fun <BorrowType : Marker.BorrowType, K, V, Q : Comparable<Q>>
+    NodeRef<BorrowType, K, V, Marker.LeafOrInternal>.upperBound(
+    bound: SearchBound<Q>,
+): Handle<NodeRef<BorrowType, K, V, Marker.Leaf>, Marker.Edge> where K : Comparable<Q> =
+    upperBound(bound) { stored, query -> stored.compareTo(query) }

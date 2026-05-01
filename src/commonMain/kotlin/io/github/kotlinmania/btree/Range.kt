@@ -269,7 +269,7 @@ fun <T> Bound<T>.copied(): Bound<T> = this
  * Implemented by the range types in this package: [RangeFull], [RangeFrom],
  * [RangeTo], [OpsRange], [RangeInclusive], [RangeToInclusive], [BoundsPair].
  */
-interface RangeBounds<T : Comparable<T>> {
+interface RangeBounds<T> {
     /**
      * Start index bound. Returns the start value as a `Bound`.
      */
@@ -283,14 +283,14 @@ interface RangeBounds<T : Comparable<T>> {
     /** Returns `true` if `item` is contained in the range. */
     fun contains(item: T): Boolean {
         val startOk = when (val s = startBound()) {
-            is Bound.Included -> item.compareTo(s.value) >= 0
-            is Bound.Excluded -> item.compareTo(s.value) > 0
+            is Bound.Included -> rangeNaturalCompare(item, s.value) >= 0
+            is Bound.Excluded -> rangeNaturalCompare(item, s.value) > 0
             Bound.Unbounded -> true
         }
         if (!startOk) return false
         return when (val e = endBound()) {
-            is Bound.Included -> item.compareTo(e.value) <= 0
-            is Bound.Excluded -> item.compareTo(e.value) < 0
+            is Bound.Included -> rangeNaturalCompare(item, e.value) <= 0
+            is Bound.Excluded -> rangeNaturalCompare(item, e.value) < 0
             Bound.Unbounded -> true
         }
     }
@@ -304,7 +304,7 @@ interface RangeBounds<T : Comparable<T>> {
         val e = endBound()
         if (s is Bound.Unbounded || e is Bound.Unbounded) return false
         if (s is Bound.Included && e is Bound.Included) {
-            return !(s.value.compareTo(e.value) <= 0)
+            return !(rangeNaturalCompare(s.value, e.value) <= 0)
         }
 
         val sv: T = when (s) {
@@ -317,7 +317,7 @@ interface RangeBounds<T : Comparable<T>> {
             is Bound.Excluded -> e.value
             Bound.Unbounded -> return false
         }
-        return !(sv.compareTo(ev) < 0)
+        return !(rangeNaturalCompare(sv, ev) < 0)
     }
 }
 
@@ -481,3 +481,10 @@ fun <T : Comparable<T>> RangeFrom<T>.bound(): Pair<OneSidedRangeBound, T> =
 /** [OneSidedRange.bound] for [RangeToInclusive]. */
 fun <T : Comparable<T>> RangeToInclusive<T>.bound(): Pair<OneSidedRangeBound, T> =
     Pair(OneSidedRangeBound.EndInclusive, end)
+
+private fun <T> rangeNaturalCompare(left: T, right: T): Int {
+    if (left is Comparable<*> && right is Comparable<*>) {
+        return compareValuesBy(left, right) { it }
+    }
+    throw IllegalStateException("range endpoint type must implement Comparable")
+}
