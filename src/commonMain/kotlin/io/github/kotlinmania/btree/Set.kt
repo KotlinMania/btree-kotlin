@@ -576,6 +576,8 @@ class BTreeSet<T : Comparable<T>> : MutableSet<T> {
 
         fun max(): T? = nextBack()
 
+        fun clone(): Iter<T> = Iter(inner.clone())
+
         override fun toString(): String = "Iter(${inner})"
     }
 
@@ -627,6 +629,8 @@ class BTreeSet<T : Comparable<T>> : MutableSet<T> {
 
         fun max(): T? = nextBack()
 
+        fun clone(): Range<T> = Range(inner.clone())
+
         override fun toString(): String = "Range(${inner})"
     }
 
@@ -636,9 +640,6 @@ class BTreeSet<T : Comparable<T>> : MutableSet<T> {
     class Difference<T : Comparable<T>> internal constructor(
         internal var inner: DifferenceInner<T>,
     ) : Iterator<T> {
-        // Pending-cache: Kotlin separates `hasNext` / `next` whereas Rust's
-        // `Iterator::next` rolls them together. Compute the next yielded
-        // element lazily into a `pending` cache.
         private var pending: T? = null
         private var primed: Boolean = false
 
@@ -688,6 +689,18 @@ class BTreeSet<T : Comparable<T>> : MutableSet<T> {
 
         fun min(): T? = if (hasNext()) next() else null
 
+        fun clone(): Difference<T> {
+            val clonedInner = when (val inner = inner) {
+                is DifferenceInner.Stitch -> DifferenceInner.Stitch(inner.selfIter.clone(), inner.otherIter.clone())
+                is DifferenceInner.Search -> DifferenceInner.Search(inner.selfIter.clone(), inner.otherSet)
+                is DifferenceInner.Iterate -> DifferenceInner.Iterate(inner.iter.clone())
+            }
+            val cloned = Difference(clonedInner)
+            cloned.pending = pending
+            cloned.primed = primed
+            return cloned
+        }
+
         fun sizeHint(): Pair<Int, Int?> {
             val (selfLen, otherLen) = when (val inner = inner) {
                 is DifferenceInner.Stitch -> Pair(inner.selfIter.len(), inner.otherIter.len())
@@ -732,6 +745,13 @@ class BTreeSet<T : Comparable<T>> : MutableSet<T> {
         }
 
         fun min(): T? = if (hasNext()) next() else null
+
+        fun clone(): SymmetricDifference<T> {
+            val cloned = SymmetricDifference(inner.clone())
+            cloned.pending = pending
+            cloned.primed = primed
+            return cloned
+        }
 
         fun sizeHint(): Pair<Int, Int?> {
             val (aLen, bLen) = inner.lens()
@@ -795,6 +815,18 @@ class BTreeSet<T : Comparable<T>> : MutableSet<T> {
 
         fun min(): T? = if (hasNext()) next() else null
 
+        fun clone(): Intersection<T> {
+            val clonedInner = when (val inner = inner) {
+                is IntersectionInner.Stitch -> IntersectionInner.Stitch(inner.a.clone(), inner.b.clone())
+                is IntersectionInner.Search -> IntersectionInner.Search(inner.smallIter.clone(), inner.largeSet)
+                is IntersectionInner.Answer -> IntersectionInner.Answer(inner.value)
+            }
+            val cloned = Intersection(clonedInner)
+            cloned.pending = pending
+            cloned.primed = primed
+            return cloned
+        }
+
         fun sizeHint(): Pair<Int, Int?> = when (val inner = inner) {
             is IntersectionInner.Stitch -> Pair(0, minOf(inner.a.len(), inner.b.len()))
             is IntersectionInner.Search -> Pair(0, inner.smallIter.len())
@@ -832,6 +864,13 @@ class BTreeSet<T : Comparable<T>> : MutableSet<T> {
         }
 
         fun min(): T? = if (hasNext()) next() else null
+
+        fun clone(): Union<T> {
+            val cloned = Union(inner.clone())
+            cloned.pending = pending
+            cloned.primed = primed
+            return cloned
+        }
 
         fun sizeHint(): Pair<Int, Int?> {
             val (aLen, bLen) = inner.lens()
@@ -1065,6 +1104,13 @@ internal class PeekableSetIter<T>(private val source: BTreeSet.Iter<T>) {
 
     /** Returns the number of remaining elements, including the buffered peek if present. */
     fun len(): Int = source.len() + (if (bufferedFilled) 1 else 0)
+
+    fun clone(): PeekableSetIter<T> {
+        val cloned = PeekableSetIter(source.clone())
+        cloned.buffered = buffered
+        cloned.bufferedFilled = bufferedFilled
+        return cloned
+    }
 
     override fun toString(): String = "Peekable(${source})"
 }

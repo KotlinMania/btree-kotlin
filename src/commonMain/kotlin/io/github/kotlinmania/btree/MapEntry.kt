@@ -208,12 +208,12 @@ class OccupiedEntry<K : Comparable<K>, V> internal constructor(
  *
  * Contains the occupied entry, and the value that was not inserted.
  */
-class OccupiedError<K : Comparable<K>, V> internal constructor(
+class OccupiedError internal constructor(
     /** The entry in the map that was already occupied. */
-    val entry: OccupiedEntry<K, V>,
+    val entry: OccupiedEntry<*, *>,
     /** The value which was not inserted, because the entry was already occupied. */
-    val value: V,
-) {
+    val value: Any?,
+) : Exception("failed to insert $value, key ${entry.key()} already exists with value ${entry.get()}") {
     override fun toString(): String =
         "OccupiedError(key=${entry.key()}, oldValue=${entry.get()}, newValue=$value)"
 }

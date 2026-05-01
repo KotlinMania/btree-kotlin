@@ -767,6 +767,26 @@ internal class Handle<Node, Type> internal constructor(
     /** Returns the position of this handle in the node. */
     fun idx(): Int = idx
 
+    // Handles compare equal when they refer to the same backing node and slot.
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (other !is Handle<*, *>) return false
+        if (idx != other.idx) return false
+        val a = node
+        val b = other.node
+        return if (a is NodeRef<*, *, *, *> && b is NodeRef<*, *, *, *>) {
+            a.node === b.node
+        } else {
+            a == b
+        }
+    }
+
+    override fun hashCode(): Int {
+        val n = node
+        val key: Any? = if (n is NodeRef<*, *, *, *>) n.node else n
+        return (key?.hashCode() ?: 0) * 31 + idx
+    }
+
     companion object {
         // ---- KV constructors ------------------------------------------------
 

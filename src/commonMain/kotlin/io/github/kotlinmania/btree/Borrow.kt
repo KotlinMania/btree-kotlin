@@ -5,29 +5,46 @@ package io.github.kotlinmania.btree
 
 /**
  * Models a reborrow of some unique reference, when you know that the reborrow
- * and all its descendants (i.e., all pointers and references derived from it)
- * will not be used any more at some point, after which you want to use the
- * original unique reference again.
+ * and all its descendants, all references derived from it, will not be used any
+ * more at some point, after which you want to use the original unique reference
+ * again.
  *
- * In Rust the reborrow checker usually handles this stacking of borrows; some
- * control flows that accomplish this stacking are too complicated for the
- * compiler to follow, and `DormantMutRef` lets the caller manage the lifetime
- * manually. In a GC'd Kotlin runtime there are no raw pointers and no
- * exclusive-borrow tracking — every `DormantMutRef` operation simply hands
- * the captured reference back.
+ * Ordinary code usually handles this stacking of borrows for you, but some
+ * control flows that accomplish this stacking are too complicated to express
+ * directly. A [DormantMutRef] allows you to check borrowing yourself, while
+ * still expressing its stacked nature.
  */
 internal class DormantMutRef<T> private constructor(private val ref: T) {
     companion object {
-        /** Capture a borrow, and immediately reborrow it. */
+        /**
+         * Capture a unique borrow, and immediately reborrow it. The reborrow is
+         * valid for the same scope as the original reference, but callers promise
+         * to use it for a shorter period.
+         */
         fun <T> new(t: T): Pair<T, DormantMutRef<T>> = Pair(t, DormantMutRef(t))
     }
 
-    /** Revert to the borrow initially captured. */
+    /**
+     * Revert to the unique borrow initially captured.
+     *
+     * The reborrow must have ended, i.e., the reference returned by [new] and
+     * all references derived from it, must not be used anymore.
+     */
     fun awaken(): T = ref
 
-    /** Borrows a new mutable reference from the borrow initially captured. */
+    /**
+     * Borrows a new mutable reference from the unique borrow initially captured.
+     *
+     * The reborrow must have ended, i.e., the reference returned by [new] and
+     * all references derived from it, must not be used anymore.
+     */
     fun reborrow(): T = ref
 
-    /** Borrows a new shared reference from the borrow initially captured. */
+    /**
+     * Borrows a new shared reference from the unique borrow initially captured.
+     *
+     * The reborrow must have ended, i.e., the reference returned by [new] and
+     * all references derived from it, must not be used anymore.
+     */
     fun reborrowShared(): T = ref
 }

@@ -15,7 +15,13 @@ internal fun <T> takeMut(v: T, change: (T) -> T): T {
 
 private object Intrinsics {
     fun abort(): Nothing {
-        kotlin.system.exitProcess(1)
+        throw IllegalStateException("aborted")
+    }
+}
+
+private class PanicGuard {
+    fun drop(): Nothing {
+        Intrinsics.abort()
     }
 }
 
@@ -26,11 +32,12 @@ private object Intrinsics {
  * If a panic occurs in the `change` closure, the entire process will be aborted.
  */
 internal fun <T, R> replace(v: T, change: (T) -> Pair<T, R>): Pair<T, R> {
+    val guard = PanicGuard()
     return try {
         val value = v
         val (newValue, ret) = change(value)
         Pair(newValue, ret)
     } catch (_: Throwable) {
-        Intrinsics.abort()
+        guard.drop()
     }
 }

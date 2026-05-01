@@ -9,10 +9,12 @@ package io.github.kotlinmania.btree
  * * `BTreeMap<T, Unit>` (possible user-defined map)
  * * `BTreeMap<T, SetValZst>` (internal set representation)
  */
-internal data object SetValZst : Comparable<SetValZst> {
+internal data object SetValZst : Comparable<SetValZst>, IsSetVal {
     override fun toString(): String = "SetValZST"
 
     override fun compareTo(other: SetValZst): Int = 0
+
+    override fun isSetVal(): Boolean = true
 }
 
 /**
@@ -20,9 +22,9 @@ internal data object SetValZst : Comparable<SetValZst> {
  * Returns `true` only for type [SetValZst], `false` for all other types.
  */
 internal interface IsSetVal {
-    fun isSetVal(): Boolean
+    fun isSetVal(): Boolean = false
 }
 
-internal fun <V> isSetVal(value: V): Boolean = value is SetValZst
+internal fun <V> isSetVal(value: V): Boolean = value is IsSetVal && value.isSetVal()
 
 internal inline fun <reified V> isSetVal(): Boolean = V::class == SetValZst::class

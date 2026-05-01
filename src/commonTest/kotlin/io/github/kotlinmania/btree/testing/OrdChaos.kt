@@ -52,37 +52,30 @@ class CrashTestDummy(val id: Int) {
 }
 
 class CrashTestDummyRef(val dummy: CrashTestDummy, val panic: Panic) : Comparable<CrashTestDummyRef> {
-    override fun compareTo(other: CrashTestDummyRef): Int {
-        if (panic == Panic.InQuery) {
-            throw Exception("panic in query")
-        }
-        return dummy.id.compareTo(other.dummy.id)
-    }
+    override fun compareTo(other: CrashTestDummyRef): Int =
+        dummy.id.compareTo(other.dummy.id)
 
     fun query(v: Boolean): Boolean {
+        dummy.incQueried()
         if (panic == Panic.InQuery) {
             throw Exception("panic in query")
         }
-        dummy.incQueried()
         return v
     }
 
-    // Kotlin does not have Drop; these tests (which rely on drop tracking)
-    // might just be empty or manual in the port. We simulate by doing nothing
-    // automatically, and test code must call drop() manually if they want to track it.
     fun drop() {
+        dummy.incDropped()
         if (panic == Panic.InDrop) {
             throw Exception("panic in drop")
         }
-        dummy.incDropped()
     }
 
     fun cloneRef(): CrashTestDummyRef {
+        dummy.incCloned()
         if (panic == Panic.InClone) {
             throw Exception("panic in clone")
         }
-        dummy.incCloned()
-        return CrashTestDummyRef(dummy, panic)
+        return CrashTestDummyRef(dummy, Panic.Never)
     }
 
     override fun equals(other: Any?): Boolean {

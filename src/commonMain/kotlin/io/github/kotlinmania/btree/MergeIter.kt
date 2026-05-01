@@ -8,8 +8,13 @@ package io.github.kotlinmania.btree
  * probably because we can afford to impose a FusedIterator bound.
  */
 internal sealed class Peeked<out T> {
-    data class A<out T>(val item: T) : Peeked<T>()
-    data class B<out T>(val item: T) : Peeked<T>()
+    data class A<out T>(val item: T) : Peeked<T>() {
+        override fun toString(): String = "A($item)"
+    }
+
+    data class B<out T>(val item: T) : Peeked<T>() {
+        override fun toString(): String = "B($item)"
+    }
 }
 
 /**
@@ -30,7 +35,13 @@ internal class MergeIterInner<T>(
     }
 
     override fun toString(): String {
-        return "MergeIterInner(a=$a, b=$b, peeked=$peeked)"
+        return "MergeIterInner($a, $b, $peeked)"
+    }
+
+    internal fun clone(): MergeIterInner<T> {
+        val cloned = MergeIterInner(a.clone(), b.clone())
+        cloned.peeked = peeked
+        return cloned
     }
 
     /**
@@ -67,11 +78,11 @@ internal class MergeIterInner<T>(
             val ord = cmp(a1, b1)
             when {
                 ord < 0 -> {
-                    peeked = bNext?.let { Peeked.B(it) }
+                    peeked = Peeked.B(bNext)
                     bNext = null
                 }
                 ord > 0 -> {
-                    peeked = aNext?.let { Peeked.A(it) }
+                    peeked = Peeked.A(aNext)
                     aNext = null
                 }
                 else -> Unit

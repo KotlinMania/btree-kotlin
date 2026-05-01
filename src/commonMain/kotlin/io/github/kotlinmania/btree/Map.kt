@@ -256,9 +256,7 @@ class BTreeMap<K : Comparable<K>, V> : MutableMap<K, V> {
      */
     fun tryInsert(key: K, value: V): Result<V> {
         return when (val e = entry(key)) {
-            is Entry.Occupied -> Result.failure(
-                IllegalStateException(OccupiedError(e.entry, value).toString()),
-            )
+            is Entry.Occupied -> Result.failure(OccupiedError(e.entry, value))
             is Entry.Vacant -> Result.success(e.entry.insert(value))
         }
     }
@@ -878,13 +876,6 @@ class Iter<K, V> internal constructor(
     /** Returns the number of remaining entries. */
     fun len(): Int = length
 
-    /** Drains the iterator and returns the number of yielded entries. */
-    fun count(): Int {
-        val n = length
-        while (hasNext()) next()
-        return n
-    }
-
     fun sizeHint(): Pair<Int, Int?> = Pair(length, length)
 
     fun last(): Pair<K, V>? = nextBack()
@@ -892,6 +883,8 @@ class Iter<K, V> internal constructor(
     fun min(): Pair<K, V>? = if (hasNext()) next() else null
 
     fun max(): Pair<K, V>? = nextBack()
+
+    fun clone(): Iter<K, V> = Iter(range.clone(), length)
 
     /** Drains the iterator into a list. */
     fun toList(): List<Pair<K, V>> {
@@ -1176,9 +1169,8 @@ class IntoValues<K, V> internal constructor(internal val inner: IntoIter<K, V>) 
  */
 class Range<K, V> internal constructor(
     internal var inner: LeafRange<Marker.Immut, K, V>,
+    private var pending: Pair<K, V>? = inner.nextChecked(),
 ) : Iterator<Pair<K, V>> {
-    private var pending: Pair<K, V>? = inner.nextChecked()
-
     override fun hasNext(): Boolean = pending != null
 
     override fun next(): Pair<K, V> {
@@ -1203,6 +1195,8 @@ class Range<K, V> internal constructor(
     fun min(): Pair<K, V>? = if (hasNext()) next() else null
 
     fun max(): Pair<K, V>? = nextBack()
+
+    fun clone(): Range<K, V> = Range(inner.clone(), pending)
 
     /** Drains the iterator into a list. */
     fun toList(): List<Pair<K, V>> {

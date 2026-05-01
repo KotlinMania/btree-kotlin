@@ -41,9 +41,26 @@ internal class DedupSortedIter<K : Any, V, I : Iterator<Pair<K, V>>>(
         }
     }
 
-    private fun computeNext(): Pair<K, V>? {
+    override fun hasNext(): Boolean {
+        if (pending == null) {
+            pending = try {
+                next()
+            } catch (_: NoSuchElementException) {
+                null
+            }
+        }
+        return pending != null
+    }
+
+    override fun next(): Pair<K, V> {
+        val pending = pending
+        if (pending != null) {
+            this.pending = null
+            return pending
+        }
+
         while (true) {
-            val next = iter.next() ?: return null
+            val next = iter.next() ?: throw NoSuchElementException()
 
             val peeked = iter.peek() ?: return next
 
@@ -51,21 +68,5 @@ internal class DedupSortedIter<K : Any, V, I : Iterator<Pair<K, V>>>(
                 return next
             }
         }
-    }
-
-    override fun hasNext(): Boolean {
-        if (pending == null) {
-            pending = computeNext()
-        }
-        return pending != null
-    }
-
-    override fun next(): Pair<K, V> {
-        if (pending == null) {
-            pending = computeNext()
-        }
-        val item = pending ?: throw NoSuchElementException()
-        pending = null
-        return item
     }
 }
