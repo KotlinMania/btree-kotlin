@@ -30,6 +30,10 @@ NEXT_ACTIONS.md
 # AST distance agent state and lock files
 .cache/
 *.lock
+kotlin-js-store/*
+!kotlin-js-store/yarn.lock
+!kotlin-js-store/wasm/
+!kotlin-js-store/wasm/yarn.lock
 
 # AST distance compiled binary (CMake output, rebuild from source)
 tools/ast_distance/ast_distance
