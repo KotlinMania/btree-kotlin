@@ -73,6 +73,20 @@ private fun <K : Comparable<K>, V> BTreeMap<K, V>.compact() {
     }
 }
 
+private inline fun assertFailsWithMoved(vararg maps: BTreeMap<*, *>, block: () -> Unit) {
+    assertFailsWith<Throwable> {
+        try {
+            block()
+        } finally {
+            var failure: Throwable? = null
+            for (map in maps) {
+                failure = map.dropEntries(failure)
+            }
+            if (failure != null) throw failure
+        }
+    }
+}
+
 private fun <K, V> NodeRef<Marker.Immut, K, V, Marker.LeafOrInternal>.assertMinLen(minLen: Int) {
     assertTrue(this.len() >= minLen, "node len ${this.len()} < $minLen")
     val forced = this.force()
@@ -1978,7 +1992,7 @@ class SmokeTests {
         right.insert(b.spawn(Panic.InDrop), Unit)
         right.insert(c.spawn(Panic.Never), Unit)
 
-        assertFailsWith<Throwable> { left.append(right) }
+        assertFailsWithMoved(left, right) { left.append(right) }
         assertEquals(1, a.dropped())
         assertEquals(2, b.dropped())
         assertEquals(2, c.dropped())
@@ -2018,7 +2032,7 @@ class SmokeTests {
         right.insert(b.spawn(Panic.InDrop), Unit)
         right.insert(c.spawn(Panic.Never), Unit)
 
-        assertFailsWith<Throwable> { left.merge(right) { _, _, _ -> Unit } }
+        assertFailsWithMoved(left, right) { left.merge(right) { _, _, _ -> Unit } }
         assertEquals(1, a.dropped())
         assertEquals(2, b.dropped())
         assertEquals(2, c.dropped())
@@ -2046,7 +2060,7 @@ class SmokeTests {
         right.insert(b.spawn(Panic.Never), bValRight.spawn(Panic.Never))
         right.insert(c.spawn(Panic.Never), cValRight.spawn(Panic.Never))
 
-        assertFailsWith<Throwable> {
+        assertFailsWithMoved(left, right) {
             left.merge(right) { _, _, _ -> error("Panic in conflict function") }
             assertEquals(1, left.len())
         }

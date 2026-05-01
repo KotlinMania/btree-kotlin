@@ -375,105 +375,113 @@ class BTreeMap<K : Comparable<K>, V> : MutableMap<K, V> {
         var otherIter: IntoIter<K, V>? = null
         try {
             otherIter = other.intoIter()
-            mergeIter(otherIter, conflict)
+            val (firstOtherKey, firstOtherVal) = otherIter.next()
+
+            // find the first gap that has the smallest key greater than or equal to
+            // the first key from other
+            val selfCursor = this.lowerBoundMut(Bound.Included(firstOtherKey))
+
+            val peeked = selfCursor.peekNext()
+            if (peeked != null) {
+                val selfKey = peeked.first
+                val cmp = selfKey.compareTo(firstOtherKey)
+                when {
+                    cmp == 0 -> {
+                        // if `conflict` throws, the next entry is already removed
+                        // leaving the tree in valid state.
+                        val removed = selfCursor.removeNext()
+                        if (removed != null) {
+                            val (k, v) = removed
+                            val newV = try {
+                                conflict(k, v, firstOtherVal)
+                            } catch (t: Throwable) {
+                                var failure = dropPair(removed, t)
+                                failure = dropPair(Pair(firstOtherKey, firstOtherVal), failure)
+                                if (failure != null) throw failure
+                                throw t
+                            }
+                            val failure = rememberFailure(null) { dropElement(firstOtherKey) }
+                            if (failure != null) {
+                                var cleanup = dropPair(removed, failure)
+                                cleanup = rememberFailure(cleanup) { dropElement(firstOtherVal) }
+                                if (cleanup != null) throw cleanup
+                            }
+                            // apply `conflict` to get a new (K, V), and insert it
+                            // back into the next entry that the cursor is pointing at
+                            selfCursor.insertAfterUnchecked(k, newV)
+                        }
+                    }
+                    cmp > 0 -> {
+                        // We know `firstOtherKey` is less than `selfKey`, so
+                        // inserting before guarantees sorted order.
+                        selfCursor.insertBeforeUnchecked(firstOtherKey, firstOtherVal)
+                    }
+                    else -> error("unreachable: Cursor's peekNext should return null.")
+                }
+            } else {
+                // Reaching here means our cursor is at the end of this
+                // BTreeMap, so we insert the other key here.
+                selfCursor.insertBeforeUnchecked(firstOtherKey, firstOtherVal)
+            }
+
+            while (otherIter.hasNext()) {
+                val (otherKey, otherVal) = otherIter.next()
+                while (true) {
+                    val nextPeek = selfCursor.peekNext()
+                    if (nextPeek != null) {
+                        val selfKey = nextPeek.first
+                        val cmp = selfKey.compareTo(otherKey)
+                        when {
+                            cmp == 0 -> {
+                                // if `conflict` throws, the next entry is already removed
+                                // leaving the tree in valid state.
+                                val removed = selfCursor.removeNext()
+                                if (removed != null) {
+                                    val (k, v) = removed
+                                    val newV = try {
+                                        conflict(k, v, otherVal)
+                                    } catch (t: Throwable) {
+                                        var failure = dropPair(removed, t)
+                                        failure = dropPair(Pair(otherKey, otherVal), failure)
+                                        if (failure != null) throw failure
+                                        throw t
+                                    }
+                                    val failure = rememberFailure(null) { dropElement(otherKey) }
+                                    if (failure != null) {
+                                        var cleanup = dropPair(removed, failure)
+                                        cleanup = rememberFailure(cleanup) { dropElement(otherVal) }
+                                        if (cleanup != null) throw cleanup
+                                    }
+                                    selfCursor.insertAfterUnchecked(k, newV)
+                                }
+                                break
+                            }
+                            cmp > 0 -> {
+                                // We know `otherKey` is less than `selfKey`, so
+                                // inserting before guarantees sorted order.
+                                selfCursor.insertBeforeUnchecked(otherKey, otherVal)
+                                break
+                            }
+                            else -> {
+                                selfCursor.next()
+                            }
+                        }
+                    } else {
+                        // If we get here, all of other's keys are greater than
+                        // this map's keys, so insert other key here.
+                        selfCursor.insertBeforeUnchecked(otherKey, otherVal)
+                        break
+                    }
+                }
+            }
         } catch (t: Throwable) {
             var failure: Throwable? = t
             failure = otherIter?.dropWithFailure(failure) ?: failure
             failure = other.dropEntries(failure)
-            failure = this.dropEntries(failure)
             if (failure != null) throw failure
             throw t
         }
     }
-
-    private fun mergeIter(otherIter: IntoIter<K, V>, conflict: (K, V, V) -> V) {
-        val (firstOtherKey, firstOtherVal) = otherIter.next()
-
-        val selfCursor = this.lowerBoundMut(Bound.Included(firstOtherKey))
-
-        val peeked = selfCursor.peekNext()
-        if (peeked != null) {
-            val selfKey = peeked.first
-            val cmp = selfKey.compareTo(firstOtherKey)
-            when {
-                cmp == 0 -> {
-                    val removed = selfCursor.removeNext()
-                    if (removed != null) {
-                        val (k, v) = removed
-                        val newV = try {
-                            conflict(k, v, firstOtherVal)
-                        } catch (t: Throwable) {
-                            var failure = dropPair(removed, t)
-                            failure = dropPair(Pair(firstOtherKey, firstOtherVal), failure)
-                            if (failure != null) throw failure
-                            throw t
-                        }
-                        val failure = rememberFailure(null) { dropElement(firstOtherKey) }
-                        if (failure != null) {
-                            var cleanup = dropPair(removed, failure)
-                            cleanup = rememberFailure(cleanup) { dropElement(firstOtherVal) }
-                            if (cleanup != null) throw cleanup
-                        }
-                        // apply `conflict` to get a new (K, V), and insert it
-                        // back into the next entry that the cursor is pointing at
-                        selfCursor.insertAfterUnchecked(k, newV)
-                    }
-                }
-                cmp > 0 -> {
-                    selfCursor.insertBeforeUnchecked(firstOtherKey, firstOtherVal)
-                }
-                else -> error("unreachable: Cursor's peekNext should return null.")
-            }
-        } else {
-            selfCursor.insertBeforeUnchecked(firstOtherKey, firstOtherVal)
-        }
-
-        while (otherIter.hasNext()) {
-            val (otherKey, otherVal) = otherIter.next()
-            while (true) {
-                val nextPeek = selfCursor.peekNext()
-                if (nextPeek != null) {
-                    val selfKey = nextPeek.first
-                    val cmp = selfKey.compareTo(otherKey)
-                    when {
-                        cmp == 0 -> {
-                            val removed = selfCursor.removeNext()
-                            if (removed != null) {
-                                val (k, v) = removed
-                                val newV = try {
-                                    conflict(k, v, otherVal)
-                                } catch (t: Throwable) {
-                                    var failure = dropPair(removed, t)
-                                    failure = dropPair(Pair(otherKey, otherVal), failure)
-                                    if (failure != null) throw failure
-                                    throw t
-                                }
-                                val failure = rememberFailure(null) { dropElement(otherKey) }
-                                if (failure != null) {
-                                    var cleanup = dropPair(removed, failure)
-                                    cleanup = rememberFailure(cleanup) { dropElement(otherVal) }
-                                    if (cleanup != null) throw cleanup
-                                }
-                                selfCursor.insertAfterUnchecked(k, newV)
-                            }
-                            break
-                        }
-                        cmp > 0 -> {
-                            selfCursor.insertBeforeUnchecked(otherKey, otherVal)
-                            break
-                        }
-                        else -> {
-                            selfCursor.next()
-                        }
-                    }
-                } else {
-                    selfCursor.insertBeforeUnchecked(otherKey, otherVal)
-                    break
-                }
-            }
-        }
-    }
-
     // ---- range / rangeMut --------------------------------------------------
 
     /**
