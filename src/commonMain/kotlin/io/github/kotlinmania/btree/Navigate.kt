@@ -26,7 +26,7 @@ internal class LeafRange<BorrowType, K, V>(
         return when {
             f == null && b == null -> true
             f == null || b == null -> false
-            else -> f.structuralEq(b)
+            else -> f.eq(b)
         }
     }
 
@@ -101,7 +101,7 @@ private fun <BorrowType, K, V> LeafRange<BorrowType, K, V>.isEmptyInternal(): Bo
     return when {
         f == null && b == null -> true
         f == null || b == null -> false
-        else -> f.structuralEq(b)
+        else -> f.eq(b)
     }
 }
 

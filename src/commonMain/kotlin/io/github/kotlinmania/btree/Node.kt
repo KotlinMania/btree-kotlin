@@ -257,13 +257,6 @@ internal class NodeRef<BorrowType, K, V, Type> internal constructor(
     /**
      * Could be a public implementation of PartialEq, but only used in this module.
      */
-    fun structuralEq(other: NodeRef<BorrowType, K, V, Type>): Boolean {
-        return eq(other)
-    }
-
-    /**
-     * Could be a public implementation of PartialEq, but only used in this module.
-     */
     fun eq(other: NodeRef<BorrowType, K, V, Type>): Boolean {
         return if (node === other.node) {
             check(height == other.height)
@@ -803,18 +796,6 @@ internal fun <BorrowType, K, V, NodeType> Handle<NodeRef<BorrowType, K, V, NodeT
 internal fun <BorrowType, K, V, NodeType> Handle<NodeRef<BorrowType, K, V, NodeType>, Marker.KV>.rightEdge():
     Handle<NodeRef<BorrowType, K, V, NodeType>, Marker.Edge> {
     return Handle.newEdge(node, idx + 1)
-}
-
-/**
- * Structural equality for handles. Exposed as an extension function rather
- * than [Any.equals] so equality isn't imposed on generic [Handle]s whose
- * `Node` may not itself be a [NodeRef].
- */
-internal fun <BorrowType, K, V, NodeType, HandleType>
-Handle<NodeRef<BorrowType, K, V, NodeType>, HandleType>.structuralEq(
-    other: Handle<NodeRef<BorrowType, K, V, NodeType>, HandleType>,
-): Boolean {
-    return eq(other)
 }
 
 internal fun <BorrowType, K, V, NodeType, HandleType>
