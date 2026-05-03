@@ -36,6 +36,16 @@ internal fun <K, V> NodeRef<Marker.Immut, K, V, Marker.LeafOrInternal>.dumpKeys(
     return result.toString()
 }
 
+// One upstream test is intentionally absent here: the architecture
+// gated memory-layout assertion at node/tests.rs line 94. Upstream
+// limits that test to one 64-bit Intel architecture and asserts byte
+// exact sizes for LeafNode and InternalNode. Kotlin Multiplatform has
+// no portable size query for an arbitrary class on common code and
+// Kotlin Native makes no byte layout guarantees across targets, so a
+// faithful translation is not possible. Equivalent layout verification
+// belongs to the platform runtime; the test is omitted rather than
+// ported as a no-op.
+
 class NodeTests {
     @Test
     fun testSplitpoint() {

@@ -3,6 +3,14 @@
 // copyright The Rust Project Developers, dual-licensed Apache-2.0 / MIT.
 package io.github.kotlinmania.btree
 
+import io.github.kotlinmania.btree.testing.CrashTestDummy
+import io.github.kotlinmania.btree.testing.CrashTestDummyRef
+import io.github.kotlinmania.btree.testing.Cyclic3
+import io.github.kotlinmania.btree.testing.Governed
+import io.github.kotlinmania.btree.testing.Governor
+import io.github.kotlinmania.btree.testing.IdBased
+import io.github.kotlinmania.btree.testing.Panic
+import io.github.kotlinmania.btree.testing.randPairData
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -99,134 +107,16 @@ private fun <K, V> NodeRef<Marker.Immut, K, V, Marker.LeafOrInternal>.assertMinL
     }
 }
 
-internal class Governor {
-    var flipped: Boolean = false
+// One name from upstream map tests at line 29 is intentionally absent
+// here: an internal helper (not a real test method) whose only job is to
+// exercise the dynamic borrow checker against a mutable iterator's
+// references. Kotlin has no equivalent dynamic borrow checker — the GC
+// subsumes the aliasing invariants that tool would catch — so each
+// upstream caller (the values-mut test below) instead asserts the
+// iterator's observable values directly. The parity tool's name-prefix
+// heuristic flags that helper as a missing test; it is not.
 
-    fun flip() {
-        flipped = !flipped
-    }
-
-    companion object {
-        fun new(): Governor = Governor()
-    }
-}
-
-internal class Governed(val id: Int, val gov: Governor) : Comparable<Governed> {
-    override fun compareTo(other: Governed): Int {
-        val cmp = id.compareTo(other.id)
-        return if (gov.flipped) -cmp else cmp
-    }
-
-    override fun equals(other: Any?): Boolean {
-        if (this === other) return true
-        if (other !is Governed) return false
-        return id == other.id
-    }
-
-    override fun hashCode(): Int = id.hashCode()
-
-    override fun toString(): String = "Governed($id)"
-}
-
-internal enum class Panic {
-    Never,
-    InClone,
-    InDrop,
-    InQuery,
-}
-
-internal class CrashTestDummy(val id: Int) {
-    private var queriedCount: Int = 0
-    private var droppedCount: Int = 0
-    private var clonedCount: Int = 0
-
-    fun spawn(panic: Panic): CrashTestDummyRef = CrashTestDummyRef(this, panic)
-
-    fun queried(): Int = queriedCount
-
-    fun dropped(): Int = droppedCount
-
-    fun cloned(): Int = clonedCount
-
-    fun incQueried() {
-        queriedCount++
-    }
-
-    fun incDropped() {
-        droppedCount++
-    }
-
-    fun incCloned() {
-        clonedCount++
-    }
-}
-
-internal class CrashTestDummyRef(val dummy: CrashTestDummy, val panic: Panic) :
-    Comparable<CrashTestDummyRef>,
-    BTreeCloneable,
-    BTreeDroppable {
-    override fun compareTo(other: CrashTestDummyRef): Int {
-        return dummy.id.compareTo(other.dummy.id)
-    }
-
-    fun query(v: Boolean): Boolean {
-        dummy.incQueried()
-        if (panic == Panic.InQuery) {
-            throw Exception("panic in query")
-        }
-        return v
-    }
-
-    fun drop() {
-        dummy.incDropped()
-        if (panic == Panic.InDrop) {
-            throw Exception("panic in drop")
-        }
-    }
-
-    override fun dropForBtree() {
-        drop()
-    }
-
-    fun cloneRef(): CrashTestDummyRef {
-        dummy.incCloned()
-        if (panic == Panic.InClone) {
-            throw Exception("panic in clone")
-        }
-        return CrashTestDummyRef(dummy, Panic.Never)
-    }
-
-    override fun cloneForBtree() {
-        cloneRef()
-    }
-
-    override fun equals(other: Any?): Boolean {
-        if (this === other) return true
-        if (other !is CrashTestDummyRef) return false
-        return dummy.id == other.dummy.id
-    }
-
-    override fun hashCode(): Int = dummy.id.hashCode()
-
-    override fun toString(): String = "CrashTestDummyRef(${dummy.id})"
-}
-
-internal sealed class Cyclic3 : Comparable<Cyclic3> {
-    data object A : Cyclic3()
-    data object B : Cyclic3()
-    data object C : Cyclic3()
-
-    override fun compareTo(other: Cyclic3): Int {
-        if (this == other) return 0
-        return when (this) {
-            A -> if (other == B) -1 else 1
-            B -> if (other == C) -1 else 1
-            C -> if (other == A) -1 else 1
-        }
-    }
-}
-
-class SmokeTests {
+class MapTests {
     @Test
     fun testLevels() {
         val map = BTreeMap<Int, Unit>()
@@ -2093,46 +1983,33 @@ class SmokeTests {
         map1.check()
     }
 
-    private fun randData(len: Int): List<Pair<Int, Int>> {
-        var state = 1
-        fun next(): Int {
-            state = (state * 1103515245 + 12345).toUInt().toInt() and 0x7FFFFFFF
-            return state
-        }
-        val list = mutableListOf<Pair<Int, Int>>()
-        for (i in 0 until len) {
-            list.add(Pair(next(), next()))
-        }
-        return list
-    }
-
     @Test
     fun testSplitOffEmptyRight() {
-        val data = randData(173).toMutableList()
+        val data = randPairData(173).toMutableList()
 
-        val map = BTreeMap<Int, Int>()
+        val map = BTreeMap<UInt, UInt>()
         for (d in data) map.insert(d.first, d.second)
-        val right = map.splitOff(data.maxByOrNull { it.first }!!.first + 1)
+        val right = map.splitOff(data.maxByOrNull { it.first }!!.first + 1u)
         map.check()
         right.check()
 
         data.sortBy { it.first }
         assertEquals(data, map.intoIter().toList())
-        assertEquals(emptyList<Pair<Int, Int>>(), right.intoIter().toList())
+        assertEquals(emptyList<Pair<UInt, UInt>>(), right.intoIter().toList())
     }
 
     @Test
     fun testSplitOffEmptyLeft() {
-        val data = randData(314).toMutableList()
+        val data = randPairData(314).toMutableList()
 
-        val map = BTreeMap<Int, Int>()
+        val map = BTreeMap<UInt, UInt>()
         for (d in data) map.insert(d.first, d.second)
         val right = map.splitOff(data.minByOrNull { it.first }!!.first)
         map.check()
         right.check()
 
         data.sortBy { it.first }
-        assertEquals(emptyList<Pair<Int, Int>>(), map.intoIter().toList())
+        assertEquals(emptyList<Pair<UInt, UInt>>(), map.intoIter().toList())
         assertEquals(data, right.intoIter().toList())
     }
 
@@ -2169,8 +2046,8 @@ class SmokeTests {
     @Test
     fun testSplitOffHalfway() {
         for (len in listOf(CAPACITY, 25, 50, 75, 100)) {
-            val data = randData(len).map { Pair(it.first, Unit) }.toMutableList()
-            val map = BTreeMap<Int, Unit>()
+            val data = randPairData(len).map { Pair(it.first, Unit) }.toMutableList()
+            val map = BTreeMap<UInt, Unit>()
             for (d in data) map.insert(d.first, d.second)
             data.sortBy { it.first }
             val smallKeys = data.take(len / 2).map { it.first }
@@ -2186,10 +2063,10 @@ class SmokeTests {
 
     @Test
     fun testSplitOffLargeRandomSorted() {
-        val data = randData(529).toMutableList()
+        val data = randPairData(529).toMutableList()
         data.sortBy { it.first }
 
-        val map = BTreeMap<Int, Int>()
+        val map = BTreeMap<UInt, UInt>()
         for (d in data) map.insert(d.first, d.second)
         val key = data[data.size / 2].first
         val right = map.splitOff(key)
@@ -2589,10 +2466,6 @@ class SmokeTests {
 
         val prevMut = cursorMut.peekPrev()
         assertEquals(3, prevMut?.first)
-    }
-
-    class IdBased(val id: Int, val name: String) : Comparable<IdBased> {
-        override fun compareTo(other: IdBased): Int = id.compareTo(other.id)
     }
 
     @Test
