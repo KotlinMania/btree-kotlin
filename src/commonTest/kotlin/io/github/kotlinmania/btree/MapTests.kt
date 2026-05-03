@@ -4,7 +4,7 @@
 package io.github.kotlinmania.btree
 
 import io.github.kotlinmania.btree.testing.CrashTestDummy
-import io.github.kotlinmania.btree.testing.CrashTestDummyRef
+import io.github.kotlinmania.btree.testing.Instance
 import io.github.kotlinmania.btree.testing.Cyclic3
 import io.github.kotlinmania.btree.testing.Governed
 import io.github.kotlinmania.btree.testing.Governor
@@ -1212,7 +1212,7 @@ class MapTests {
         val a = CrashTestDummy(0)
         val b = CrashTestDummy(1)
         val c = CrashTestDummy(2)
-        val map = BTreeMap<CrashTestDummyRef, Unit>()
+        val map = BTreeMap<Instance, Unit>()
         map.insert(a.spawn(Panic.Never), Unit)
         map.insert(b.spawn(Panic.InDrop), Unit)
         map.insert(c.spawn(Panic.Never), Unit)
@@ -1243,7 +1243,7 @@ class MapTests {
         val a = CrashTestDummy(0)
         val b = CrashTestDummy(1)
         val c = CrashTestDummy(2)
-        val map = BTreeMap<CrashTestDummyRef, Unit>()
+        val map = BTreeMap<Instance, Unit>()
         map.insert(a.spawn(Panic.Never), Unit)
         map.insert(b.spawn(Panic.InQuery), Unit)
         map.insert(c.spawn(Panic.InQuery), Unit)
@@ -1263,8 +1263,8 @@ class MapTests {
         assertEquals(0, b.dropped())
         assertEquals(0, c.dropped())
         assertEquals(2, map.len())
-        assertEquals(1, map.firstEntry()!!.key().dummy.id)
-        assertEquals(2, map.lastEntry()!!.key().dummy.id)
+        assertEquals(1, map.firstEntry()!!.key().id())
+        assertEquals(2, map.lastEntry()!!.key().id())
         map.check()
     }
 
@@ -1273,7 +1273,7 @@ class MapTests {
         val a = CrashTestDummy(0)
         val b = CrashTestDummy(1)
         val c = CrashTestDummy(2)
-        val map = BTreeMap<CrashTestDummyRef, Unit>()
+        val map = BTreeMap<Instance, Unit>()
         map.insert(a.spawn(Panic.Never), Unit)
         map.insert(b.spawn(Panic.InQuery), Unit)
         map.insert(c.spawn(Panic.InQuery), Unit)
@@ -1296,8 +1296,8 @@ class MapTests {
         assertEquals(0, b.dropped())
         assertEquals(0, c.dropped())
         assertEquals(2, map.len())
-        assertEquals(1, map.firstEntry()!!.key().dummy.id)
-        assertEquals(2, map.lastEntry()!!.key().dummy.id)
+        assertEquals(1, map.firstEntry()!!.key().id())
+        assertEquals(2, map.lastEntry()!!.key().id())
         map.check()
     }
 
@@ -1478,7 +1478,7 @@ class MapTests {
         val b = CrashTestDummy(1)
         val c = CrashTestDummy(2)
 
-        val map = BTreeMap<CrashTestDummyRef, Unit>()
+        val map = BTreeMap<Instance, Unit>()
         map.insert(a.spawn(Panic.Never), Unit)
         map.insert(b.spawn(Panic.InDrop), Unit)
         map.insert(c.spawn(Panic.Never), Unit)
@@ -1544,7 +1544,7 @@ class MapTests {
     private fun testClonePanicLeak(size: Int) {
         for (i in 0 until size) {
             val dummies = (0 until size).map { CrashTestDummy(it) }
-            val map = BTreeMap<CrashTestDummyRef, Unit>()
+            val map = BTreeMap<Instance, Unit>()
             for (dummy in dummies) {
                 val panic = if (dummy.id == i) Panic.InClone else Panic.Never
                 map.insert(dummy.spawn(panic), Unit)
@@ -1874,8 +1874,8 @@ class MapTests {
         val a = CrashTestDummy(0)
         val b = CrashTestDummy(1)
         val c = CrashTestDummy(2)
-        val left = BTreeMap<CrashTestDummyRef, Unit>()
-        val right = BTreeMap<CrashTestDummyRef, Unit>()
+        val left = BTreeMap<Instance, Unit>()
+        val right = BTreeMap<Instance, Unit>()
         left.insert(a.spawn(Panic.Never), Unit)
         left.insert(b.spawn(Panic.Never), Unit)
         left.insert(c.spawn(Panic.Never), Unit)
@@ -1914,8 +1914,8 @@ class MapTests {
         val a = CrashTestDummy(0)
         val b = CrashTestDummy(1)
         val c = CrashTestDummy(2)
-        val left = BTreeMap<CrashTestDummyRef, Unit>()
-        val right = BTreeMap<CrashTestDummyRef, Unit>()
+        val left = BTreeMap<Instance, Unit>()
+        val right = BTreeMap<Instance, Unit>()
         left.insert(a.spawn(Panic.Never), Unit)
         left.insert(b.spawn(Panic.Never), Unit)
         left.insert(c.spawn(Panic.Never), Unit)
@@ -1941,8 +1941,8 @@ class MapTests {
         val cValLeft = CrashTestDummy(2)
         val cValRight = CrashTestDummy(2)
 
-        val left = BTreeMap<CrashTestDummyRef, CrashTestDummyRef>()
-        val right = BTreeMap<CrashTestDummyRef, CrashTestDummyRef>()
+        val left = BTreeMap<Instance, Instance>()
+        val right = BTreeMap<Instance, Instance>()
 
         left.insert(a.spawn(Panic.Never), aValLeft.spawn(Panic.Never))
         left.insert(b.spawn(Panic.Never), bValLeft.spawn(Panic.Never))
@@ -2084,7 +2084,7 @@ class MapTests {
         val c = CrashTestDummy(2)
         val d = CrashTestDummy(3)
         val e = CrashTestDummy(4)
-        val map = BTreeMap<String, CrashTestDummyRef>()
+        val map = BTreeMap<String, Instance>()
         map.insert("a", a.spawn(Panic.Never))
         map.insert("b", b.spawn(Panic.Never))
         map.insert("c", c.spawn(Panic.Never))
@@ -2110,7 +2110,7 @@ class MapTests {
         val bV = CrashTestDummy(3)
         val cK = CrashTestDummy(4)
         val cV = CrashTestDummy(5)
-        val map = BTreeMap<CrashTestDummyRef, CrashTestDummyRef>()
+        val map = BTreeMap<Instance, Instance>()
         map.insert(aK.spawn(Panic.Never), aV.spawn(Panic.Never))
         map.insert(bK.spawn(Panic.InDrop), bV.spawn(Panic.Never))
         map.insert(cK.spawn(Panic.Never), cV.spawn(Panic.Never))
@@ -2135,7 +2135,7 @@ class MapTests {
         val bV = CrashTestDummy(3)
         val cK = CrashTestDummy(4)
         val cV = CrashTestDummy(5)
-        val map = BTreeMap<CrashTestDummyRef, CrashTestDummyRef>()
+        val map = BTreeMap<Instance, Instance>()
         map.insert(aK.spawn(Panic.Never), aV.spawn(Panic.Never))
         map.insert(bK.spawn(Panic.Never), bV.spawn(Panic.InDrop))
         map.insert(cK.spawn(Panic.Never), cV.spawn(Panic.Never))
@@ -2157,7 +2157,7 @@ class MapTests {
         val size = MIN_INSERTS_HEIGHT_1
         for (panicPoint in listOf(0, 1, size - 2, size - 1)) {
             val dummies = (0 until size).map { CrashTestDummy(it) }
-            val map = BTreeMap<CrashTestDummyRef, CrashTestDummyRef>()
+            val map = BTreeMap<Instance, Instance>()
             for (i in 0 until size) {
                 val panic = if (i == panicPoint) Panic.InDrop else Panic.Never
                 map.insert(dummies[i].spawn(Panic.Never), dummies[i].spawn(panic))

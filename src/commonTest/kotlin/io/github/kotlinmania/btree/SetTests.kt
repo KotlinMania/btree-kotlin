@@ -4,7 +4,7 @@
 package io.github.kotlinmania.btree
 
 import io.github.kotlinmania.btree.testing.CrashTestDummy
-import io.github.kotlinmania.btree.testing.CrashTestDummyRef
+import io.github.kotlinmania.btree.testing.Instance
 import io.github.kotlinmania.btree.testing.Panic
 import io.github.kotlinmania.btree.testing.randData
 import kotlin.test.Test
@@ -444,7 +444,7 @@ class SetTests {
         val a = CrashTestDummy(0)
         val b = CrashTestDummy(1)
         val c = CrashTestDummy(2)
-        val set = BTreeSet<CrashTestDummyRef>()
+        val set = BTreeSet<Instance>()
         set.insert(a.spawn(Panic.Never))
         set.insert(b.spawn(Panic.InDrop))
         set.insert(c.spawn(Panic.Never))
@@ -475,7 +475,7 @@ class SetTests {
         val a = CrashTestDummy(0)
         val b = CrashTestDummy(1)
         val c = CrashTestDummy(2)
-        val set = BTreeSet<CrashTestDummyRef>()
+        val set = BTreeSet<Instance>()
         set.insert(a.spawn(Panic.Never))
         set.insert(b.spawn(Panic.InQuery))
         set.insert(c.spawn(Panic.InQuery))
