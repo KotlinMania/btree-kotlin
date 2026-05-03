@@ -26,17 +26,17 @@ private const val ITER_PERFORMANCE_TIPPING_SIZE_DIFF: Int = 16
  */
 class BTreeSet<T> private constructor(
     private val comparator: Comparator<in T>?,
-    internal val map: BTreeMap<T, SetValZst>,
+    internal val map: BTreeMap<T, SetValZST>,
 ) : MutableSet<T> {
     /** Makes a new, empty `BTreeSet`. Does not allocate anything on its own. */
-    constructor(comparator: Comparator<in T>? = null) : this(comparator, BTreeMap<T, SetValZst>(comparator))
+    constructor(comparator: Comparator<in T>? = null) : this(comparator, BTreeMap<T, SetValZST>(comparator))
 
     init {
         this.map.internalIsSet = true
     }
 
     /** Internal constructor wrapping a pre-built map (used by [splitOff]). */
-    internal constructor(map: BTreeMap<T, SetValZst>) : this(map.comparator, map)
+    internal constructor(map: BTreeMap<T, SetValZST>) : this(map.comparator, map)
 
     internal fun compareElements(left: T, right: T): Int = map.compareKeys(left, right)
 
@@ -68,11 +68,11 @@ class BTreeSet<T> private constructor(
         fun <T : Comparable<T>> from(vararg values: T): BTreeSet<T> = fromIterable(values.asIterable())
 
         internal fun <T> fromSortedIter(iter: Iterator<T>): BTreeSet<T> {
-            val mapped = object : Iterator<Pair<T, SetValZst>> {
+            val mapped = object : Iterator<Pair<T, SetValZST>> {
                 override fun hasNext(): Boolean = iter.hasNext()
-                override fun next(): Pair<T, SetValZst> = Pair(iter.next(), SetValZst)
+                override fun next(): Pair<T, SetValZST> = Pair(iter.next(), SetValZST)
             }
-            val map = BTreeMap.bulkBuildFromSortedIter<T, SetValZst>(mapped)
+            val map = BTreeMap.bulkBuildFromSortedIter<T, SetValZST>(mapped)
             return BTreeSet(map)
         }
     }
@@ -293,7 +293,7 @@ class BTreeSet<T> private constructor(
      *   - If the set already contained an equal value, `false` is returned,
      *     and the entry is not updated.
      */
-    override fun add(element: T): Boolean = map.insert(element, SetValZst) == null
+    override fun add(element: T): Boolean = map.insert(element, SetValZST) == null
 
     /** Kotlin alias for [add]. */
     fun insert(value: T): Boolean = add(value)
@@ -550,7 +550,7 @@ class BTreeSet<T> private constructor(
 
     /** An iterator over the items of a `BTreeSet`. Created by [iter]. */
     class Iter<T> internal constructor(
-        internal val inner: io.github.kotlinmania.btree.Iter<T, SetValZst>,
+        internal val inner: io.github.kotlinmania.btree.Iter<T, SetValZST>,
     ) : Iterator<T> {
         override fun hasNext(): Boolean = inner.hasNext()
         override fun next(): T = inner.next().first
@@ -581,7 +581,7 @@ class BTreeSet<T> private constructor(
 
     /** An owning iterator over the items of a `BTreeSet` in ascending order. */
     class IntoIter<T> internal constructor(
-        internal val inner: io.github.kotlinmania.btree.IntoIter<T, SetValZst>,
+        internal val inner: io.github.kotlinmania.btree.IntoIter<T, SetValZST>,
     ) : Iterator<T> {
         override fun hasNext(): Boolean = inner.hasNext()
         override fun next(): T = inner.next().first
@@ -620,7 +620,7 @@ class BTreeSet<T> private constructor(
      * [BTreeSet.range].
      */
     class Range<T> internal constructor(
-        internal val inner: io.github.kotlinmania.btree.Range<T, SetValZst>,
+        internal val inner: io.github.kotlinmania.btree.Range<T, SetValZST>,
     ) : Iterator<T> {
         override fun hasNext(): Boolean = inner.hasNext()
         override fun next(): T = inner.next().first
@@ -898,7 +898,7 @@ class BTreeSet<T> private constructor(
 
     /** Iterator returned by [extractIf]. */
     class ExtractIf<T> internal constructor(
-        internal val inner: io.github.kotlinmania.btree.ExtractIf<T, SetValZst>,
+        internal val inner: io.github.kotlinmania.btree.ExtractIf<T, SetValZST>,
     ) : Iterator<T> {
         override fun hasNext(): Boolean = inner.hasNext()
         override fun next(): T = inner.next().first
@@ -924,7 +924,7 @@ class BTreeSet<T> private constructor(
      * A `Cursor` is created with [BTreeSet.lowerBound] and [BTreeSet.upperBound].
      */
     class Cursor<K> internal constructor(
-        internal val inner: io.github.kotlinmania.btree.Cursor<K, SetValZst>,
+        internal val inner: io.github.kotlinmania.btree.Cursor<K, SetValZST>,
     ) {
         /**
          * Advances the cursor to the next gap, returning the element that it
@@ -948,7 +948,7 @@ class BTreeSet<T> private constructor(
      * A cursor over a `BTreeSet` with editing operations.
      */
     class CursorMut<T> internal constructor(
-        internal val inner: io.github.kotlinmania.btree.CursorMut<T, SetValZst>,
+        internal val inner: io.github.kotlinmania.btree.CursorMut<T, SetValZST>,
     ) {
         /** Advances the cursor to the next gap, returning the moved-over element. */
         fun next(): T? = inner.next()?.first
@@ -971,16 +971,16 @@ class BTreeSet<T> private constructor(
         // ---- editing ops ---------------------------------------------------
 
         /** SAFETY: caller must ensure the new value preserves sorted order and uniqueness. */
-        fun insertAfterUnchecked(value: T) = inner.insertAfterUnchecked(value, SetValZst)
+        fun insertAfterUnchecked(value: T) = inner.insertAfterUnchecked(value, SetValZST)
 
         /** SAFETY: caller must ensure the new value preserves sorted order and uniqueness. */
-        fun insertBeforeUnchecked(value: T) = inner.insertBeforeUnchecked(value, SetValZst)
+        fun insertBeforeUnchecked(value: T) = inner.insertBeforeUnchecked(value, SetValZST)
 
         /** Inserts after, returning [Result.failure] containing [UnorderedKeyError] on order violation. */
-        fun insertAfter(value: T): Result<Unit> = inner.insertAfter(value, SetValZst)
+        fun insertAfter(value: T): Result<Unit> = inner.insertAfter(value, SetValZST)
 
         /** Inserts before, returning [Result.failure] containing [UnorderedKeyError] on order violation. */
-        fun insertBefore(value: T): Result<Unit> = inner.insertBefore(value, SetValZst)
+        fun insertBefore(value: T): Result<Unit> = inner.insertBefore(value, SetValZST)
 
         /** Removes the next element from the `BTreeSet`. */
         fun removeNext(): T? = inner.removeNext()?.first
@@ -999,7 +999,7 @@ class BTreeSet<T> private constructor(
      * unique while the cursor is held.
      */
     class CursorMutKey<T> internal constructor(
-        internal val inner: io.github.kotlinmania.btree.CursorMutKey<T, SetValZst>,
+        internal val inner: io.github.kotlinmania.btree.CursorMutKey<T, SetValZST>,
     ) {
         /** Advances the cursor to the next gap, returning the moved-over element. */
         fun next(): T? = inner.next()?.first
@@ -1019,16 +1019,16 @@ class BTreeSet<T> private constructor(
         // ---- editing ops ---------------------------------------------------
 
         /** SAFETY: caller must ensure the new value preserves sorted order and uniqueness. */
-        fun insertAfterUnchecked(value: T) = inner.insertAfterUnchecked(value, SetValZst)
+        fun insertAfterUnchecked(value: T) = inner.insertAfterUnchecked(value, SetValZST)
 
         /** SAFETY: caller must ensure the new value preserves sorted order and uniqueness. */
-        fun insertBeforeUnchecked(value: T) = inner.insertBeforeUnchecked(value, SetValZst)
+        fun insertBeforeUnchecked(value: T) = inner.insertBeforeUnchecked(value, SetValZST)
 
         /** Inserts after, returning [Result.failure] containing [UnorderedKeyError] on order violation. */
-        fun insertAfter(value: T): Result<Unit> = inner.insertAfter(value, SetValZst)
+        fun insertAfter(value: T): Result<Unit> = inner.insertAfter(value, SetValZST)
 
         /** Inserts before, returning [Result.failure] containing [UnorderedKeyError] on order violation. */
-        fun insertBefore(value: T): Result<Unit> = inner.insertBefore(value, SetValZst)
+        fun insertBefore(value: T): Result<Unit> = inner.insertBefore(value, SetValZST)
 
         /** Removes the next element from the `BTreeSet`. */
         fun removeNext(): T? = inner.removeNext()?.first
@@ -1180,17 +1180,17 @@ sealed class SetEntry<T> {
 }
 
 class SetOccupiedEntry<T> internal constructor(
-    internal val inner: OccupiedEntry<T, SetValZst>
+    internal val inner: OccupiedEntry<T, SetValZST>
 ) {
     fun get(): T = inner.key()
     fun remove(): T = inner.removeEntry().first
 }
 
 class SetVacantEntry<T> internal constructor(
-    internal val inner: VacantEntry<T, SetValZst>
+    internal val inner: VacantEntry<T, SetValZST>
 ) {
     fun get(): T = inner.key()
     fun insert() {
-        inner.insert(SetValZst)
+        inner.insert(SetValZST)
     }
 }

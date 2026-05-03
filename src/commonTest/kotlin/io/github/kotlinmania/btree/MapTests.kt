@@ -1420,13 +1420,13 @@ class MapTests {
 
     @Test
     fun testZst() {
-        val m = BTreeMap<SetValZst, SetValZst>()
+        val m = BTreeMap<SetValZST, SetValZST>()
         assertEquals(0, m.len())
 
-        assertEquals(null, m.insert(SetValZst, SetValZst))
+        assertEquals(null, m.insert(SetValZST, SetValZST))
         assertEquals(1, m.len())
 
-        assertEquals(SetValZst, m.insert(SetValZst, SetValZst))
+        assertEquals(SetValZST, m.insert(SetValZST, SetValZST))
         assertEquals(1, m.len())
         assertEquals(1, m.iter().asSequence().count())
 
@@ -1434,7 +1434,7 @@ class MapTests {
         assertEquals(0, m.len())
 
         for (i in 0 until 100) {
-            m.insert(SetValZst, SetValZst)
+            m.insert(SetValZST, SetValZST)
         }
 
         assertEquals(1, m.len())
