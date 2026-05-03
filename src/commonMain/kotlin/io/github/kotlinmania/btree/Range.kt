@@ -35,15 +35,18 @@ data class OpsRange<Idx : Comparable<Idx>>(
     override fun endBound(): Bound<Idx> = Bound.Excluded(end)
 
     /**
-     * Returns `true` if `item` is contained in the range.
+     * Returns `true` if `item` is contained in the range. Specialised
+     * member shadows the [RangeBounds.contains] extension for callers
+     * holding an [OpsRange]-typed receiver, mirroring upstream's
+     * inherent-impl override of the trait default.
      */
-    override fun contains(item: Idx): Boolean = item.compareTo(start) >= 0 && item.compareTo(end) < 0
+    fun contains(item: Idx): Boolean = item.compareTo(start) >= 0 && item.compareTo(end) < 0
 
     /**
      * Returns `true` if the range contains no items. The range is empty if
      * `start >= end`.
      */
-    override fun isEmpty(): Boolean {
+    fun isEmpty(): Boolean {
         return !(start.compareTo(end) < 0)
     }
 }
@@ -69,7 +72,7 @@ data class RangeFrom<Idx : Comparable<Idx>>(
     override fun endBound(): Bound<Idx> = Bound.Unbounded
 
     /** Returns `true` if `item` is contained in the range. */
-    override fun contains(item: Idx): Boolean = item.compareTo(start) >= 0
+    fun contains(item: Idx): Boolean = item.compareTo(start) >= 0
 }
 
 /**
@@ -88,7 +91,7 @@ data class RangeTo<Idx : Comparable<Idx>>(
     override fun endBound(): Bound<Idx> = Bound.Excluded(end)
 
     /** Returns `true` if `item` is contained in the range. */
-    override fun contains(item: Idx): Boolean = item.compareTo(end) < 0
+    fun contains(item: Idx): Boolean = item.compareTo(end) < 0
 }
 
 /**
@@ -157,12 +160,12 @@ class RangeInclusive<Idx : Comparable<Idx>>(
         }
 
     /** Returns `true` if `item` is contained in the range. */
-    override fun contains(item: Idx): Boolean {
+    fun contains(item: Idx): Boolean {
         return !exhausted && item.compareTo(start) >= 0 && item.compareTo(end) <= 0
     }
 
     /** Returns `true` if the range contains no items. */
-    override fun isEmpty(): Boolean {
+    fun isEmpty(): Boolean {
         if (exhausted) return true
         return !(start.compareTo(end) <= 0)
     }
@@ -206,7 +209,7 @@ data class RangeToInclusive<Idx : Comparable<Idx>>(
     override fun endBound(): Bound<Idx> = Bound.Included(end)
 
     /** Returns `true` if `item` is contained in the range. */
-    override fun contains(item: Idx): Boolean = item.compareTo(end) <= 0
+    fun contains(item: Idx): Boolean = item.compareTo(end) <= 0
 }
 
 /**
@@ -268,6 +271,15 @@ fun <T> Bound<T>.copied(): Bound<T> = this
 /**
  * Implemented by the range types in this package: [RangeFull], [RangeFrom],
  * [RangeTo], [OpsRange], [RangeInclusive], [RangeToInclusive], [BoundsPair].
+ *
+ * Mirrors upstream `RangeBounds<T>`. Like the upstream trait, the
+ * interface itself is unconstrained; the comparison-using methods are
+ * provided as extension functions with a `T : Comparable<T>` bound on
+ * the method's own generic parameter (the Kotlin equivalent of Rust's
+ * `where T: PartialOrd` on a default-method). Concrete implementations
+ * may shadow those extensions with member functions of the same name to
+ * provide a specialised body, exactly mirroring Rust's per-impl override
+ * of a default method.
  */
 interface RangeBounds<T> {
     /**
@@ -279,45 +291,46 @@ interface RangeBounds<T> {
      * End index bound. Returns the end value as a `Bound`.
      */
     fun endBound(): Bound<T>
+}
 
-    /** Returns `true` if `item` is contained in the range. */
-    fun contains(item: T): Boolean {
-        val startOk = when (val s = startBound()) {
-            is Bound.Included -> rangeNaturalCompare(item, s.value) >= 0
-            is Bound.Excluded -> rangeNaturalCompare(item, s.value) > 0
-            Bound.Unbounded -> true
-        }
-        if (!startOk) return false
-        return when (val e = endBound()) {
-            is Bound.Included -> rangeNaturalCompare(item, e.value) <= 0
-            is Bound.Excluded -> rangeNaturalCompare(item, e.value) < 0
-            Bound.Unbounded -> true
-        }
+/**
+ * Returns `true` if `item` is contained in the range. Translates the
+ * default body of upstream `RangeBounds.contains` and its `T : PartialOrd`
+ * trait-bound on the method's generic parameter as a method-level Kotlin
+ * generic bound.
+ */
+fun <T : Comparable<T>> RangeBounds<T>.contains(item: T): Boolean {
+    val startOk = when (val s = startBound()) {
+        is Bound.Included -> item >= s.value
+        is Bound.Excluded -> item > s.value
+        Bound.Unbounded -> true
     }
+    if (!startOk) return false
+    return when (val e = endBound()) {
+        is Bound.Included -> item <= e.value
+        is Bound.Excluded -> item < e.value
+        Bound.Unbounded -> true
+    }
+}
 
-    /**
-     * Returns `true` if the range contains no items.
-     * One-sided ranges (`RangeFrom`, etc) always return `false`.
-     */
-    fun isEmpty(): Boolean {
-        val s = startBound()
-        val e = endBound()
-        if (s is Bound.Unbounded || e is Bound.Unbounded) return false
-        if (s is Bound.Included && e is Bound.Included) {
-            return !(rangeNaturalCompare(s.value, e.value) <= 0)
+/**
+ * Returns `true` if the range contains no items. One-sided ranges
+ * ([RangeFrom], etc) always return `false`. Translates the default body
+ * of upstream `RangeBounds.isEmpty` and its `T : PartialOrd` clause
+ * as a method-level Kotlin generic bound.
+ */
+fun <T : Comparable<T>> RangeBounds<T>.isEmpty(): Boolean {
+    val s = startBound()
+    val e = endBound()
+    return !when {
+        s is Bound.Unbounded || e is Bound.Unbounded -> true
+        s is Bound.Included && e is Bound.Included -> s.value <= e.value
+        // (Included, Excluded) | (Excluded, Included) | (Excluded, Excluded)
+        else -> {
+            val sv = if (s is Bound.Included) s.value else (s as Bound.Excluded).value
+            val ev = if (e is Bound.Included) e.value else (e as Bound.Excluded).value
+            sv < ev
         }
-
-        val sv: T = when (s) {
-            is Bound.Included -> s.value
-            is Bound.Excluded -> s.value
-            Bound.Unbounded -> return false
-        }
-        val ev: T = when (e) {
-            is Bound.Included -> e.value
-            is Bound.Excluded -> e.value
-            Bound.Unbounded -> return false
-        }
-        return !(rangeNaturalCompare(sv, ev) < 0)
     }
 }
 
@@ -482,9 +495,3 @@ fun <T : Comparable<T>> RangeFrom<T>.bound(): Pair<OneSidedRangeBound, T> =
 fun <T : Comparable<T>> RangeToInclusive<T>.bound(): Pair<OneSidedRangeBound, T> =
     Pair(OneSidedRangeBound.EndInclusive, end)
 
-private fun <T> rangeNaturalCompare(left: T, right: T): Int {
-    if (left is Comparable<*> && right is Comparable<*>) {
-        return compareValuesBy(left, right) { it }
-    }
-    throw IllegalStateException("range endpoint type must implement Comparable")
-}
