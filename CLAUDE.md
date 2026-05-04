@@ -117,16 +117,16 @@ along with the translation you chose.
 Every Kotlin file MUST start with:
 
 ```kotlin
-// port-lint: source library/alloc/src/collections/btree/<file>.rs
+// port-lint: source <path-relative-to-tmp/rust-stdlib-collections-btree/>
 // Derived from the Rust standard library (rust-lang/rust),
 // copyright The Rust Project Developers, dual-licensed Apache-2.0 / MIT.
 package io.github.kotlinmania.btree
 ```
 
-The `port-lint` line points at the upstream Rust path (relative to the
-rust-lang/rust repo root), not the vendored copy. The second line
-satisfies Apache-2.0 §4(b) and MIT's notice clause. Without these two
-lines, `port-lint` analysis can't track provenance.
+The `port-lint` line is **relative to the fetched upstream tree under**
+`tmp/rust-stdlib-collections-btree/` (e.g. `node.rs`, `map/tests.rs`).
+The second line satisfies Apache-2.0 §4(b) and MIT's notice clause.
+Without these two lines, `port-lint` analysis can't track provenance.
 
 ### 3. Quality verification
 
@@ -137,8 +137,19 @@ After porting a file, verify with:
 ./gradlew macosArm64Test --offline
 ```
 
-Compilation is disabled until ast_distance similarity passes honestly.
-Run `./tools/ast_distance/ast_distance --deep tmp/rust-stdlib-collections-btree rust src/commonMain/kotlin/io/github/kotlinmania/btree kotlin` to see current parity. ast_distance is the sole oracle.
+Compilation is a **precondition**, not a correctness gate. The gate is
+**behavioral parity**, proven by the ported tests passing against the
+same fixtures as upstream.
+
+Run `./tools/ast_distance/ast_distance --deep tmp/rust-stdlib-collections-btree rust src/commonMain/kotlin/io/github/kotlinmania/btree kotlin`
+to check coverage accounting, provenance/header drift, and cheat detection.
+Do not treat similarity scores as a verdict of correctness.
+
+## Naming conventions (do not Rustify Kotlin)
+
+- **Files / types:** `PascalCase` (do not rename Kotlin files to `snake_case`)
+- **Functions / locals:** `camelCase`
+- **Packages:** all lowercase (no camelCase)
 
 ## Build Commands
 
@@ -212,8 +223,9 @@ After every file lands, run:
 
 This is **mandatory** for porting discipline. CI also runs a
 whole-tree `--deep` scan and fails the build if any port-lint header
-is missing. ast_distance is the sole oracle for port progress; do
-not maintain a parallel status file.
+is missing. `ast_distance` is the accounting/cheat-detection tool for
+port progress; it is not the behavioral gate. Do not maintain a
+parallel status file.
 
 ## Translation Mappings (short reference)
 
