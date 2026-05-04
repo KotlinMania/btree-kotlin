@@ -7,19 +7,19 @@ package io.github.kotlinmania.btree
  * Marker object for internal `BTreeSet` values.
  * Used instead of `Unit` to differentiate between:
  * * `BTreeMap<T, Unit>` (possible user-defined map)
- * * `BTreeMap<T, SetValZst>` (internal set representation)
+ * * `BTreeMap<T, SetValZST>` (internal set representation)
  */
-internal data object SetValZst : Comparable<SetValZst>, IsSetVal {
+internal data object SetValZST : Comparable<SetValZST>, IsSetVal {
     override fun toString(): String = "SetValZST"
 
-    override fun compareTo(other: SetValZst): Int = 0
+    override fun compareTo(other: SetValZST): Int = 0
 
     override fun isSetVal(): Boolean = true
 }
 
 /**
  * An interface to differentiate between `BTreeMap` and `BTreeSet` values.
- * Returns `true` only for type [SetValZst], `false` for all other types.
+ * Returns `true` only for type [SetValZST], `false` for all other types.
  */
 internal interface IsSetVal {
     fun isSetVal(): Boolean = false
@@ -27,4 +27,4 @@ internal interface IsSetVal {
 
 internal fun <V> isSetVal(value: V): Boolean = value is IsSetVal && value.isSetVal()
 
-internal inline fun <reified V> isSetVal(): Boolean = V::class == SetValZst::class
+internal inline fun <reified V> isSetVal(): Boolean = V::class == SetValZST::class

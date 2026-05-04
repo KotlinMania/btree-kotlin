@@ -26,7 +26,7 @@ class BTreeMap<K, V>(
     internal var length: Int = 0
 
     /**
-     * `true` if this map's `V` slot is the [SetValZst] sentinel (i.e. the
+     * `true` if this map's `V` slot is the [SetValZST] sentinel (i.e. the
      * map is being used as the storage of a `BTreeSet`). Search-bifurcation
      * paths consult this to render error messages with "BTreeSet" rather
      * than "BTreeMap". `BTreeSet` sets it to `true` at construction.
@@ -965,10 +965,10 @@ operator fun <K : Comparable<K>, V : Comparable<V>> BTreeMap<K, V>.compareTo(
 
 // Internal functionality for `BTreeSet`.
 
-internal fun <K> BTreeMap<K, SetValZst>.replace(key: K): K? {
+internal fun <K> BTreeMap<K, SetValZST>.replace(key: K): K? {
     val (mapRef, dormantMap) = DormantMutRef.new(this)
     if (mapRef.root == null) {
-        mapRef.root = NodeRef.new<K, SetValZst>()
+        mapRef.root = NodeRef.new<K, SetValZST>()
     }
     val rootNode = mapRef.root!!.borrowMut()
     return when (val r = rootNode.searchTree(key, ::compareKeys)) {
@@ -978,20 +978,20 @@ internal fun <K> BTreeMap<K, SetValZst>.replace(key: K): K? {
             keyMut
         }
         is SearchResult.GoDown -> {
-            VacantEntry<K, SetValZst>(key = key, handle = r.handle, dormantMap = dormantMap)
-                .insert(SetValZst)
+            VacantEntry<K, SetValZST>(key = key, handle = r.handle, dormantMap = dormantMap)
+                .insert(SetValZST)
             null
         }
     }
 }
 
-internal fun <K> BTreeMap<K, SetValZst>.getOrInsertWith(
+internal fun <K> BTreeMap<K, SetValZST>.getOrInsertWith(
     q: K,
     f: (K) -> K,
 ): K {
     val (mapRef, dormantMap) = DormantMutRef.new(this)
     if (mapRef.root == null) {
-        mapRef.root = NodeRef.new<K, SetValZst>()
+        mapRef.root = NodeRef.new<K, SetValZST>()
     }
     val rootNode = mapRef.root!!.borrowMut()
     return when (val r = rootNode.searchTree(q, ::compareKeys)) {
@@ -999,8 +999,8 @@ internal fun <K> BTreeMap<K, SetValZst>.getOrInsertWith(
         is SearchResult.GoDown -> {
             val key = f(q)
             check(compareKeys(key, q) == 0) { "new value is not equal" }
-            VacantEntry<K, SetValZst>(key = key, handle = r.handle, dormantMap = dormantMap)
-                .insertEntry(SetValZst)
+            VacantEntry<K, SetValZST>(key = key, handle = r.handle, dormantMap = dormantMap)
+                .insertEntry(SetValZST)
                 .intoKey()
         }
     }

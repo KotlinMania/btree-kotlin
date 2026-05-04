@@ -3,6 +3,10 @@
 // copyright The Rust Project Developers, dual-licensed Apache-2.0 / MIT.
 package io.github.kotlinmania.btree
 
+import io.github.kotlinmania.btree.testing.CrashTestDummy
+import io.github.kotlinmania.btree.testing.Instance
+import io.github.kotlinmania.btree.testing.Panic
+import io.github.kotlinmania.btree.testing.randData
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFails
@@ -440,7 +444,7 @@ class SetTests {
         val a = CrashTestDummy(0)
         val b = CrashTestDummy(1)
         val c = CrashTestDummy(2)
-        val set = BTreeSet<CrashTestDummyRef>()
+        val set = BTreeSet<Instance>()
         set.insert(a.spawn(Panic.Never))
         set.insert(b.spawn(Panic.InDrop))
         set.insert(c.spawn(Panic.Never))
@@ -471,7 +475,7 @@ class SetTests {
         val a = CrashTestDummy(0)
         val b = CrashTestDummy(1)
         val c = CrashTestDummy(2)
-        val set = BTreeSet<CrashTestDummyRef>()
+        val set = BTreeSet<Instance>()
         set.insert(a.spawn(Panic.Never))
         set.insert(b.spawn(Panic.InQuery))
         set.insert(c.spawn(Panic.InQuery))
@@ -627,39 +631,33 @@ class SetTests {
         assertFalse(s.iter().hasNext())
     }
 
-    private fun randData(len: Int): List<Int> {
-        var state = 1
-        return List(len) {
-            state = (state * 1103515245 + 12345).toUInt().toInt() and 0x7FFFFFFF
-            state
-        }
-    }
-
     @Test
     fun testSplitOffEmptyRight() {
-        val data = randData(173)
+        val data = randData(173).toMutableList()
 
         val set = BTreeSet.fromIterable(data)
-        val right = set.splitOff(data.maxOrNull()!! + 1)
+        val right = set.splitOff(data.maxOrNull()!! + 1u)
 
-        assertEquals(data.distinct().sorted(), set.iter().asSequence().toList())
+        data.sort()
+        assertEquals(data, set.iter().asSequence().toList())
         assertEquals(emptyList(), right.iter().asSequence().toList())
     }
 
     @Test
     fun testSplitOffEmptyLeft() {
-        val data = randData(314)
+        val data = randData(314).toMutableList()
 
         val set = BTreeSet.fromIterable(data)
         val right = set.splitOff(data.minOrNull()!!)
 
+        data.sort()
         assertEquals(emptyList(), set.iter().asSequence().toList())
-        assertEquals(data.distinct().sorted(), right.iter().asSequence().toList())
+        assertEquals(data, right.iter().asSequence().toList())
     }
 
     @Test
     fun testSplitOffLargeRandomSorted() {
-        val data = randData(1529).distinct().sorted()
+        val data = randData(1529).sorted()
 
         val set = BTreeSet.fromIterable(data)
         val key = data[data.size / 2]

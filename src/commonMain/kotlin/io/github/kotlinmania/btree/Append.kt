@@ -8,12 +8,11 @@ package io.github.kotlinmania.btree
  * `length` variable along the way. The latter makes it easier for the
  * caller to avoid a leak when the iterator panicks.
  */
-internal fun <K, V> NodeRef<Marker.Owned, K, V, Marker.LeafOrInternal>.bulkPush(
+internal fun <K, V> Root<K, V>.bulkPush(
     iter: Iterator<Pair<K, V>>,
     length: IntArray,
 ) {
-    var curNode: NodeRef<Marker.Mut, K, V, Marker.Leaf> =
-        this.borrowMut().lastLeafEdge().intoNode()
+    var curNode: NodeRef<Marker.Mut, K, V, Marker.Leaf> = this.borrowMut().lastLeafEdge().intoNode()
     // Iterate through all key-value pairs, pushing them into nodes at the right level.
     for ((key, value) in iter) {
         // Try to push key-value pair into the current leaf node.
@@ -21,14 +20,12 @@ internal fun <K, V> NodeRef<Marker.Owned, K, V, Marker.LeafOrInternal>.bulkPush(
             curNode.push(key, value)
         } else {
             // No space left, go up and push there.
-            val openNode: NodeRef<Marker.Mut, K, V, Marker.Internal>
-            var testNode: NodeRef<Marker.Mut, K, V, Marker.LeafOrInternal> =
-                curNode.forgetType()
+            var openNode: NodeRef<Marker.Mut, K, V, Marker.Internal>
+            var testNode: NodeRef<Marker.Mut, K, V, Marker.LeafOrInternal> = curNode.forgetType()
             while (true) {
                 when (val ascended = testNode.ascend()) {
                     is AscendResult.Ok -> {
-                        val parent: NodeRef<Marker.Mut, K, V, Marker.Internal> =
-                            ascended.handle.intoNode()
+                        val parent: NodeRef<Marker.Mut, K, V, Marker.Internal> = ascended.handle.intoNode()
                         if (parent.len() < CAPACITY) {
                             // Found a node with space left, push here.
                             openNode = parent
@@ -49,7 +46,7 @@ internal fun <K, V> NodeRef<Marker.Owned, K, V, Marker.LeafOrInternal>.bulkPush(
             // Push key-value pair and new right subtree.
             val treeHeight = openNode.height() - 1
             val rightTree = NodeRef.new<K, V>()
-            for (i in 0 until treeHeight) {
+            repeat(treeHeight) {
                 rightTree.pushInternalLevel()
             }
             openNode.push(key, value, rightTree)

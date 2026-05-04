@@ -27,43 +27,40 @@ private class Peekable<K, V>(private val source: Iterator<Pair<K, V>>) {
  * An iterator for deduping the key of a sorted iterator.
  * When encountering the duplicated key, only the last key-value pair is yielded.
  *
- * Used by [BTreeMap.bulkBuildFromSortedIter].
+ * Used by [BTreeMap.bulkBuildFromSortedIter][1].
+ *
+ * [1]: BTreeMap.bulkBuildFromSortedIter
  */
 internal class DedupSortedIter<K, V, I : Iterator<Pair<K, V>>>(
     iter: I,
 ) : Iterator<Pair<K, V>> {
     private val iter = Peekable(iter)
     private var pending: Pair<K, V>? = null
-
-    companion object {
-        internal fun <K, V, I : Iterator<Pair<K, V>>> new(iter: I): DedupSortedIter<K, V, I> {
-            return DedupSortedIter(iter)
-        }
-    }
+    private var pendingReady: Boolean = false
 
     override fun hasNext(): Boolean {
-        if (pending == null) {
-            pending = try {
-                next()
-            } catch (_: NoSuchElementException) {
-                null
-            }
+        if (!pendingReady) {
+            pending = nextOrNull()
+            pendingReady = true
         }
         return pending != null
     }
 
     override fun next(): Pair<K, V> {
-        val pending = pending
-        if (pending != null) {
-            this.pending = null
-            return pending
+        if (!pendingReady) {
+            pending = nextOrNull()
+            pendingReady = true
         }
+        val result = pending ?: throw NoSuchElementException()
+        pending = null
+        pendingReady = false
+        return result
+    }
 
+    private fun nextOrNull(): Pair<K, V>? {
         while (true) {
-            val next = iter.next() ?: throw NoSuchElementException()
-
+            val next = iter.next() ?: return null
             val peeked = iter.peek() ?: return next
-
             if (next.first != peeked.first) {
                 return next
             }

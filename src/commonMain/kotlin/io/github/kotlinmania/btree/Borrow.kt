@@ -3,48 +3,85 @@
 // copyright The Rust Project Developers, dual-licensed Apache-2.0 / MIT.
 package io.github.kotlinmania.btree
 
+private class PhantomData<T>
+
+private class RawPtr<T> internal constructor(
+    val value: T,
+)
+
+private class NonNull<T> internal constructor(
+    val value: T,
+) {
+    val asPtr: RawPtr<T> = RawPtr(value)
+}
+
 /**
  * Models a reborrow of some unique reference, when you know that the reborrow
- * and all its descendants, all references derived from it, will not be used any
- * more at some point, after which you want to use the original unique reference
- * again.
+ * and all its descendants (i.e., all pointers and references derived from it)
+ * will not be used any more at some point, after which you want to use the
+ * original unique reference again.
  *
- * Ordinary code usually handles this stacking of borrows for you, but some
- * control flows that accomplish this stacking are too complicated to express
- * directly. A [DormantMutRef] allows you to check borrowing yourself, while
- * still expressing its stacked nature.
+ * The borrow checker usually handles this stacking of borrows for you, but
+ * some control flows that accomplish this stacking are too complicated for
+ * the compiler to follow. A [DormantMutRef] allows you to check borrowing
+ * yourself, while still expressing its stacked nature, and encapsulating
+ * the raw pointer code needed to do this without undefined behavior.
  */
-internal class DormantMutRef<T> private constructor(private val ref: T) {
+internal class DormantMutRef<T> private constructor(
+    private val ptr: NonNull<T>,
+    private val marker: PhantomData<T>,
+) {
     companion object {
         /**
-         * Capture a unique borrow, and immediately reborrow it. The reborrow is
-         * valid for the same scope as the original reference, but callers promise
-         * to use it for a shorter period.
+         * Capture a unique borrow, and immediately reborrow it. For the compiler,
+         * the scope of the new reference is the same as the scope of the
+         * original reference, but you promise to use it for a shorter period.
          */
-        fun <T> new(t: T): Pair<T, DormantMutRef<T>> = Pair(t, DormantMutRef(t))
+        fun <T> new(t: T): Pair<T, DormantMutRef<T>> {
+            val ptr = NonNull(t)
+            // SAFETY: we hold the borrow throughout the scope, and we expose
+            // only this reference, so it is unique.
+            val newRef = ptr.asPtr.value
+            return Pair(newRef, DormantMutRef(ptr = ptr, marker = PhantomData()))
+        }
     }
 
     /**
      * Revert to the unique borrow initially captured.
      *
+     * # Safety
+     *
      * The reborrow must have ended, i.e., the reference returned by [new] and
-     * all references derived from it, must not be used anymore.
+     * all pointers and references derived from it, must not be used anymore.
      */
-    fun awaken(): T = ref
+    fun awaken(): T {
+        // SAFETY: our own safety conditions imply this reference is again unique.
+        return ptr.asPtr.value
+    }
 
     /**
      * Borrows a new mutable reference from the unique borrow initially captured.
      *
+     * # Safety
+     *
      * The reborrow must have ended, i.e., the reference returned by [new] and
-     * all references derived from it, must not be used anymore.
+     * all pointers and references derived from it, must not be used anymore.
      */
-    fun reborrow(): T = ref
+    fun reborrow(): T {
+        // SAFETY: our own safety conditions imply this reference is again unique.
+        return ptr.asPtr.value
+    }
 
     /**
      * Borrows a new shared reference from the unique borrow initially captured.
      *
+     * # Safety
+     *
      * The reborrow must have ended, i.e., the reference returned by [new] and
-     * all references derived from it, must not be used anymore.
+     * all pointers and references derived from it, must not be used anymore.
      */
-    fun reborrowShared(): T = ref
+    fun reborrowShared(): T {
+        // SAFETY: our own safety conditions imply this reference is again unique.
+        return ptr.asPtr.value
+    }
 }
