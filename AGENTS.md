@@ -19,7 +19,16 @@ port easier.
 - Preserve every comment, inline note, and safety/panic doc section —
   translate the language conventions to KDoc but keep the intent verbatim. This means translating Rust concepts in comments (e.g. `traits`, `lifetimes`, `ZSTs`) to their exact Kotlin API equivalents.
 - **NO PORTING NOTES**: Do not add comments explaining Kotlin workarounds, "Rust vs Kotlin" rationale, or any other porting narratives to the source code.
-- **NO RUST IN COMMENTS**: Never leave untranslated Rust code snippets or snake_case identifiers in the Kotlin KDocs. Ensure the documentation accurately describes the Kotlin API.
+- **NO RUST IN COMMENTS**: KDoc must describe the Kotlin API in Kotlin
+  terms. When upstream Rust uses snake_case identifiers (e.g.
+  `first_key_value`, `len_underflow`) inside doc comments, the Kotlin
+  port translates the *names* to Kotlin lowerCamelCase (`firstKeyValue`,
+  `lenUnderflow`). **This is a translation direction, not a renaming
+  scheme: never rename Kotlin code, files, or identifiers to snake_case
+  to satisfy this rule.** Kotlin source stays Kotlin (PascalCase types,
+  camelCase functions/locals, SCREAMING_SNAKE_CASE only for `const val`
+  and enum entries). The rule prohibits *Rust syntax leaking into
+  Kotlin KDoc*; it does not authorise *Rustifying Kotlin source*.
 - A missing function is preferable to a stub. If you can't translate
   something, leave the slot empty and track it explicitly (e.g. in
   `NEXT_ACTIONS.md`) rather than committing a fake implementation.
@@ -111,7 +120,19 @@ translated to Kotlin-facing API names and signatures.
 
 ### Naming
 
-| Rust (snake_case) | Kotlin (lowerCamelCase) |
+The translation direction is **always Rust → Kotlin**. Rust source uses
+snake_case; the Kotlin port uses Kotlin idioms. Never rename Kotlin
+files or identifiers to snake_case to "match" upstream — Kotlin source
+follows Kotlin coding conventions.
+
+- **Files / types:** `PascalCase` (e.g. `Node.kt`, `class BTreeMap`).
+  Do not rename Kotlin files to lower_snake or `lowercase.kt` to mirror
+  the Rust filename.
+- **Functions, parameters, locals:** `lowerCamelCase`.
+- **`const val` and enum entries:** `SCREAMING_SNAKE_CASE` permitted.
+- **Packages:** all lowercase, no camelCase, no underscores.
+
+| Rust (snake_case source) | Kotlin port (Kotlin idioms) |
 |---|---|
 | `fn first_key_value` | `fun firstKeyValue` |
 | `let len_underflow` | `val lenUnderflow` |
