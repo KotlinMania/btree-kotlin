@@ -147,7 +147,8 @@ Do not treat similarity scores as a verdict of correctness.
 
 ## Naming conventions (do not Rustify Kotlin)
 
-- **Files / types:** `PascalCase` (do not rename Kotlin files to `snake_case`)
+- **File naming:** Rust `snake_case.rs` → Kotlin `PascalCase.kt` (do not rename Kotlin files to `snake_case`)
+- **Types:** `PascalCase`
 - **Functions / locals:** `camelCase`
 - **Packages:** all lowercase (no camelCase)
 
