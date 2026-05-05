@@ -3,18 +3,6 @@
 // copyright The Rust Project Developers, dual-licensed Apache-2.0 / MIT.
 package io.github.kotlinmania.btree
 
-private class PhantomData<T>
-
-private class RawPtr<T> internal constructor(
-    val value: T,
-)
-
-private class NonNull<T> internal constructor(
-    val value: T,
-) {
-    val asPtr: RawPtr<T> = RawPtr(value)
-}
-
 /**
  * Models a reborrow of some unique reference, when you know that the reborrow
  * and all its descendants (i.e., all pointers and references derived from it)
@@ -28,8 +16,7 @@ private class NonNull<T> internal constructor(
  * the raw pointer code needed to do this without undefined behavior.
  */
 internal class DormantMutRef<T> private constructor(
-    private val ptr: NonNull<T>,
-    private val marker: PhantomData<T>,
+    private val value: T,
 ) {
     companion object {
         /**
@@ -38,11 +25,7 @@ internal class DormantMutRef<T> private constructor(
          * original reference, but you promise to use it for a shorter period.
          */
         fun <T> new(t: T): Pair<T, DormantMutRef<T>> {
-            val ptr = NonNull(t)
-            // SAFETY: we hold the borrow throughout the scope, and we expose
-            // only this reference, so it is unique.
-            val newRef = ptr.asPtr.value
-            return Pair(newRef, DormantMutRef(ptr = ptr, marker = PhantomData()))
+            return Pair(t, DormantMutRef(value = t))
         }
     }
 
@@ -55,8 +38,7 @@ internal class DormantMutRef<T> private constructor(
      * all pointers and references derived from it, must not be used anymore.
      */
     fun awaken(): T {
-        // SAFETY: our own safety conditions imply this reference is again unique.
-        return ptr.asPtr.value
+        return value
     }
 
     /**
@@ -68,8 +50,7 @@ internal class DormantMutRef<T> private constructor(
      * all pointers and references derived from it, must not be used anymore.
      */
     fun reborrow(): T {
-        // SAFETY: our own safety conditions imply this reference is again unique.
-        return ptr.asPtr.value
+        return value
     }
 
     /**
@@ -81,7 +62,6 @@ internal class DormantMutRef<T> private constructor(
      * all pointers and references derived from it, must not be used anymore.
      */
     fun reborrowShared(): T {
-        // SAFETY: our own safety conditions imply this reference is again unique.
-        return ptr.asPtr.value
+        return value
     }
 }
