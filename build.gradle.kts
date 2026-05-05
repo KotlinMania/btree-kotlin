@@ -1,13 +1,12 @@
-import com.vanniktech.maven.publish.SonatypeHost
 import org.gradle.language.base.plugins.LifecycleBasePlugin
 import org.jetbrains.kotlin.gradle.ExperimentalWasmDsl
 import org.jetbrains.kotlin.gradle.plugin.mpp.apple.XCFramework
 
 plugins {
-    kotlin("multiplatform") version "2.3.20"
-    kotlin("plugin.serialization") version "2.3.20"
+    kotlin("multiplatform") version "2.3.21"
+    kotlin("plugin.serialization") version "2.3.21"
     id("com.android.kotlin.multiplatform.library") version "9.2.0"
-    id("com.vanniktech.maven.publish") version "0.30.0"
+    id("com.vanniktech.maven.publish") version "0.36.0"
 }
 
 group = "io.github.kotlinmania"
@@ -47,12 +46,6 @@ kotlin {
     val xcf = XCFramework("BTreeKotlin")
 
     macosArm64 {
-        binaries.framework {
-            baseName = "BTreeKotlin"
-            xcf.add(this)
-        }
-    }
-    macosX64 {
         binaries.framework {
             baseName = "BTreeKotlin"
             xcf.add(this)
@@ -119,7 +112,7 @@ tasks.register("test") {
 
 
 mavenPublishing {
-    publishToMavenCentral(SonatypeHost.CENTRAL_PORTAL)
+    publishToMavenCentral()
     val signingConfigured =
         providers.gradleProperty("signingInMemoryKey").isPresent ||
             providers.gradleProperty("signing.keyId").isPresent ||
