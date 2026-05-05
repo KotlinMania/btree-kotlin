@@ -74,5 +74,5 @@ Then:
 ./gradlew macosArm64Test
 ```
 
-Targets: macosArm64, macosX64, linuxX64, mingwX64, iosArm64, iosX64,
+Targets: macosArm64, linuxX64, mingwX64, iosArm64,
 iosSimulatorArm64, js, wasmJs, androidLibrary.

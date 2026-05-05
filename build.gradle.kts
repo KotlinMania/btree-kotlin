@@ -52,21 +52,9 @@ kotlin {
             xcf.add(this)
         }
     }
-    macosX64 {
-        binaries.framework {
-            baseName = "BTreeKotlin"
-            xcf.add(this)
-        }
-    }
     linuxX64()
     mingwX64()
     iosArm64 {
-        binaries.framework {
-            baseName = "BTreeKotlin"
-            xcf.add(this)
-        }
-    }
-    iosX64 {
         binaries.framework {
             baseName = "BTreeKotlin"
             xcf.add(this)
@@ -122,7 +110,6 @@ tasks.register("test") {
     description = "Runs the Kotlin Multiplatform test aggregate."
     dependsOn("allTests")
 }
-
 
 mavenPublishing {
     publishToMavenCentral()
