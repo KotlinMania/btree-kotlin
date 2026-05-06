@@ -1,78 +1,57 @@
-# btree-kotlin
+# btree-kotlin in Kotlin
 
-Kotlin Multiplatform port of Rust's `std::collections::BTreeMap` and
-`BTreeSet`, translated line-by-line from
-[`library/alloc/src/collections/btree/`](https://github.com/rust-lang/rust/tree/master/library/alloc/src/collections/btree).
+[![GitHub link](https://img.shields.io/badge/GitHub-KotlinMania%2Fbtree--kotlin-blue.svg)](https://github.com/KotlinMania/btree-kotlin)
+[![Maven Central](https://img.shields.io/maven-central/v/io.github.kotlinmania/btree-kotlin)](https://central.sonatype.com/artifact/io.github.kotlinmania/btree-kotlin)
+[![Build status](https://img.shields.io/github/actions/workflow/status/KotlinMania/btree-kotlin/ci.yml?branch=main)](https://github.com/KotlinMania/btree-kotlin/actions)
 
-## Why
+This is a Kotlin Multiplatform line-by-line transliteration port of [`rust-lang/rus`](https://github.com/rust-lang/rust).
 
-Kotlin's standard library has no sorted-by-key map for the `commonMain`
-multiplatform source set — neither built-in nor in
-`kotlinx.collections.immutable`. There's an open feature request
-([KT-38356](https://youtrack.jetbrains.com/issue/KT-38356)) but no ETA.
+**Original Project:** This port is based on [`rust-lang/rus`](https://github.com/rust-lang/rust). All design credit and project intent belong to the upstream authors; this repository is a faithful port to Kotlin Multiplatform with no behavioural changes intended.
 
-The two reasonable workarounds are:
+### Porting status
 
-1. Snapshot-and-sort on iteration over a `LinkedHashMap` — observable
-   ordering matches `BTreeMap`, asymptotic costs are wrong.
-2. Vendor a third-party sorted-list-like library — pulls in foreign API
-   shapes and forces consumers to refactor.
+This is an **in-progress port**. The goal is feature parity with the upstream Rust crate while providing a native Kotlin Multiplatform API. Every Kotlin file carries a `// port-lint: source <path>` header naming its upstream Rust counterpart so the AST-distance tool can track provenance.
 
-This crate takes a third path: faithfully port the Rust standard
-library's `BTreeMap` to Kotlin, preserving its B-tree-of-order-6 layout,
-its iterator state machines, and its observable behavior. The result is
-a drop-in `MutableMap<K, V>` / `MutableSet<T>` that orders by
-`Comparable<K>` (or a supplied `Comparator<K>`).
+---
 
-## Status
+## About this Kotlin port
 
-Run `tools/ast_distance/ast_distance --deep tmp/rust-stdlib-collections-btree rust src/commonMain/kotlin/io/github/kotlinmania/btree kotlin` for the current parity numbers and per-file gaps. `ast_distance` is the sole oracle for port progress.
+### Installation
 
-## Layout
-
-```
-src/commonMain/kotlin/io/github/kotlinmania/btree/
-├── Node.kt              ← library/alloc/src/collections/btree/node.rs
-├── Search.kt            ← search.rs
-├── Navigate.kt          ← navigate.rs
-├── Map.kt               ← map.rs               (public BTreeMap<K, V>)
-├── Set.kt               ← set.rs               (public BTreeSet<T>)
-├── Mem.kt               ← mem.rs
-├── Borrow.kt            ← borrow.rs
-├── Fix.kt               ← fix.rs
-├── Remove.kt            ← remove.rs
-├── Split.kt             ← split.rs
-├── Append.kt            ← append.rs
-├── MergeIter.kt         ← merge_iter.rs
-└── DedupSortedIter.kt   ← dedup_sorted_iter.rs
+```kotlin
+dependencies {
+    implementation("io.github.kotlinmania:btree-kotlin:0.2.0")
+}
 ```
 
-Each `.kt` file's `// port-lint: source ...` header pinpoints which
-upstream line it was translated from. The vendored Rust source itself
-is **not** tracked in this repo — it's fetched into `tmp/` per clone
-by `tools/fetch-rust-source.sh` (CI does this automatically; local
-devs run it once after cloning).
+### Building
 
-## License
-
-Dual-licensed under Apache-2.0 OR MIT, mirroring the upstream Rust
-licensing. See `LICENSE-APACHE`, `LICENSE-MIT`, and `NOTICE`.
-
-## Build
-
-After cloning, rehydrate the vendored Rust source so port-lint and
-ast_distance verification can run:
-
-```
-./tools/fetch-rust-source.sh
+```bash
+./gradlew build
+./gradlew test
 ```
 
-Then:
+### Targets
 
-```
-./gradlew compileKotlinMacosArm64
-./gradlew macosArm64Test
-```
+- macOS arm64
+- Linux x64
+- Windows mingw-x64
+- iOS arm64 / simulator-arm64 (Swift export + XCFramework)
+- JS (browser + Node.js)
+- Wasm-JS (browser + Node.js)
+- Android (API 24+)
 
-Targets: macosArm64, macosX64, linuxX64, mingwX64, iosArm64, iosX64,
-iosSimulatorArm64, js, wasmJs, androidLibrary.
+### Porting guidelines
+
+See [AGENTS.md](AGENTS.md) and [CLAUDE.md](CLAUDE.md) for translator discipline, port-lint header convention, and Rust → Kotlin idiom mapping.
+
+### License
+
+This Kotlin port is distributed under the same MIT license as the upstream [`rust-lang/rus`](https://github.com/rust-lang/rust). See [LICENSE](LICENSE) (and any sibling `LICENSE-*` / `NOTICE` files mirrored from upstream) for the full text.
+
+Original work copyrighted by the rus authors.  
+Kotlin port: Copyright (c) 2026 Sydney Renee and The Solace Project.
+
+### Acknowledgments
+
+Thanks to the [`rust-lang/rus`](https://github.com/rust-lang/rust) maintainers and contributors for the original Rust implementation. This port reproduces their work in Kotlin Multiplatform; bug reports about upstream design or behavior should go to the upstream repository.
