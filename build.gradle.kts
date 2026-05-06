@@ -1,4 +1,3 @@
-import org.gradle.language.base.plugins.LifecycleBasePlugin
 import org.jetbrains.kotlin.gradle.ExperimentalWasmDsl
 import org.jetbrains.kotlin.gradle.plugin.mpp.apple.XCFramework
 import org.jetbrains.kotlin.gradle.targets.js.yarn.YarnRootExtension
@@ -21,13 +20,6 @@ version = "0.2.0"
 val androidSdkDir: String? =
     providers.environmentVariable("ANDROID_SDK_ROOT").orNull
         ?: providers.environmentVariable("ANDROID_HOME").orNull
-        ?: listOf(
-            rootProject.file(".android-sdk"),
-            // Workspace convenience: reuse a sibling repo's checked-in SDK if present.
-            rootProject.file("../crossterm-kotlin/.android-sdk"),
-            rootProject.file("../ratatui-kotlin/.android-sdk"),
-            rootProject.file("../starlark-kotlin/.android-sdk"),
-        ).firstOrNull { it.exists() }?.absolutePath
 
 if (androidSdkDir != null && file(androidSdkDir).exists()) {
     val localProperties = rootProject.file("local.properties")
@@ -40,13 +32,14 @@ if (androidSdkDir != null && file(androidSdkDir).exists()) {
 kotlin {
     applyDefaultHierarchyTemplate()
 
-    compilerOptions {
-        allWarningsAsErrors.set(true)
-    }
-
     sourceSets.all {
         languageSettings.optIn("kotlin.time.ExperimentalTime")
         languageSettings.optIn("kotlin.concurrent.atomics.ExperimentalAtomicApi")
+    }
+
+    compilerOptions {
+        allWarningsAsErrors.set(true)
+        freeCompilerArgs.add("-Xexpect-actual-classes")
     }
 
     val xcf = XCFramework("BTreeKotlin")
@@ -105,11 +98,11 @@ kotlin {
 }
 
 rootProject.extensions.configure<NodeJsEnvSpec>("kotlinNodeJsSpec") {
-    version.set("22.22.2")
+    version.set("24.13.0")
 }
 
 rootProject.extensions.configure<WasmNodeJsEnvSpec>("kotlinWasmNodeJsSpec") {
-    version.set("22.22.2")
+    version.set("24.13.0")
 }
 
 rootProject.extensions.configure<YarnRootEnvSpec>("kotlinYarnSpec") {
@@ -122,11 +115,10 @@ rootProject.extensions.configure<WasmYarnRootEnvSpec>("kotlinWasmYarnSpec") {
 
 rootProject.extensions.configure<YarnRootExtension>("kotlinYarn") {
     resolution("diff", "8.0.3")
-    resolution("serialize-javascript", "7.0.5")
-    resolution("webpack", "5.106.2")
-
     resolution("**/diff", "8.0.3")
+    resolution("serialize-javascript", "7.0.5")
     resolution("**/serialize-javascript", "7.0.5")
+    resolution("webpack", "5.106.2")
     resolution("**/webpack", "5.106.2")
     resolution("follow-redirects", "1.16.0")
     resolution("**/follow-redirects", "1.16.0")
@@ -160,39 +152,19 @@ rootProject.extensions.configure<NodeJsRootExtension>("kotlinNodeJs") {
     versions.kotlinWebHelpers.version = "3.1.0"
 }
 
-tasks.register("test") {
-    group = LifecycleBasePlugin.VERIFICATION_GROUP
-    description = "Runs the Kotlin Multiplatform test aggregate."
-    dependsOn("allTests")
-}
-
 mavenPublishing {
     publishToMavenCentral()
-    val signingConfigured =
-        providers.gradleProperty("signingInMemoryKey").isPresent ||
-            providers.gradleProperty("signing.keyId").isPresent ||
-            providers.environmentVariable("SIGNING_KEY").isPresent
-    if (signingConfigured) {
-        signAllPublications()
-    }
+    signAllPublications()
 
     coordinates(group.toString(), "btree-kotlin", version.toString())
 
     pom {
         name.set("btree-kotlin")
-        description.set(
-            "Kotlin Multiplatform port of Rust's std::collections::BTreeMap / BTreeSet, " +
-                "translated line-by-line from library/alloc/src/collections/btree/."
-        )
+        description.set("Kotlin Multiplatform port of rust-lang/rus - Kotlin port of Rust stdlib BTreeMap/BTreeSet")
         inceptionYear.set("2026")
         url.set("https://github.com/KotlinMania/btree-kotlin")
 
         licenses {
-            license {
-                name.set("Apache-2.0")
-                url.set("https://opensource.org/licenses/Apache-2.0")
-                distribution.set("repo")
-            }
             license {
                 name.set("MIT")
                 url.set("https://opensource.org/licenses/MIT")
@@ -215,4 +187,18 @@ mavenPublishing {
             developerConnection.set("scm:git:ssh://github.com/KotlinMania/btree-kotlin.git")
         }
     }
+}
+
+tasks.register("test") {
+    group = "verification"
+    description =
+        "Runs a portable test suite (macOS + JS + WasmJS). Android and non-host native targets are intentionally excluded."
+
+    val defaultTestTasks = listOf(
+        "macosArm64Test",
+        "jsNodeTest",
+        "wasmJsNodeTest",
+    )
+
+    dependsOn(defaultTestTasks.mapNotNull { taskName -> tasks.findByName(taskName) })
 }

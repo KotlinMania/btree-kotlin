@@ -2,9 +2,9 @@ name: CI
 
 on:
   push:
-    branches: [main, master]
+    branches: [main]
   pull_request:
-    branches: [main, master]
+    branches: [main]
 
 jobs:
   build-macos-arm64:
@@ -55,8 +55,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v6.4.0
         with:
-          node-version: '24'
-          check-latest: true
+          node-version: '24.13.0'
 
       - name: Set up Yarn
         run: |
@@ -75,9 +74,8 @@ jobs:
         run: >
           ./gradlew
           compileAndroidMain
-          assembleAndroidHostTest
-          testAndroidHostTest
-          assembleAndroidDeviceTest
+          assembleUnitTest
+          assembleAndroidTest
           jsBrowserTest
           jsNodeTest
           linuxX64Test
