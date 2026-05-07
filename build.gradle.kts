@@ -15,7 +15,7 @@ plugins {
 }
 
 group = "io.github.kotlinmania"
-version = "0.2.0"
+version = "0.2.1"
 
 val androidSdkDir: String? =
     providers.environmentVariable("ANDROID_SDK_ROOT").orNull
@@ -160,7 +160,7 @@ mavenPublishing {
 
     pom {
         name.set("btree-kotlin")
-        description.set("Kotlin Multiplatform port of rust-lang/rus - Kotlin port of Rust stdlib BTreeMap/BTreeSet")
+        description.set("Kotlin Multiplatform port of Rust stdlib BTreeMap/BTreeSet from rust-lang/rust")
         inceptionYear.set("2026")
         url.set("https://github.com/KotlinMania/btree-kotlin")
 
@@ -168,6 +168,11 @@ mavenPublishing {
             license {
                 name.set("MIT")
                 url.set("https://opensource.org/licenses/MIT")
+                distribution.set("repo")
+            }
+            license {
+                name.set("Apache License, Version 2.0")
+                url.set("https://www.apache.org/licenses/LICENSE-2.0")
                 distribution.set("repo")
             }
         }

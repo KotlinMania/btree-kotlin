@@ -16,7 +16,7 @@ contributors.
 Vendored Rust source is fetched into `tmp/rust-stdlib-collections-btree/`
 by `tools/fetch-rust-source.sh` and is not tracked in this repo
 (see `.gitignore`). The Kotlin port lives at
-`src/commonMain/kotlin/io/github/kotlinmania/btree_kotlin/`. Each
+`src/commonMain/kotlin/io/github/kotlinmania/btree/`. Each
 ported `.kt` file carries a `// port-lint:` header pointing at the
 specific Rust source path it was translated from, plus a short
 attribution preamble naming the upstream copyright holder and the
