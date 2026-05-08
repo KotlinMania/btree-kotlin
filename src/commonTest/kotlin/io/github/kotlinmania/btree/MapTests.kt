@@ -158,7 +158,7 @@ class MapTests {
     fun testCheckOrdChaos() {
         assertFailsWith<Throwable> {
             val gov = Governor.new()
-            val map = BTreeMap<Governed, Unit>()
+            val map = BTreeMap<Governed<Int>, Unit>()
             map.insert(Governed(1, gov), Unit)
             map.insert(Governed(2, gov), Unit)
             gov.flip()
@@ -170,7 +170,7 @@ class MapTests {
     @Test
     fun testCheckInvariantsOrdChaos() {
         val gov = Governor.new()
-        val map = BTreeMap<Governed, Unit>()
+        val map = BTreeMap<Governed<Int>, Unit>()
         map.insert(Governed(1, gov), Unit)
         map.insert(Governed(2, gov), Unit)
         gov.flip()
@@ -2217,7 +2217,7 @@ class MapTests {
     fun testInsertRemoveIntertwinedOrdChaos() {
         val loops = 100
         val gov = Governor.new()
-        val map = BTreeMap<Governed, Unit>()
+        val map = BTreeMap<Governed<Int>, Unit>()
         var i = 1
         val offset = 165
         for (j in 0 until loops) {
