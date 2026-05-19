@@ -1,0 +1,15 @@
+{
+  "agents": {
+    "overrides": {
+      "generalist": {
+        "enabled": false
+      },
+      "codebase_investigator": {
+        "enabled": false
+      },
+      "cli_help": {
+        "enabled": false
+      }
+    }
+  }
+}
