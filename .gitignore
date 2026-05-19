@@ -1,12 +1,7 @@
-/target/
-Cargo.lock
-*.wasm
-rust-source/
-
 # Kotlin/Gradle build artifacts
 build/
 .gradle/
-local.properties
+.kotlin/
 *.class
 *.jar
 *.war
@@ -14,32 +9,41 @@ local.properties
 
 # Keep the Gradle wrapper jar checked in so CI can run `./gradlew`.
 !gradle/wrapper/gradle-wrapper.jar
+
+# IDE
 .idea/
-.gemini/
 *.iml
 out/
-# Working dir for the vendored Rust source and any other ephemera.
-# Not tracked — fetch with `tools/fetch-rust-source.sh` after cloning.
-tmp/
 
-# AST distance tool reports
+# Upstream Rust source — clone freshly when porting begins
+tmp/
+!tmp/.gitkeep
+
+# AST distance reports and binaries
 port_status_report.md
 high_priority_ports.md
-NEXT_ACTIONS.md
-
-# AST distance agent state and lock files
+ast_distance_*.txt
 .cache/
 *.lock
 kotlin-js-store/*
+!kotlin-js-store/package.json
 !kotlin-js-store/yarn.lock
 !kotlin-js-store/wasm/
 !kotlin-js-store/wasm/yarn.lock
-
-# AST distance compiled binary (CMake output, rebuild from source)
 tools/ast_distance/ast_distance
 tools/ast_distance/build/
 
-# Python bytecode caches
+# JVM heap dumps
+*.hprof
+java_pid*.hprof
+
+# macOS Finder metadata
+.DS_Store
+
+# Python bytecode
 __pycache__/
 *.pyc
-.DS_Store
+
+# Android SDK
+/.android-sdk/
+local.properties
