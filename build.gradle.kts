@@ -199,10 +199,18 @@ kotlin {
         binaries.framework { baseName = "BTreeKotlin"; xcf.add(this) }
     }
     iosSimulatorArm64 {
-        binaries.framework { baseName = "BTreeKotlin"; xcf.add(this) }
+        binaries.framework {
+            baseName = "BTreeKotlin"
+            isStatic = true
+            xcf.add(this)
+        }
     }
     iosX64 {
-        binaries.framework { baseName = "BTreeKotlin"; xcf.add(this) }
+        binaries.framework {
+            baseName = "BTreeKotlin"
+            isStatic = true
+            xcf.add(this)
+        }
     }
 
     tvosArm64 {
