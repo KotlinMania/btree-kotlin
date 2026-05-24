@@ -34,6 +34,12 @@ private class Peekable<K, V>(private val source: Iterator<Pair<K, V>>) {
 internal class DedupSortedIter<K, V, I : Iterator<Pair<K, V>>>(
     iter: I,
 ) : Iterator<Pair<K, V>> {
+    companion object {
+        fun <K, V, I : Iterator<Pair<K, V>>> new(iter: I): DedupSortedIter<K, V, I> {
+            return DedupSortedIter(iter)
+        }
+    }
+
     private val iter = Peekable(iter)
     private var pending: Pair<K, V>? = null
     private var pendingReady: Boolean = false
