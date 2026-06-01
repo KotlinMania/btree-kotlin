@@ -1,7 +1,11 @@
 // port-lint: source set.rs
 // Derived from the Rust standard library (rust-lang/rust),
 // copyright The Rust Project Developers, dual-licensed Apache-2.0 / MIT.
+@file:OptIn(kotlin.experimental.ExperimentalObjCRefinement::class)
+
 package io.github.kotlinmania.btree
+
+import kotlin.native.HiddenFromObjC
 
 /** Estimated relative size at which searching beats iterating. */
 private const val ITER_PERFORMANCE_TIPPING_SIZE_DIFF: Int = 16
@@ -24,6 +28,7 @@ private const val ITER_PERFORMANCE_TIPPING_SIZE_DIFF: Int = 16
  * and take worst-case logarithmic and amortized constant time per item
  * returned.
  */
+@HiddenFromObjC
 class BTreeSet<T> private constructor(
     private val comparator: Comparator<in T>?,
     internal val map: BTreeMap<T, SetValZST>,
@@ -38,17 +43,23 @@ class BTreeSet<T> private constructor(
     /** Internal constructor wrapping a pre-built map (used by [splitOff]). */
     internal constructor(map: BTreeMap<T, SetValZST>) : this(map.comparator, map)
 
-    internal fun compareElements(left: T, right: T): Int = map.compareKeys(left, right)
+    internal fun compareElements(
+        left: T,
+        right: T,
+    ): Int = map.compareKeys(left, right)
 
     /** Makes a new `BTreeSet` with a reasonable choice of B. */
     companion object {
         /** Makes a new, empty `BTreeSet`. Does not allocate anything on its own. */
+        @HiddenFromObjC
         fun <T> new(): BTreeSet<T> = BTreeSet()
 
         /** Makes a new, empty `BTreeSet` with a reasonable choice of B. */
+        @HiddenFromObjC
         fun <T> newIn(): BTreeSet<T> = BTreeSet()
 
         /** Creates an empty `BTreeSet`. */
+        @HiddenFromObjC
         fun <T> default(): BTreeSet<T> = BTreeSet()
 
         /** Constructs a `BTreeSet` from any source of values. */
@@ -68,10 +79,12 @@ class BTreeSet<T> private constructor(
         fun <T : Comparable<T>> from(vararg values: T): BTreeSet<T> = fromIterable(values.asIterable())
 
         internal fun <T> fromSortedIter(iter: Iterator<T>): BTreeSet<T> {
-            val mapped = object : Iterator<Pair<T, SetValZST>> {
-                override fun hasNext(): Boolean = iter.hasNext()
-                override fun next(): Pair<T, SetValZST> = Pair(iter.next(), SetValZST)
-            }
+            val mapped =
+                object : Iterator<Pair<T, SetValZST>> {
+                    override fun hasNext(): Boolean = iter.hasNext()
+
+                    override fun next(): Pair<T, SetValZST> = Pair(iter.next(), SetValZST)
+                }
             val map = BTreeMap.bulkBuildFromSortedIter<T, SetValZST>(mapped)
             return BTreeSet(map)
         }
@@ -102,25 +115,27 @@ class BTreeSet<T> private constructor(
         if (selfMin != null && selfMax != null && otherMin != null && otherMax != null) {
             val cmpMinMax = compareElements(selfMin, otherMax)
             val cmpMaxMin = compareElements(selfMax, otherMin)
-            val inner: DifferenceInner<T> = when {
-                cmpMinMax > 0 || cmpMaxMin < 0 -> DifferenceInner.Iterate(this.iter())
-                cmpMinMax == 0 -> {
-                    val selfIter = this.iter()
-                    selfIter.next()
-                    DifferenceInner.Iterate(selfIter)
+            val inner: DifferenceInner<T> =
+                when {
+                    cmpMinMax > 0 || cmpMaxMin < 0 -> DifferenceInner.Iterate(this.iter())
+                    cmpMinMax == 0 -> {
+                        val selfIter = this.iter()
+                        selfIter.next()
+                        DifferenceInner.Iterate(selfIter)
+                    }
+                    cmpMaxMin == 0 -> {
+                        val selfIter = this.iter()
+                        selfIter.nextBack()
+                        DifferenceInner.Iterate(selfIter)
+                    }
+                    this.size <= other.size / ITER_PERFORMANCE_TIPPING_SIZE_DIFF ->
+                        DifferenceInner.Search(selfIter = this.iter(), otherSet = other)
+                    else ->
+                        DifferenceInner.Stitch(
+                            selfIter = this.iter(),
+                            otherIter = PeekableSetIter(other.iter()),
+                        )
                 }
-                cmpMaxMin == 0 -> {
-                    val selfIter = this.iter()
-                    selfIter.nextBack()
-                    DifferenceInner.Iterate(selfIter)
-                }
-                this.size <= other.size / ITER_PERFORMANCE_TIPPING_SIZE_DIFF ->
-                    DifferenceInner.Search(selfIter = this.iter(), otherSet = other)
-                else -> DifferenceInner.Stitch(
-                    selfIter = this.iter(),
-                    otherIter = PeekableSetIter(other.iter()),
-                )
-            }
             return Difference(inner, ::compareElements)
         }
         return Difference(DifferenceInner.Iterate(this.iter()), ::compareElements)
@@ -131,8 +146,7 @@ class BTreeSet<T> private constructor(
      * elements that are in `self` or in [other] but not in both, in ascending
      * order.
      */
-    fun symmetricDifference(other: BTreeSet<T>): SymmetricDifference<T> =
-        SymmetricDifference(MergeIterInner(this.iter(), other.iter()), ::compareElements)
+    fun symmetricDifference(other: BTreeSet<T>): SymmetricDifference<T> = SymmetricDifference(MergeIterInner(this.iter(), other.iter()), ::compareElements)
 
     /**
      * Visits the elements representing the intersection, i.e., the elements
@@ -146,16 +160,17 @@ class BTreeSet<T> private constructor(
         if (selfMin != null && selfMax != null && otherMin != null && otherMax != null) {
             val cmpMinMax = compareElements(selfMin, otherMax)
             val cmpMaxMin = compareElements(selfMax, otherMin)
-            val inner: IntersectionInner<T> = when {
-                cmpMinMax > 0 || cmpMaxMin < 0 -> IntersectionInner.Answer(null)
-                cmpMinMax == 0 -> IntersectionInner.Answer(selfMin)
-                cmpMaxMin == 0 -> IntersectionInner.Answer(selfMax)
-                this.size <= other.size / ITER_PERFORMANCE_TIPPING_SIZE_DIFF ->
-                    IntersectionInner.Search(smallIter = this.iter(), largeSet = other)
-                other.size <= this.size / ITER_PERFORMANCE_TIPPING_SIZE_DIFF ->
-                    IntersectionInner.Search(smallIter = other.iter(), largeSet = this)
-                else -> IntersectionInner.Stitch(a = this.iter(), b = other.iter())
-            }
+            val inner: IntersectionInner<T> =
+                when {
+                    cmpMinMax > 0 || cmpMaxMin < 0 -> IntersectionInner.Answer(null)
+                    cmpMinMax == 0 -> IntersectionInner.Answer(selfMin)
+                    cmpMaxMin == 0 -> IntersectionInner.Answer(selfMax)
+                    this.size <= other.size / ITER_PERFORMANCE_TIPPING_SIZE_DIFF ->
+                        IntersectionInner.Search(smallIter = this.iter(), largeSet = other)
+                    other.size <= this.size / ITER_PERFORMANCE_TIPPING_SIZE_DIFF ->
+                        IntersectionInner.Search(smallIter = other.iter(), largeSet = this)
+                    else -> IntersectionInner.Stitch(a = this.iter(), b = other.iter())
+                }
             return Intersection(inner, ::compareElements)
         }
         return Intersection(IntersectionInner.Answer(null), ::compareElements)
@@ -242,8 +257,12 @@ class BTreeSet<T> private constructor(
                     val other1 = otherIter.next()
                     val cmp = compareElements(other1, self1)
                     if (cmp < 0) continue // skip over elements that are smaller
-                    if (cmp == 0) { matched = true; break } // self1 is in other
-                    /* cmp > 0 */ return false // self1 is not in other
+                    if (cmp == 0) {
+                        matched = true
+                        break
+                    } // self1 is in other
+                    // cmp > 0
+                    return false // self1 is not in other
                 }
                 if (!matched) return false
             }
@@ -314,35 +333,59 @@ class BTreeSet<T> private constructor(
      * Inserts a value computed from [f] into the set if the given [value] is
      * not present, then returns the value in the set.
      */
-    fun getOrInsertWith(value: T, f: (T) -> T): T = map.getOrInsertWith(value, f)
+    fun getOrInsertWith(
+        value: T,
+        f: (T) -> T,
+    ): T = map.getOrInsertWith(value, f)
 
     /**
      * Gets the given value's corresponding entry in the set for in-place manipulation.
      */
-    fun entry(value: T): SetEntry<T> = when (val e = map.entry(value)) {
-        is io.github.kotlinmania.btree.Entry.Occupied -> SetEntry.Occupied(SetOccupiedEntry(e.entry))
-        is io.github.kotlinmania.btree.Entry.Vacant -> SetEntry.Vacant(SetVacantEntry(e.entry))
-    }
+    fun entry(value: T): SetEntry<T> =
+        when (val e = map.entry(value)) {
+            is io.github.kotlinmania.btree.Entry.Occupied -> SetEntry.Occupied(SetOccupiedEntry(e.entry))
+            is io.github.kotlinmania.btree.Entry.Vacant -> SetEntry.Vacant(SetVacantEntry(e.entry))
+        }
 
     // ---- sub / bitxor / bitand / bitor --------------------------------------
 
     fun sub(rhs: BTreeSet<T>): BTreeSet<T> {
-        val diffIter = this.difference(rhs).asSequence().toList().iterator()
+        val diffIter =
+            this
+                .difference(rhs)
+                .asSequence()
+                .toList()
+                .iterator()
         return BTreeSet.fromSortedIter(diffIter)
     }
 
     fun bitxor(rhs: BTreeSet<T>): BTreeSet<T> {
-        val symDiffIter = this.symmetricDifference(rhs).asSequence().toList().iterator()
+        val symDiffIter =
+            this
+                .symmetricDifference(rhs)
+                .asSequence()
+                .toList()
+                .iterator()
         return BTreeSet.fromSortedIter(symDiffIter)
     }
 
     fun bitand(rhs: BTreeSet<T>): BTreeSet<T> {
-        val intersectionIter = this.intersection(rhs).asSequence().toList().iterator()
+        val intersectionIter =
+            this
+                .intersection(rhs)
+                .asSequence()
+                .toList()
+                .iterator()
         return BTreeSet.fromSortedIter(intersectionIter)
     }
 
     fun bitor(rhs: BTreeSet<T>): BTreeSet<T> {
-        val unionIter = this.union(rhs).asSequence().toList().iterator()
+        val unionIter =
+            this
+                .union(rhs)
+                .asSequence()
+                .toList()
+                .iterator()
         return BTreeSet.fromSortedIter(unionIter)
     }
 
@@ -390,12 +433,18 @@ class BTreeSet<T> private constructor(
      * yielded. If [pred] returns `false`, the element remains in the set and
      * will not be yielded.
      */
-    fun extractIf(range: RangeBounds<T>, pred: (T) -> Boolean): ExtractIf<T> {
+    fun extractIf(
+        range: RangeBounds<T>,
+        pred: (T) -> Boolean,
+    ): ExtractIf<T> {
         val mapExtract = map.extractIf(range) { k, _ -> pred(k) }
         return ExtractIf(mapExtract)
     }
 
-    fun extractIf(range: RangeFull, pred: (T) -> Boolean): ExtractIf<T> {
+    fun extractIf(
+        range: RangeFull,
+        pred: (T) -> Boolean,
+    ): ExtractIf<T> {
         val mapExtract = map.extractIf(range) { k, _ -> pred(k) }
         return ExtractIf(mapExtract)
     }
@@ -464,12 +513,16 @@ class BTreeSet<T> private constructor(
 
     override val size: Int get() = map.size
 
-    override fun iterator(): MutableIterator<T> = object : MutableIterator<T> {
-        private val inner = map.iterMut()
-        override fun hasNext(): Boolean = inner.hasNext()
-        override fun next(): T = inner.next().first
-        override fun remove() = inner.remove()
-    }
+    override fun iterator(): MutableIterator<T> =
+        object : MutableIterator<T> {
+            private val inner = map.iterMut()
+
+            override fun hasNext(): Boolean = inner.hasNext()
+
+            override fun next(): T = inner.next().first
+
+            override fun remove() = inner.remove()
+        }
 
     override fun containsAll(elements: Collection<T>): Boolean {
         for (e in elements) if (!contains(e)) return false
@@ -508,9 +561,7 @@ class BTreeSet<T> private constructor(
         return !itA.hasNext() && !itB.hasNext()
     }
 
-    override fun hashCode(): Int {
-        return map.hashCode()
-    }
+    override fun hashCode(): Int = map.hashCode()
 
     /**
      * Lexicographic ordering: returns the first non-zero element-comparison,
@@ -549,10 +600,12 @@ class BTreeSet<T> private constructor(
     // ========================================================================
 
     /** An iterator over the items of a `BTreeSet`. Created by [iter]. */
+    @HiddenFromObjC
     class Iter<T> internal constructor(
         internal val inner: io.github.kotlinmania.btree.Iter<T, SetValZST>,
     ) : Iterator<T> {
         override fun hasNext(): Boolean = inner.hasNext()
+
         override fun next(): T = inner.next().first
 
         /** Returns the next element from the back of the iterator, or `null` if exhausted. */
@@ -571,19 +624,26 @@ class BTreeSet<T> private constructor(
 
         fun clone(): Iter<T> = Iter(inner.clone())
 
-        override fun toString(): String = "Iter(${inner})"
+        override fun toString(): String = "Iter($inner)"
 
         companion object {
             /** Creates an empty [BTreeSet.Iter]. */
-            fun <T> default(): Iter<T> = Iter(io.github.kotlinmania.btree.Iter.default())
+            @HiddenFromObjC
+            fun <T> default(): Iter<T> =
+                Iter(
+                    io.github.kotlinmania.btree.Iter
+                        .default(),
+                )
         }
     }
 
     /** An owning iterator over the items of a `BTreeSet` in ascending order. */
+    @HiddenFromObjC
     class IntoIter<T> internal constructor(
         internal val inner: io.github.kotlinmania.btree.IntoIter<T, SetValZST>,
     ) : Iterator<T> {
         override fun hasNext(): Boolean = inner.hasNext()
+
         override fun next(): T = inner.next().first
 
         /** Returns the next element from the back of the iterator, or `null` if exhausted. */
@@ -607,11 +667,16 @@ class BTreeSet<T> private constructor(
             inner.drop()
         }
 
-        override fun toString(): String = "IntoIter(${inner})"
+        override fun toString(): String = "IntoIter($inner)"
 
         companion object {
             /** Creates an empty [BTreeSet.IntoIter]. */
-            fun <T> default(): IntoIter<T> = IntoIter(io.github.kotlinmania.btree.IntoIter.default())
+            @HiddenFromObjC
+            fun <T> default(): IntoIter<T> =
+                IntoIter(
+                    io.github.kotlinmania.btree.IntoIter
+                        .default(),
+                )
         }
     }
 
@@ -619,10 +684,12 @@ class BTreeSet<T> private constructor(
      * An iterator over a sub-range of items in a `BTreeSet`. Created by
      * [BTreeSet.range].
      */
+    @HiddenFromObjC
     class Range<T> internal constructor(
         internal val inner: io.github.kotlinmania.btree.Range<T, SetValZST>,
     ) : Iterator<T> {
         override fun hasNext(): Boolean = inner.hasNext()
+
         override fun next(): T = inner.next().first
 
         /** Returns the next element from the back of the iterator, or `null` if exhausted. */
@@ -638,17 +705,23 @@ class BTreeSet<T> private constructor(
 
         fun clone(): Range<T> = Range(inner.clone())
 
-        override fun toString(): String = "Range(${inner})"
+        override fun toString(): String = "Range($inner)"
 
         companion object {
             /** Creates an empty [BTreeSet.Range]. */
-            fun <T> default(): Range<T> = Range(io.github.kotlinmania.btree.Range.default())
+            @HiddenFromObjC
+            fun <T> default(): Range<T> =
+                Range(
+                    io.github.kotlinmania.btree.Range
+                        .default(),
+                )
         }
     }
 
     /**
      * A lazy iterator producing elements in the difference of `BTreeSet`s.
      */
+    @HiddenFromObjC
     class Difference<T> internal constructor(
         internal var inner: DifferenceInner<T>,
         private val compare: (T, T) -> Int,
@@ -688,7 +761,10 @@ class BTreeSet<T> private constructor(
         }
 
         override fun hasNext(): Boolean {
-            if (!primed) { pending = computeNext(); primed = true }
+            if (!primed) {
+                pending = computeNext()
+                primed = true
+            }
             return pending != null
         }
 
@@ -703,11 +779,12 @@ class BTreeSet<T> private constructor(
         fun min(): T? = if (hasNext()) next() else null
 
         fun clone(): Difference<T> {
-            val clonedInner = when (val inner = inner) {
-                is DifferenceInner.Stitch -> DifferenceInner.Stitch(inner.selfIter.clone(), inner.otherIter.clone())
-                is DifferenceInner.Search -> DifferenceInner.Search(inner.selfIter.clone(), inner.otherSet)
-                is DifferenceInner.Iterate -> DifferenceInner.Iterate(inner.iter.clone())
-            }
+            val clonedInner =
+                when (val inner = inner) {
+                    is DifferenceInner.Stitch -> DifferenceInner.Stitch(inner.selfIter.clone(), inner.otherIter.clone())
+                    is DifferenceInner.Search -> DifferenceInner.Search(inner.selfIter.clone(), inner.otherSet)
+                    is DifferenceInner.Iterate -> DifferenceInner.Iterate(inner.iter.clone())
+                }
             val cloned = Difference(clonedInner, compare)
             cloned.pending = pending
             cloned.primed = primed
@@ -715,11 +792,12 @@ class BTreeSet<T> private constructor(
         }
 
         fun sizeHint(): Pair<Int, Int?> {
-            val (selfLen, otherLen) = when (val inner = inner) {
-                is DifferenceInner.Stitch -> Pair(inner.selfIter.len(), inner.otherIter.len())
-                is DifferenceInner.Search -> Pair(inner.selfIter.len(), inner.otherSet.len())
-                is DifferenceInner.Iterate -> Pair(inner.iter.len(), 0)
-            }
+            val (selfLen, otherLen) =
+                when (val inner = inner) {
+                    is DifferenceInner.Stitch -> Pair(inner.selfIter.len(), inner.otherIter.len())
+                    is DifferenceInner.Search -> Pair(inner.selfIter.len(), inner.otherSet.len())
+                    is DifferenceInner.Iterate -> Pair(inner.iter.len(), 0)
+                }
             return Pair((selfLen - otherLen).coerceAtLeast(0), selfLen)
         }
 
@@ -730,6 +808,7 @@ class BTreeSet<T> private constructor(
      * A lazy iterator producing elements in the symmetric difference of
      * `BTreeSet`s.
      */
+    @HiddenFromObjC
     class SymmetricDifference<T> internal constructor(
         internal val inner: MergeIterInner<T>,
         private val compare: (T, T) -> Int,
@@ -746,7 +825,10 @@ class BTreeSet<T> private constructor(
         }
 
         override fun hasNext(): Boolean {
-            if (!primed) { pending = computeNext(); primed = true }
+            if (!primed) {
+                pending = computeNext()
+                primed = true
+            }
             return pending != null
         }
 
@@ -778,6 +860,7 @@ class BTreeSet<T> private constructor(
     /**
      * A lazy iterator producing elements in the intersection of `BTreeSet`s.
      */
+    @HiddenFromObjC
     class Intersection<T> internal constructor(
         internal var inner: IntersectionInner<T>,
         private val compare: (T, T) -> Int,
@@ -816,7 +899,10 @@ class BTreeSet<T> private constructor(
         }
 
         override fun hasNext(): Boolean {
-            if (!primed) { pending = computeNext(); primed = true }
+            if (!primed) {
+                pending = computeNext()
+                primed = true
+            }
             return pending != null
         }
 
@@ -831,22 +917,24 @@ class BTreeSet<T> private constructor(
         fun min(): T? = if (hasNext()) next() else null
 
         fun clone(): Intersection<T> {
-            val clonedInner = when (val inner = inner) {
-                is IntersectionInner.Stitch -> IntersectionInner.Stitch(inner.a.clone(), inner.b.clone())
-                is IntersectionInner.Search -> IntersectionInner.Search(inner.smallIter.clone(), inner.largeSet)
-                is IntersectionInner.Answer -> IntersectionInner.Answer(inner.value)
-            }
+            val clonedInner =
+                when (val inner = inner) {
+                    is IntersectionInner.Stitch -> IntersectionInner.Stitch(inner.a.clone(), inner.b.clone())
+                    is IntersectionInner.Search -> IntersectionInner.Search(inner.smallIter.clone(), inner.largeSet)
+                    is IntersectionInner.Answer -> IntersectionInner.Answer(inner.value)
+                }
             val cloned = Intersection(clonedInner, compare)
             cloned.pending = pending
             cloned.primed = primed
             return cloned
         }
 
-        fun sizeHint(): Pair<Int, Int?> = when (val inner = inner) {
-            is IntersectionInner.Stitch -> Pair(0, minOf(inner.a.len(), inner.b.len()))
-            is IntersectionInner.Search -> Pair(0, inner.smallIter.len())
-            is IntersectionInner.Answer -> Pair(if (inner.value == null) 0 else 1, if (inner.value == null) 0 else 1)
-        }
+        fun sizeHint(): Pair<Int, Int?> =
+            when (val inner = inner) {
+                is IntersectionInner.Stitch -> Pair(0, minOf(inner.a.len(), inner.b.len()))
+                is IntersectionInner.Search -> Pair(0, inner.smallIter.len())
+                is IntersectionInner.Answer -> Pair(if (inner.value == null) 0 else 1, if (inner.value == null) 0 else 1)
+            }
 
         override fun toString(): String = "Intersection($inner)"
     }
@@ -854,6 +942,7 @@ class BTreeSet<T> private constructor(
     /**
      * A lazy iterator producing elements in the union of `BTreeSet`s.
      */
+    @HiddenFromObjC
     class Union<T> internal constructor(
         internal val inner: MergeIterInner<T>,
         private val compare: (T, T) -> Int,
@@ -867,7 +956,10 @@ class BTreeSet<T> private constructor(
         }
 
         override fun hasNext(): Boolean {
-            if (!primed) { pending = computeNext(); primed = true }
+            if (!primed) {
+                pending = computeNext()
+                primed = true
+            }
             return pending != null
         }
 
@@ -897,15 +989,17 @@ class BTreeSet<T> private constructor(
     }
 
     /** Iterator returned by [extractIf]. */
+    @HiddenFromObjC
     class ExtractIf<T> internal constructor(
         internal val inner: io.github.kotlinmania.btree.ExtractIf<T, SetValZST>,
     ) : Iterator<T> {
         override fun hasNext(): Boolean = inner.hasNext()
+
         override fun next(): T = inner.next().first
 
         fun sizeHint(): Pair<Int, Int?> = inner.sizeHint()
 
-        override fun toString(): String = "ExtractIf(${inner})"
+        override fun toString(): String = "ExtractIf($inner)"
     }
 
     // ========================================================================
@@ -923,6 +1017,7 @@ class BTreeSet<T> private constructor(
      *
      * A `Cursor` is created with [BTreeSet.lowerBound] and [BTreeSet.upperBound].
      */
+    @HiddenFromObjC
     class Cursor<K> internal constructor(
         internal val inner: io.github.kotlinmania.btree.Cursor<K, SetValZST>,
     ) {
@@ -947,6 +1042,7 @@ class BTreeSet<T> private constructor(
     /**
      * A cursor over a `BTreeSet` with editing operations.
      */
+    @HiddenFromObjC
     class CursorMut<T> internal constructor(
         internal val inner: io.github.kotlinmania.btree.CursorMut<T, SetValZST>,
     ) {
@@ -998,6 +1094,7 @@ class BTreeSet<T> private constructor(
      * SAFETY: callers must ensure all elements remain in sorted order and
      * unique while the cursor is held.
      */
+    @HiddenFromObjC
     class CursorMutKey<T> internal constructor(
         internal val inner: io.github.kotlinmania.btree.CursorMutKey<T, SetValZST>,
     ) {
@@ -1044,19 +1141,27 @@ object SharedSetIntoIter
 
 object CopiedSetExtend
 
-fun <T> BTreeSet<T>.intoIter(route: SharedSetIntoIter): BTreeSet.Iter<T> {
-    return when (route) {
+@HiddenFromObjC
+fun <T> BTreeSet<T>.intoIter(route: SharedSetIntoIter): BTreeSet.Iter<T> =
+    when (route) {
         SharedSetIntoIter -> iter()
     }
-}
 
-fun <T> BTreeSet<T>.extend(iter: Iterable<T>, route: CopiedSetExtend) {
+@HiddenFromObjC
+fun <T> BTreeSet<T>.extend(
+    iter: Iterable<T>,
+    route: CopiedSetExtend,
+) {
     when (route) {
         CopiedSetExtend -> extend(iter)
     }
 }
 
-fun <T> BTreeSet<T>.extendOne(value: T, route: CopiedSetExtend) {
+@HiddenFromObjC
+fun <T> BTreeSet<T>.extendOne(
+    value: T,
+    route: CopiedSetExtend,
+) {
     when (route) {
         CopiedSetExtend -> extendOne(value)
     }
@@ -1085,7 +1190,9 @@ internal sealed class DifferenceInner<T> {
     }
 
     /** Simply produce all elements in `self`. */
-    class Iterate<T>(val iter: BTreeSet.Iter<T>) : DifferenceInner<T>() {
+    class Iterate<T>(
+        val iter: BTreeSet.Iter<T>,
+    ) : DifferenceInner<T>() {
         override fun toString(): String = "Iterate($iter)"
     }
 }
@@ -1109,7 +1216,9 @@ internal sealed class IntersectionInner<T> {
     }
 
     /** Return a specific element or emptiness. Mutable so the answer can be taken once. */
-    class Answer<T>(var value: T?) : IntersectionInner<T>() {
+    class Answer<T>(
+        var value: T?,
+    ) : IntersectionInner<T>() {
         override fun toString(): String = "Answer($value)"
     }
 }
@@ -1118,7 +1227,9 @@ internal sealed class IntersectionInner<T> {
  * One-element-buffer adapter over a [BTreeSet.Iter], emulating Rust's
  * `Peekable<Iter<T>>` (Kotlin stdlib has no `Peekable`).
  */
-internal class PeekableSetIter<T>(private val source: BTreeSet.Iter<T>) {
+internal class PeekableSetIter<T>(
+    private val source: BTreeSet.Iter<T>,
+) {
     private var buffered: T? = null
     private var bufferedFilled: Boolean = false
 
@@ -1150,46 +1261,61 @@ internal class PeekableSetIter<T>(private val source: BTreeSet.Iter<T>) {
         return cloned
     }
 
-    override fun toString(): String = "Peekable(${source})"
+    override fun toString(): String = "Peekable($source)"
 }
 
 /** Pulls the next item from a `BTreeSet.Iter<T>`, returning `null` on exhaustion. */
 private fun <T> BTreeSet.Iter<T>.advance(): T? = if (hasNext()) next() else null
 
 /** An unbounded [RangeBounds] used by [BTreeSet.retain] to cover all keys. */
-private fun <T> unboundedSet(): RangeBounds<T> = object : RangeBounds<T> {
-    override fun startBound(): Bound<T> = Bound.Unbounded
-    override fun endBound(): Bound<T> = Bound.Unbounded
-}
+private fun <T> unboundedSet(): RangeBounds<T> =
+    object : RangeBounds<T> {
+        override fun startBound(): Bound<T> = Bound.Unbounded
+
+        override fun endBound(): Bound<T> = Bound.Unbounded
+    }
+
 /**
  * A view into a single entry in a set, which may either be vacant or occupied.
  *
  * This `enum` is constructed from the [`BTreeSet.entry`] method.
  */
+@HiddenFromObjC
 sealed class SetEntry<T> {
     /** A view into an occupied entry in a `BTreeSet`. */
-    class Occupied<T>(val entry: SetOccupiedEntry<T>) : SetEntry<T>()
+    @HiddenFromObjC
+    class Occupied<T>(
+        val entry: SetOccupiedEntry<T>,
+    ) : SetEntry<T>()
 
     /** A view into a vacant entry in a `BTreeSet`. */
-    class Vacant<T>(val entry: SetVacantEntry<T>) : SetEntry<T>()
+    @HiddenFromObjC
+    class Vacant<T>(
+        val entry: SetVacantEntry<T>,
+    ) : SetEntry<T>()
 
-    fun get(): T = when (this) {
-        is Occupied -> entry.get()
-        is Vacant -> entry.get()
-    }
+    fun get(): T =
+        when (this) {
+            is Occupied -> entry.get()
+            is Vacant -> entry.get()
+        }
 }
 
+@HiddenFromObjC
 class SetOccupiedEntry<T> internal constructor(
-    internal val inner: OccupiedEntry<T, SetValZST>
+    internal val inner: OccupiedEntry<T, SetValZST>,
 ) {
     fun get(): T = inner.key()
+
     fun remove(): T = inner.removeEntry().first
 }
 
+@HiddenFromObjC
 class SetVacantEntry<T> internal constructor(
-    internal val inner: VacantEntry<T, SetValZST>
+    internal val inner: VacantEntry<T, SetValZST>,
 ) {
     fun get(): T = inner.key()
+
     fun insert() {
         inner.insert(SetValZST)
     }

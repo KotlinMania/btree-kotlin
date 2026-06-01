@@ -14,7 +14,9 @@ import io.github.kotlinmania.btree.BTreeDroppable
  * Crash test dummies are identified and ordered by an id, so they can be used
  * as keys in a sorted map.
  */
-internal class CrashTestDummy(val id: Int) {
+internal class CrashTestDummy(
+    val id: Int,
+) {
     private var clonedCount: Int = 0
     private var droppedCount: Int = 0
     private var queriedCount: Int = 0
@@ -34,9 +36,17 @@ internal class CrashTestDummy(val id: Int) {
     /** Returns how many times instances of the dummy have had their query member invoked. */
     fun queried(): Int = queriedCount
 
-    internal fun incCloned() { clonedCount++ }
-    internal fun incDropped() { droppedCount++ }
-    internal fun incQueried() { queriedCount++ }
+    internal fun incCloned() {
+        clonedCount++
+    }
+
+    internal fun incDropped() {
+        droppedCount++
+    }
+
+    internal fun incQueried() {
+        queriedCount++
+    }
 
     companion object {
         /** Creates a crash test dummy design. The [id] determines order and equality of instances. */
@@ -61,8 +71,9 @@ internal enum class Panic {
 internal class Instance(
     private val origin: CrashTestDummy,
     private val panic: Panic,
-) : Comparable<Instance>, BTreeCloneable, BTreeDroppable {
-
+) : Comparable<Instance>,
+    BTreeCloneable,
+    BTreeDroppable {
     fun id(): Int = origin.id
 
     /** Some anonymous query, the result of which is already given. */

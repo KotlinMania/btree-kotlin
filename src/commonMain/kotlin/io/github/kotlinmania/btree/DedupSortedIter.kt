@@ -3,7 +3,9 @@
 // copyright The Rust Project Developers, dual-licensed Apache-2.0 / MIT.
 package io.github.kotlinmania.btree
 
-private class Peekable<K, V>(private val source: Iterator<Pair<K, V>>) {
+private class Peekable<K, V>(
+    private val source: Iterator<Pair<K, V>>,
+) {
     private var buffered: Pair<K, V>? = null
 
     fun peek(): Pair<K, V>? {
@@ -35,9 +37,7 @@ internal class DedupSortedIter<K, V, I : Iterator<Pair<K, V>>>(
     iter: I,
 ) : Iterator<Pair<K, V>> {
     companion object {
-        fun <K, V, I : Iterator<Pair<K, V>>> new(iter: I): DedupSortedIter<K, V, I> {
-            return DedupSortedIter(iter)
-        }
+        fun <K, V, I : Iterator<Pair<K, V>>> new(iter: I): DedupSortedIter<K, V, I> = DedupSortedIter(iter)
     }
 
     private val iter = Peekable(iter)

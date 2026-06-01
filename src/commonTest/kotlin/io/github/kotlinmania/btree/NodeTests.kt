@@ -27,7 +27,12 @@ internal fun <K, V> NodeRef<Marker.Immut, K, V, Marker.LeafOrInternal>.dumpKeys(
             is Position.Leaf -> {
                 val depth = this.height
                 val indent = "  ".repeat(depth)
-                result.append("\n").append(indent).append(pos.node.keys().toList().toString())
+                result.append("\n").append(indent).append(
+                    pos.node
+                        .keys()
+                        .toList()
+                        .toString(),
+                )
             }
             is Position.Internal -> {}
             is Position.InternalKV -> {}

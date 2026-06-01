@@ -6,12 +6,14 @@ package io.github.kotlinmania.btree
 /** Result of [fixNodeThroughParent]. */
 private sealed class FixNodeThroughParentResult<K, V> {
     /** `Ok(null)` (no shrunk parent) or `Ok(parent)` (returns shrunk parent). */
-    data class Ok<K, V>(val parent: NodeRef<Marker.Mut, K, V, Marker.Internal>?) :
-        FixNodeThroughParentResult<K, V>()
+    data class Ok<K, V>(
+        val parent: NodeRef<Marker.Mut, K, V, Marker.Internal>?,
+    ) : FixNodeThroughParentResult<K, V>()
 
     /** `Err(self)` — the node was an empty root. */
-    data class Err<K, V>(val node: NodeRef<Marker.Mut, K, V, Marker.LeafOrInternal>) :
-        FixNodeThroughParentResult<K, V>()
+    data class Err<K, V>(
+        val node: NodeRef<Marker.Mut, K, V, Marker.LeafOrInternal>,
+    ) : FixNodeThroughParentResult<K, V>()
 }
 
 /**
@@ -20,35 +22,35 @@ private sealed class FixNodeThroughParentResult<K, V> {
  * returns that shrunk parent node. Returns an `Err` if the node is
  * an empty root.
  */
-private fun <K, V> NodeRef<Marker.Mut, K, V, Marker.LeafOrInternal>.fixNodeThroughParent():
-    FixNodeThroughParentResult<K, V> {
+private fun <K, V> NodeRef<Marker.Mut, K, V, Marker.LeafOrInternal>.fixNodeThroughParent(): FixNodeThroughParentResult<K, V> {
     val len = this.len()
     return if (len >= MIN_LEN) {
         FixNodeThroughParentResult.Ok(null)
     } else {
         when (val choice = this.chooseParentKv()) {
-            is ChooseParentKvResult.Ok -> when (val side = choice.context) {
-                is LeftOrRight.Left -> {
-                    val leftParentKv = side.value
-                    if (leftParentKv.canMerge()) {
-                        val parent = leftParentKv.mergeTrackingParent()
-                        FixNodeThroughParentResult.Ok(parent)
-                    } else {
-                        leftParentKv.bulkStealLeft(MIN_LEN - len)
-                        FixNodeThroughParentResult.Ok(null)
+            is ChooseParentKvResult.Ok ->
+                when (val side = choice.context) {
+                    is LeftOrRight.Left -> {
+                        val leftParentKv = side.value
+                        if (leftParentKv.canMerge()) {
+                            val parent = leftParentKv.mergeTrackingParent()
+                            FixNodeThroughParentResult.Ok(parent)
+                        } else {
+                            leftParentKv.bulkStealLeft(MIN_LEN - len)
+                            FixNodeThroughParentResult.Ok(null)
+                        }
+                    }
+                    is LeftOrRight.Right -> {
+                        val rightParentKv = side.value
+                        if (rightParentKv.canMerge()) {
+                            val parent = rightParentKv.mergeTrackingParent()
+                            FixNodeThroughParentResult.Ok(parent)
+                        } else {
+                            rightParentKv.bulkStealRight(MIN_LEN - len)
+                            FixNodeThroughParentResult.Ok(null)
+                        }
                     }
                 }
-                is LeftOrRight.Right -> {
-                    val rightParentKv = side.value
-                    if (rightParentKv.canMerge()) {
-                        val parent = rightParentKv.mergeTrackingParent()
-                        FixNodeThroughParentResult.Ok(parent)
-                    } else {
-                        rightParentKv.bulkStealRight(MIN_LEN - len)
-                        FixNodeThroughParentResult.Ok(null)
-                    }
-                }
-            }
             is ChooseParentKvResult.Err -> {
                 val root = choice.node
                 if (len > 0) {
@@ -70,8 +72,7 @@ private fun <K, V> NodeRef<Marker.Mut, K, V, Marker.LeafOrInternal>.fixNodeThrou
  * This method does not expect ancestors to already be underfull upon entry
  * and panics if it encounters an empty ancestor.
  */
-internal fun <K, V> NodeRef<Marker.Mut, K, V, Marker.LeafOrInternal>.fixNodeAndAffectedAncestors():
-    Boolean {
+internal fun <K, V> NodeRef<Marker.Mut, K, V, Marker.LeafOrInternal>.fixNodeAndAffectedAncestors(): Boolean {
     var self = this
     while (true) {
         when (val r = self.fixNodeThroughParent()) {
@@ -125,10 +126,11 @@ internal fun <K, V> NodeRef<Marker.Owned, K, V, Marker.LeafOrInternal>.fixLeftBo
 internal fun <K, V> NodeRef<Marker.Owned, K, V, Marker.LeafOrInternal>.fixRightBorderOfPlentiful() {
     var curNode: NodeRef<Marker.Mut, K, V, Marker.LeafOrInternal> = this.borrowMut()
     while (true) {
-        val internal = when (val f = curNode.force()) {
-            is ForceResult.Internal -> f.value
-            is ForceResult.Leaf -> return
-        }
+        val internal =
+            when (val f = curNode.force()) {
+                is ForceResult.Internal -> f.value
+                is ForceResult.Leaf -> return
+            }
         // Check if rightmost child is underfull.
         val lastKv = internal.lastKv().considerForBalancing()
         check(lastKv.leftChildLen() >= MIN_LEN * 2)
@@ -146,10 +148,11 @@ internal fun <K, V> NodeRef<Marker.Owned, K, V, Marker.LeafOrInternal>.fixRightB
 private fun <K, V> Handle<NodeRef<Marker.Mut, K, V, Marker.LeafOrInternal>, Marker.KV>.fixLeftBorderOfLeftEdge() {
     var self = this
     while (true) {
-        val internalKv = when (val f = self.force()) {
-            is ForceResult.Internal -> f.value
-            is ForceResult.Leaf -> return
-        }
+        val internalKv =
+            when (val f = self.force()) {
+                is ForceResult.Internal -> f.value
+                is ForceResult.Leaf -> return
+            }
         self = internalKv.fixLeftChild().firstKv()
         check(self.reborrow().intoNode().len() > MIN_LEN)
     }
@@ -158,10 +161,11 @@ private fun <K, V> Handle<NodeRef<Marker.Mut, K, V, Marker.LeafOrInternal>, Mark
 private fun <K, V> Handle<NodeRef<Marker.Mut, K, V, Marker.LeafOrInternal>, Marker.KV>.fixRightBorderOfRightEdge() {
     var self = this
     while (true) {
-        val internalKv = when (val f = self.force()) {
-            is ForceResult.Internal -> f.value
-            is ForceResult.Leaf -> return
-        }
+        val internalKv =
+            when (val f = self.force()) {
+                is ForceResult.Internal -> f.value
+                is ForceResult.Leaf -> return
+            }
         self = internalKv.fixRightChild().lastKv()
         check(self.reborrow().intoNode().len() > MIN_LEN)
     }
@@ -173,8 +177,7 @@ private fun <K, V> Handle<NodeRef<Marker.Mut, K, V, Marker.LeafOrInternal>, Mark
  * without becoming underfull.
  * Returns the left child.
  */
-private fun <K, V> Handle<NodeRef<Marker.Mut, K, V, Marker.Internal>, Marker.KV>.fixLeftChild():
-    NodeRef<Marker.Mut, K, V, Marker.LeafOrInternal> {
+private fun <K, V> Handle<NodeRef<Marker.Mut, K, V, Marker.Internal>, Marker.KV>.fixLeftChild(): NodeRef<Marker.Mut, K, V, Marker.LeafOrInternal> {
     val internalKv = this.considerForBalancing()
     val leftLen = internalKv.leftChildLen()
     check(internalKv.rightChildLen() >= MIN_LEN)
@@ -196,8 +199,7 @@ private fun <K, V> Handle<NodeRef<Marker.Mut, K, V, Marker.Internal>, Marker.KV>
  * without becoming underfull.
  * Returns wherever the right child ended up.
  */
-private fun <K, V> Handle<NodeRef<Marker.Mut, K, V, Marker.Internal>, Marker.KV>.fixRightChild():
-    NodeRef<Marker.Mut, K, V, Marker.LeafOrInternal> {
+private fun <K, V> Handle<NodeRef<Marker.Mut, K, V, Marker.Internal>, Marker.KV>.fixRightChild(): NodeRef<Marker.Mut, K, V, Marker.LeafOrInternal> {
     val internalKv = this.considerForBalancing()
     val rightLen = internalKv.rightChildLen()
     check(internalKv.leftChildLen() >= MIN_LEN)

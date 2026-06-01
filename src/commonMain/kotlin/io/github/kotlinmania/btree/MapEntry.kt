@@ -1,21 +1,32 @@
 // port-lint: source map/entry.rs
 // Derived from the Rust standard library (rust-lang/rust),
 // copyright The Rust Project Developers, dual-licensed Apache-2.0 / MIT.
+@file:OptIn(kotlin.experimental.ExperimentalObjCRefinement::class)
+
 package io.github.kotlinmania.btree
+
+import kotlin.native.HiddenFromObjC
 
 /**
  * A view into a single entry in a map, which may either be vacant or occupied.
  *
  * This sealed class is constructed by [BTreeMap.entry].
  */
+@HiddenFromObjC
 sealed class Entry<K, V> {
     /** A vacant entry. */
-    class Vacant<K, V>(val entry: VacantEntry<K, V>) : Entry<K, V>() {
+    @HiddenFromObjC
+    class Vacant<K, V>(
+        val entry: VacantEntry<K, V>,
+    ) : Entry<K, V>() {
         override fun toString(): String = "Entry($entry)"
     }
 
     /** An occupied entry. */
-    class Occupied<K, V>(val entry: OccupiedEntry<K, V>) : Entry<K, V>() {
+    @HiddenFromObjC
+    class Occupied<K, V>(
+        val entry: OccupiedEntry<K, V>,
+    ) : Entry<K, V>() {
         override fun toString(): String = "Entry($entry)"
     }
 
@@ -25,19 +36,21 @@ sealed class Entry<K, V> {
      * Ensures a value is in the entry by inserting [default] if empty, and
      * returns the value in the entry.
      */
-    fun orInsert(default: V): V = when (this) {
-        is Occupied -> entry.intoMut()
-        is Vacant -> entry.insert(default)
-    }
+    fun orInsert(default: V): V =
+        when (this) {
+            is Occupied -> entry.intoMut()
+            is Vacant -> entry.insert(default)
+        }
 
     /**
      * Ensures a value is in the entry by inserting the result of [default] if
      * empty, and returns the value in the entry.
      */
-    fun orInsertWith(default: () -> V): V = when (this) {
-        is Occupied -> entry.intoMut()
-        is Vacant -> entry.insert(default())
-    }
+    fun orInsertWith(default: () -> V): V =
+        when (this) {
+            is Occupied -> entry.intoMut()
+            is Vacant -> entry.insert(default())
+        }
 
     /**
      * Ensures a value is in the entry by inserting the result of `default(key)`
@@ -46,19 +59,21 @@ sealed class Entry<K, V> {
      * The reference to the moved key is provided so that cloning or copying
      * the key is unnecessary, unlike with [orInsertWith].
      */
-    fun orInsertWithKey(default: (K) -> V): V = when (this) {
-        is Occupied -> entry.intoMut()
-        is Vacant -> {
-            val value = default(entry.key())
-            entry.insert(value)
+    fun orInsertWithKey(default: (K) -> V): V =
+        when (this) {
+            is Occupied -> entry.intoMut()
+            is Vacant -> {
+                val value = default(entry.key())
+                entry.insert(value)
+            }
         }
-    }
 
     /** Returns a reference to this entry's key. */
-    fun key(): K = when (this) {
-        is Occupied -> entry.key()
-        is Vacant -> entry.key()
-    }
+    fun key(): K =
+        when (this) {
+            is Occupied -> entry.key()
+            is Vacant -> entry.key()
+        }
 
     /**
      * Provides in-place mutable access to an occupied entry before any
@@ -77,27 +92,30 @@ sealed class Entry<K, V> {
     }
 
     /** Sets the value of the entry, and returns an `OccupiedEntry`. */
-    fun insertEntry(value: V): OccupiedEntry<K, V> = when (this) {
-        is Occupied -> {
-            entry.insert(value)
-            entry
+    fun insertEntry(value: V): OccupiedEntry<K, V> =
+        when (this) {
+            is Occupied -> {
+                entry.insert(value)
+                entry
+            }
+            is Vacant -> entry.insertEntry(value)
         }
-        is Vacant -> entry.insertEntry(value)
-    }
 
     /**
      * Ensures a value is in the entry by inserting the value supplied by
      * [default] if empty, and returns the value in the entry.
      */
-    fun orDefault(default: () -> V): V = when (this) {
-        is Occupied -> entry.intoMut()
-        is Vacant -> entry.insert(default())
-    }
+    fun orDefault(default: () -> V): V =
+        when (this) {
+            is Occupied -> entry.intoMut()
+            is Vacant -> entry.insert(default())
+        }
 }
 
 /**
  * A view into a vacant entry in a `BTreeMap`. It is part of the [Entry] enum.
  */
+@HiddenFromObjC
 class VacantEntry<K, V> internal constructor(
     internal var key: K,
     /** `null` for an (empty) map without root. */
@@ -134,12 +152,13 @@ class VacantEntry<K, V> internal constructor(
                 val pushed = leaf.pushWithHandle(this.key, value)
                 pushed.forgetNodeType(LeafKvForgetNodeType)
             } else {
-                h.insertRecursing(this.key, value) { ins ->
-                    // handles to existing nodes.
-                    val map = dormantMap.reborrow()
-                    val root = map.root!! // same as ins.left
-                    root.pushInternalLevel().push(ins.kv.first, ins.kv.second, ins.right)
-                }.forgetNodeType(LeafKvForgetNodeType)
+                h
+                    .insertRecursing(this.key, value) { ins ->
+                        // handles to existing nodes.
+                        val map = dormantMap.reborrow()
+                        val root = map.root!! // same as ins.left
+                        root.pushInternalLevel().push(ins.kv.first, ins.kv.second, ins.right)
+                    }.forgetNodeType(LeafKvForgetNodeType)
             }
         dormantMap.reborrow().length += 1
 
@@ -152,6 +171,7 @@ class VacantEntry<K, V> internal constructor(
 /**
  * A view into an occupied entry in a `BTreeMap`. It is part of the [Entry] enum.
  */
+@HiddenFromObjC
 class OccupiedEntry<K, V> internal constructor(
     internal var handle: Handle<NodeRef<Marker.Mut, K, V, Marker.LeafOrInternal>, Marker.KV>,
     internal val dormantMap: DormantMutRef<BTreeMap<K, V>>,
@@ -199,8 +219,7 @@ class OccupiedEntry<K, V> internal constructor(
         return oldKv
     }
 
-    override fun toString(): String =
-        "OccupiedEntry(key=${this.key()}, value=${this.get()})"
+    override fun toString(): String = "OccupiedEntry(key=${this.key()}, value=${this.get()})"
 }
 
 /**
@@ -208,12 +227,12 @@ class OccupiedEntry<K, V> internal constructor(
  *
  * Contains the occupied entry, and the value that was not inserted.
  */
+@HiddenFromObjC
 class OccupiedError internal constructor(
     /** The entry in the map that was already occupied. */
     val entry: OccupiedEntry<*, *>,
     /** The value which was not inserted, because the entry was already occupied. */
     val value: Any?,
 ) : Exception("failed to insert $value, key ${entry.key()} already exists with value ${entry.get()}") {
-    override fun toString(): String =
-        "OccupiedError(key=${entry.key()}, oldValue=${entry.get()}, newValue=$value)"
+    override fun toString(): String = "OccupiedError(key=${entry.key()}, oldValue=${entry.get()}, newValue=$value)"
 }

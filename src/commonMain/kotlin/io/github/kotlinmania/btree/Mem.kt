@@ -9,14 +9,13 @@ package io.github.kotlinmania.btree
  *
  * If a panic occurs in the `change` closure, the entire process will be aborted.
  */
-internal fun <T> takeMut(v: T, change: (T) -> T): T {
-    return replace(v) { value -> Pair(change(value), Unit) }.first
-}
+internal fun <T> takeMut(
+    v: T,
+    change: (T) -> T,
+): T = replace(v) { value -> Pair(change(value), Unit) }.first
 
 private object Intrinsics {
-    fun abort(): Nothing {
-        throw IllegalStateException("aborted")
-    }
+    fun abort(): Nothing = throw IllegalStateException("aborted")
 }
 
 private class PanicGuard {
@@ -42,7 +41,10 @@ internal fun dropElement(value: Any?) {
     if (value is BTreeDroppable) value.dropForBtree()
 }
 
-internal fun rememberFailure(failure: Throwable?, block: () -> Unit): Throwable? {
+internal fun rememberFailure(
+    failure: Throwable?,
+    block: () -> Unit,
+): Throwable? {
     var first = failure
     try {
         block()
@@ -52,7 +54,10 @@ internal fun rememberFailure(failure: Throwable?, block: () -> Unit): Throwable?
     return first
 }
 
-internal fun <K, V> dropPair(pair: Pair<K, V>, failure: Throwable? = null): Throwable? {
+internal fun <K, V> dropPair(
+    pair: Pair<K, V>,
+    failure: Throwable? = null,
+): Throwable? {
     var first = failure
     first = rememberFailure(first) { dropElement(pair.first) }
     first = rememberFailure(first) { dropElement(pair.second) }
@@ -69,7 +74,10 @@ internal fun throwFailure(failure: Throwable?) {
  *
  * If a panic occurs in the `change` closure, the entire process will be aborted.
  */
-internal fun <T, R> replace(v: T, change: (T) -> Pair<T, R>): Pair<T, R> {
+internal fun <T, R> replace(
+    v: T,
+    change: (T) -> Pair<T, R>,
+): Pair<T, R> {
     val guard = PanicGuard()
     return try {
         val value = v

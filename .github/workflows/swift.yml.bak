@@ -69,11 +69,10 @@ jobs:
       #     configured value`.
       #
       # Output lands in `build/swift-test/`:
-      #   * `lib<Module>.a` — the merged static archive containing every
-      #     `@ExportedBridge`-annotated function emitted by
-      #     `build/SwiftExport/macosArm64/Debug/**/*.kt`. `<Module>` is the
-      #     repo's `project.frameworkName` (the Swift Export module name).
-      #   * Four `.swiftmodule/` directories: <Module>,
+      #   * `libBTreeKotlin.a` — the merged static archive containing
+      #     every `@ExportedBridge`-annotated function emitted by
+      #     `build/SwiftExport/macosArm64/Debug/**/*.kt`.
+      #   * Four `.swiftmodule/` directories: BTreeKotlin,
       #     KotlinRuntimeSupport, ExportedKotlinPackages, KotlinRuntime.
       - name: Build Swift Export package
         env:
@@ -97,7 +96,7 @@ jobs:
         with:
           name: swift-export-artifacts
           path: |
-            build/swift-test/lib*.a
+            build/swift-test/libBTreeKotlin.a
             build/swift-test/*.swiftmodule/
             build/SPMPackage/macosArm64/Debug/
           retention-days: 7
