@@ -663,13 +663,20 @@ val swiftExportTaskDirectlyRequested =
         it == "embedSwiftExportForXcode" || it.endsWith(":embedSwiftExportForXcode")
     }
 
+// Check if build task is being run, which depends on embedSwiftExportForXcode
+val buildTaskRequested =
+    gradle.startParameter.taskNames.any {
+        it == "build" || it.endsWith(":build") ||
+        it == "check" || it.endsWith(":check")
+    }
+
 tasks.matching { it.name == "embedSwiftExportForXcode" }.configureEach {
     onlyIf("Xcode environment variables not present") {
         val hasXcodeEnvironment = hasXcodeSwiftExportEnvironment()
-        if (!hasXcodeEnvironment && !swiftExportTaskDirectlyRequested) {
+        if (!hasXcodeEnvironment && !swiftExportTaskDirectlyRequested && !buildTaskRequested) {
             logger.lifecycle("embedSwiftExportForXcode: skipped because Xcode environment variables are not present")
         }
-        hasXcodeEnvironment || swiftExportTaskDirectlyRequested
+        hasXcodeEnvironment || swiftExportTaskDirectlyRequested || buildTaskRequested
     }
 }
 
