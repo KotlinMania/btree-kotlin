@@ -197,6 +197,13 @@ fun installProjectAndroidSdk(execOperations: ExecOperations) {
     println("setup-android-sdk: done; SDK at $projectAndroidSdkDir")
 }
 
+// Install the Android SDK at configuration time if it doesn't exist.
+// The Android Gradle Plugin resolves sdk.dir during configuration, so the
+// SDK must be on disk before kotlin { android { ... } } is evaluated.
+if (!isProjectAndroidSdkInstalled()) {
+    installProjectAndroidSdk(serviceOf())
+}
+
 writeAndroidLocalProperties()
 
 val ensureAndroidSdk by tasks.registering {
