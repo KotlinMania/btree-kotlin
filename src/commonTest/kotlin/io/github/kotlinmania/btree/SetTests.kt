@@ -10,7 +10,6 @@ import io.github.kotlinmania.btree.testing.randData
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFails
-import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
@@ -95,7 +94,11 @@ class SetTests {
 
     @Test
     fun testIntersection() {
-        fun checkIntersection(a: IntArray, b: IntArray, expected: IntArray) {
+        fun checkIntersection(
+            a: IntArray,
+            b: IntArray,
+            expected: IntArray,
+        ) {
             check(a, b, expected) { x, y, f ->
                 val it = x.intersection(y)
                 var ok = true
@@ -152,7 +155,11 @@ class SetTests {
 
     @Test
     fun testDifference() {
-        fun checkDifference(a: IntArray, b: IntArray, expected: IntArray) {
+        fun checkDifference(
+            a: IntArray,
+            b: IntArray,
+            expected: IntArray,
+        ) {
             check(a, b, expected) { x, y, f ->
                 val it = x.difference(y)
                 var ok = true
@@ -257,7 +264,11 @@ class SetTests {
 
     @Test
     fun testSymmetricDifference() {
-        fun checkSymmetricDifference(a: IntArray, b: IntArray, expected: IntArray) {
+        fun checkSymmetricDifference(
+            a: IntArray,
+            b: IntArray,
+            expected: IntArray,
+        ) {
             check(a, b, expected) { x, y, f ->
                 val it = x.symmetricDifference(y)
                 var ok = true
@@ -295,7 +306,11 @@ class SetTests {
 
     @Test
     fun testUnion() {
-        fun checkUnion(a: IntArray, b: IntArray, expected: IntArray) {
+        fun checkUnion(
+            a: IntArray,
+            b: IntArray,
+            expected: IntArray,
+        ) {
             check(a, b, expected) { x, y, f ->
                 val it = x.union(y)
                 var ok = true
@@ -331,18 +346,21 @@ class SetTests {
         assertEquals(Pair(1, 2), iter.sizeHint())
     }
 
-    @Test
     // Only tests the simple function definition with respect to intersection.
+    @Test
     fun testIsDisjoint() {
         val one = BTreeSet<Int>().also { it.insert(1) }
         val two = BTreeSet<Int>().also { it.insert(2) }
         assertTrue(one.isDisjoint(two))
     }
 
-    @Test
     // Also implicitly tests the trivial function definition of `isSuperset`.
+    @Test
     fun testIsSubset() {
-        fun isSubset(a: IntArray, b: IntArray): Boolean {
+        fun isSubset(
+            a: IntArray,
+            b: IntArray,
+        ): Boolean {
             val setA = BTreeSet<Int>()
             for (v in a) setA.insert(v)
             val setB = BTreeSet<Int>()
@@ -385,7 +403,10 @@ class SetTests {
 
     @Test
     fun testIsSuperset() {
-        fun isSuperset(a: IntArray, b: IntArray): Boolean {
+        fun isSuperset(
+            a: IntArray,
+            b: IntArray,
+        ): Boolean {
             val setA = BTreeSet<Int>()
             for (v in a) setA.insert(v)
             val setB = BTreeSet<Int>()
@@ -538,7 +559,12 @@ class SetTests {
         y.insert("foo")
         y.insert("bar")
 
-        val z = x.iter().asSequence().zip(y.iter().asSequence()).iterator()
+        val z =
+            x
+                .iter()
+                .asSequence()
+                .zip(y.iter().asSequence())
+                .iterator()
 
         assertEquals(z.next(), Pair(5, "bar"))
         assertEquals(z.next(), Pair(11, "foo"))
@@ -600,12 +626,17 @@ class SetTests {
 
     @Test
     fun testRecovery() {
-        data class Foo(val name: String, val data: Int) : Comparable<Foo> {
+        data class Foo(
+            val name: String,
+            val data: Int,
+        ) : Comparable<Foo> {
             override fun compareTo(other: Foo): Int = name.compareTo(other.name)
+
             override fun equals(other: Any?): Boolean {
                 if (other !is Foo) return false
                 return name == other.name
             }
+
             override fun hashCode(): Int = name.hashCode()
         }
 
@@ -789,5 +820,4 @@ class SetTests {
             set.range(boundsPair(Bound.Excluded(5), Bound.Excluded(5)))
         }
     }
-
 }

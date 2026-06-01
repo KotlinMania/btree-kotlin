@@ -8,11 +8,15 @@ package io.github.kotlinmania.btree
  * probably because we can afford to impose a FusedIterator bound.
  */
 internal sealed class Peeked<out T> {
-    data class A<out T>(val item: T) : Peeked<T>() {
+    data class A<out T>(
+        val item: T,
+    ) : Peeked<T>() {
         override fun toString(): String = "A($item)"
     }
 
-    data class B<out T>(val item: T) : Peeked<T>() {
+    data class B<out T>(
+        val item: T,
+    ) : Peeked<T>() {
         override fun toString(): String = "B($item)"
     }
 }
@@ -29,14 +33,13 @@ internal class MergeIterInner<T>(
 
     companion object {
         /** Creates a new core for an iterator merging a pair of sources. */
-        internal fun <T> new(a: BTreeSet.Iter<T>, b: BTreeSet.Iter<T>): MergeIterInner<T> {
-            return MergeIterInner(a, b)
-        }
+        internal fun <T> new(
+            a: BTreeSet.Iter<T>,
+            b: BTreeSet.Iter<T>,
+        ): MergeIterInner<T> = MergeIterInner(a, b)
     }
 
-    override fun toString(): String {
-        return "MergeIterInner($a, $b, $peeked)"
-    }
+    override fun toString(): String = "MergeIterInner($a, $b, $peeked)"
 
     internal fun clone(): MergeIterInner<T> {
         val cloned = MergeIterInner(a.clone(), b.clone())
@@ -92,9 +95,10 @@ internal class MergeIterInner<T>(
     }
 
     /** Returns a pair of upper bounds for the size hint of the final iterator. */
-    internal fun lens(): Pair<Int, Int> = when (peeked) {
-        is Peeked.A -> Pair(1 + a.len(), b.len())
-        is Peeked.B -> Pair(a.len(), 1 + b.len())
-        null -> Pair(a.len(), b.len())
-    }
+    internal fun lens(): Pair<Int, Int> =
+        when (peeked) {
+            is Peeked.A -> Pair(1 + a.len(), b.len())
+            is Peeked.B -> Pair(a.len(), 1 + b.len())
+            null -> Pair(a.len(), b.len())
+        }
 }

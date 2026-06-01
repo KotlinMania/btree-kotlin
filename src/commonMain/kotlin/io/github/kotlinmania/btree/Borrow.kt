@@ -24,9 +24,7 @@ internal class DormantMutRef<T> private constructor(
          * the scope of the new reference is the same as the scope of the
          * original reference, but you promise to use it for a shorter period.
          */
-        fun <T> new(t: T): Pair<T, DormantMutRef<T>> {
-            return Pair(t, DormantMutRef(value = t))
-        }
+        fun <T> new(t: T): Pair<T, DormantMutRef<T>> = Pair(t, DormantMutRef(value = t))
     }
 
     /**
@@ -37,9 +35,7 @@ internal class DormantMutRef<T> private constructor(
      * The reborrow must have ended, i.e., the reference returned by [new] and
      * all pointers and references derived from it, must not be used anymore.
      */
-    fun awaken(): T {
-        return value
-    }
+    fun awaken(): T = value
 
     /**
      * Borrows a new mutable reference from the unique borrow initially captured.
@@ -49,9 +45,7 @@ internal class DormantMutRef<T> private constructor(
      * The reborrow must have ended, i.e., the reference returned by [new] and
      * all pointers and references derived from it, must not be used anymore.
      */
-    fun reborrow(): T {
-        return value
-    }
+    fun reborrow(): T = value
 
     /**
      * Borrows a new shared reference from the unique borrow initially captured.
@@ -61,7 +55,5 @@ internal class DormantMutRef<T> private constructor(
      * The reborrow must have ended, i.e., the reference returned by [new] and
      * all pointers and references derived from it, must not be used anymore.
      */
-    fun reborrowShared(): T {
-        return value
-    }
+    fun reborrowShared(): T = value
 }

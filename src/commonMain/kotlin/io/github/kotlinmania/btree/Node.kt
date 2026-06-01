@@ -51,7 +51,9 @@ internal sealed interface NodeSlot<out T> {
         override val initializedValue: Nothing get() = error("uninitialized node slot")
     }
 
-    data class Filled<out T>(override val initializedValue: T) : NodeSlot<T>
+    data class Filled<out T>(
+        override val initializedValue: T,
+    ) : NodeSlot<T>
 }
 
 /**
@@ -189,27 +191,19 @@ internal class NodeRef<BorrowType, K, V, Type> internal constructor(
         // ---- newLeaf / newInternal --------------------------------------
 
         /** Returns an Owned [NodeRef] wrapping a freshly allocated leaf. */
-        fun <K, V> newLeaf(): NodeRef<Marker.Owned, K, V, Marker.Leaf> {
-            return fromNewLeaf(LeafNode.new<K, V>())
-        }
+        fun <K, V> newLeaf(): NodeRef<Marker.Owned, K, V, Marker.Leaf> = fromNewLeaf(LeafNode.new<K, V>())
 
-        private fun <K, V> fromNewLeaf(leaf: LeafNode<K, V>): NodeRef<Marker.Owned, K, V, Marker.Leaf> {
-            return NodeRef(height = 0, node = leaf)
-        }
+        private fun <K, V> fromNewLeaf(leaf: LeafNode<K, V>): NodeRef<Marker.Owned, K, V, Marker.Leaf> = NodeRef(height = 0, node = leaf)
 
         /** Creates a new internal (height > 0) `NodeRef`. */
-        fun <K, V> newInternal(
-            child: NodeRef<Marker.Owned, K, V, Marker.LeafOrInternal>,
-        ): NodeRef<Marker.Owned, K, V, Marker.Internal> {
+        fun <K, V> newInternal(child: NodeRef<Marker.Owned, K, V, Marker.LeafOrInternal>): NodeRef<Marker.Owned, K, V, Marker.Internal> {
             val newNode = InternalNode.new<K, V>()
             newNode.edges[0] = child.node
             return fromNewInternal(newNode, child.height + 1)
         }
 
         /** Returns a new owned tree, with its own root node that is initially empty. */
-        fun <K, V> new(): NodeRef<Marker.Owned, K, V, Marker.LeafOrInternal> {
-            return newLeaf<K, V>().forgetType()
-        }
+        fun <K, V> new(): NodeRef<Marker.Owned, K, V, Marker.LeafOrInternal> = newLeaf<K, V>().forgetType()
 
         /** Creates a new internal (height > 0) `NodeRef` from an existing internal node. */
         private fun <K, V> fromNewInternal(
@@ -250,21 +244,18 @@ internal class NodeRef<BorrowType, K, V, Type> internal constructor(
     fun height(): Int = height
 
     /** Temporarily takes out another, immutable reference to the same node. */
-    fun reborrow(): NodeRef<Marker.Immut, K, V, Type> {
-        return NodeRef(height = height, node = node)
-    }
+    fun reborrow(): NodeRef<Marker.Immut, K, V, Type> = NodeRef(height = height, node = node)
 
     /**
      * Could be a public implementation of PartialEq, but only used in this module.
      */
-    fun eq(other: NodeRef<BorrowType, K, V, Type>): Boolean {
-        return if (node === other.node) {
+    fun eq(other: NodeRef<BorrowType, K, V, Type>): Boolean =
+        if (node === other.node) {
             check(height == other.height)
             true
         } else {
             false
         }
-    }
 
     // ---- forgetType ------------------------------------------------------
 
@@ -272,9 +263,7 @@ internal class NodeRef<BorrowType, K, V, Type> internal constructor(
      * Removes any static information asserting that this node is a `Leaf`
      * (or `Internal`) node.
      */
-    fun forgetType(): NodeRef<BorrowType, K, V, Marker.LeafOrInternal> {
-        return NodeRef(height = height, node = node)
-    }
+    fun forgetType(): NodeRef<BorrowType, K, V, Marker.LeafOrInternal> = NodeRef(height = height, node = node)
 }
 
 internal object LeafForgetType
@@ -283,19 +272,17 @@ internal object InternalForgetType
 
 internal fun <BorrowType, K, V> NodeRef<BorrowType, K, V, Marker.Leaf>.forgetType(
     route: LeafForgetType,
-): NodeRef<BorrowType, K, V, Marker.LeafOrInternal> {
-    return when (route) {
+): NodeRef<BorrowType, K, V, Marker.LeafOrInternal> =
+    when (route) {
         LeafForgetType -> forgetType()
     }
-}
 
 internal fun <BorrowType, K, V> NodeRef<BorrowType, K, V, Marker.Internal>.forgetType(
     route: InternalForgetType,
-): NodeRef<BorrowType, K, V, Marker.LeafOrInternal> {
-    return when (route) {
+): NodeRef<BorrowType, K, V, Marker.LeafOrInternal> =
+    when (route) {
         InternalForgetType -> forgetType()
     }
-}
 
 /** Real upstream root-node alias. */
 internal typealias Root<K, V> = NodeRef<Marker.Owned, K, V, Marker.LeafOrInternal>
@@ -304,10 +291,7 @@ internal typealias Root<K, V> = NodeRef<Marker.Owned, K, V, Marker.LeafOrInterna
 // NodeRef: methods restricted by BorrowType / Type
 // =====================================================================
 
-internal fun <K, V, Type> NodeRef<Marker.Immut, K, V, Type>.clone():
-    NodeRef<Marker.Immut, K, V, Type> {
-    return NodeRef(height = height, node = node)
-}
+internal fun <K, V, Type> NodeRef<Marker.Immut, K, V, Type>.clone(): NodeRef<Marker.Immut, K, V, Type> = NodeRef(height = height, node = node)
 
 /**
  * Finds the parent of the current node. Returns [AscendResult.Ok] holding a
@@ -329,8 +313,7 @@ internal sealed class AscendResult<BorrowType, K, V> {
     ) : AscendResult<BorrowType, K, V>()
 }
 
-internal fun <BorrowType : Marker.BorrowType, K, V, Type> NodeRef<BorrowType, K, V, Type>.ascend():
-    AscendResult<BorrowType, K, V> {
+internal fun <BorrowType : Marker.BorrowType, K, V, Type> NodeRef<BorrowType, K, V, Type>.ascend(): AscendResult<BorrowType, K, V> {
     val parent = node.parent
     return if (parent != null) {
         AscendResult.Ok(
@@ -344,28 +327,22 @@ internal fun <BorrowType : Marker.BorrowType, K, V, Type> NodeRef<BorrowType, K,
     }
 }
 
-internal fun <BorrowType : Marker.BorrowType, K, V, Type> NodeRef<BorrowType, K, V, Type>.firstEdge():
-    Handle<NodeRef<BorrowType, K, V, Type>, Marker.Edge> {
-    return Handle.newEdge(this, 0)
-}
+internal fun <BorrowType : Marker.BorrowType, K, V, Type> NodeRef<BorrowType, K, V, Type>.firstEdge(): Handle<NodeRef<BorrowType, K, V, Type>, Marker.Edge> = Handle.newEdge(this, 0)
 
-internal fun <BorrowType : Marker.BorrowType, K, V, Type> NodeRef<BorrowType, K, V, Type>.lastEdge():
-    Handle<NodeRef<BorrowType, K, V, Type>, Marker.Edge> {
+internal fun <BorrowType : Marker.BorrowType, K, V, Type> NodeRef<BorrowType, K, V, Type>.lastEdge(): Handle<NodeRef<BorrowType, K, V, Type>, Marker.Edge> {
     val len = this.len()
     return Handle.newEdge(this, len)
 }
 
 /** Note that `self` must be nonempty. */
-internal fun <BorrowType : Marker.BorrowType, K, V, Type> NodeRef<BorrowType, K, V, Type>.firstKv():
-    Handle<NodeRef<BorrowType, K, V, Type>, Marker.KV> {
+internal fun <BorrowType : Marker.BorrowType, K, V, Type> NodeRef<BorrowType, K, V, Type>.firstKv(): Handle<NodeRef<BorrowType, K, V, Type>, Marker.KV> {
     val len = this.len()
     check(len > 0)
     return Handle.newKv(this, 0)
 }
 
 /** Note that `self` must be nonempty. */
-internal fun <BorrowType : Marker.BorrowType, K, V, Type> NodeRef<BorrowType, K, V, Type>.lastKv():
-    Handle<NodeRef<BorrowType, K, V, Type>, Marker.KV> {
+internal fun <BorrowType : Marker.BorrowType, K, V, Type> NodeRef<BorrowType, K, V, Type>.lastKv(): Handle<NodeRef<BorrowType, K, V, Type>, Marker.KV> {
     val len = this.len()
     check(len > 0)
     return Handle.newKv(this, len - 1)
@@ -376,6 +353,7 @@ internal fun <BorrowType : Marker.BorrowType, K, V, Type> NodeRef<BorrowType, K,
     val n = node.len
     return object : AbstractList<K>() {
         override val size: Int get() = n
+
         override fun get(index: Int): K {
             if (index < 0 || index >= n) throw IndexOutOfBoundsException("index $index out of bounds [0, $n)")
             return node.keys[index].initializedValue
@@ -384,21 +362,15 @@ internal fun <BorrowType : Marker.BorrowType, K, V, Type> NodeRef<BorrowType, K,
 }
 
 /** Exposes the leaf portion of any leaf or internal node in an immutable tree. */
-internal fun <K, V, Type> NodeRef<Marker.Immut, K, V, Type>.intoLeaf(): LeafNode<K, V> {
-    return asLeafPtr()
-}
+internal fun <K, V, Type> NodeRef<Marker.Immut, K, V, Type>.intoLeaf(): LeafNode<K, V> = asLeafPtr()
 
 /** Exposes the data of an internal node. */
-internal fun <BorrowType, K, V> NodeRef<BorrowType, K, V, Marker.Internal>.asInternalPtr(): InternalNode<K, V> {
-    return node as InternalNode<K, V>
-}
+internal fun <BorrowType, K, V> NodeRef<BorrowType, K, V, Marker.Internal>.asInternalPtr(): InternalNode<K, V> = node as InternalNode<K, V>
 
 /**
  * Exposes the leaf portion of any leaf or internal node.
  */
-internal fun <BorrowType, K, V, Type> NodeRef<BorrowType, K, V, Type>.asLeafPtr(): LeafNode<K, V> {
-    return node
-}
+internal fun <BorrowType, K, V, Type> NodeRef<BorrowType, K, V, Type>.asLeafPtr(): LeafNode<K, V> = node
 
 // ---- NodeRef<Dying, ...> -----------------------------------------------
 
@@ -406,12 +378,12 @@ internal fun <BorrowType, K, V, Type> NodeRef<BorrowType, K, V, Type>.asLeafPtr(
  * Similar to `ascend`, gets a reference to a node's parent node, but also
  * drops the link to the current node in the process.
  */
-internal fun <K, V> NodeRef<Marker.Dying, K, V, Marker.LeafOrInternal>.deallocateAndAscend():
-    Handle<NodeRef<Marker.Dying, K, V, Marker.Internal>, Marker.Edge>? {
-    val ret = when (val r = this.ascend()) {
-        is AscendResult.Ok -> r.handle
-        is AscendResult.Err -> null
-    }
+internal fun <K, V> NodeRef<Marker.Dying, K, V, Marker.LeafOrInternal>.deallocateAndAscend(): Handle<NodeRef<Marker.Dying, K, V, Marker.Internal>, Marker.Edge>? {
+    val ret =
+        when (val r = this.ascend()) {
+            is AscendResult.Ok -> r.handle
+            is AscendResult.Err -> null
+        }
     return ret
 }
 
@@ -424,10 +396,7 @@ internal fun <K, V> NodeRef<Marker.Dying, K, V, Marker.LeafOrInternal>.deallocat
  * The reborrow must have ended, i.e., the reference returned by `new` and
  * all pointers and references derived from it, must not be used anymore.
  */
-internal fun <K, V, Type> NodeRef<Marker.DormantMut, K, V, Type>.awaken():
-    NodeRef<Marker.Mut, K, V, Type> {
-    return NodeRef(height = height, node = node)
-}
+internal fun <K, V, Type> NodeRef<Marker.DormantMut, K, V, Type>.awaken(): NodeRef<Marker.Mut, K, V, Type> = NodeRef(height = height, node = node)
 
 // ---- NodeRef<Mut, ...> --------------------------------------------------
 
@@ -436,16 +405,10 @@ internal fun <K, V, Type> NodeRef<Marker.DormantMut, K, V, Type>.awaken():
  * as this method is very dangerous, doubly so since it might not immediately
  * appear dangerous.
  */
-internal fun <K, V, Type> NodeRef<Marker.Mut, K, V, Type>.reborrowMut():
-    NodeRef<Marker.Mut, K, V, Type> {
-    return NodeRef(height = height, node = node)
-}
+internal fun <K, V, Type> NodeRef<Marker.Mut, K, V, Type>.reborrowMut(): NodeRef<Marker.Mut, K, V, Type> = NodeRef(height = height, node = node)
 
 /** Returns a dormant copy of this node which can be reawakened later. */
-internal fun <K, V, Type> NodeRef<Marker.Mut, K, V, Type>.dormant():
-    NodeRef<Marker.DormantMut, K, V, Type> {
-    return NodeRef(height = height, node = node)
-}
+internal fun <K, V, Type> NodeRef<Marker.Mut, K, V, Type>.dormant(): NodeRef<Marker.DormantMut, K, V, Type> = NodeRef(height = height, node = node)
 
 // ---- NodeRef<Owned, ..., Type> -----------------------------------------
 
@@ -454,25 +417,16 @@ internal fun <K, V, Type> NodeRef<Marker.Mut, K, V, Type>.dormant():
  * because the return value cannot be used to destroy the root, and there
  * cannot be other references to the tree.
  */
-internal fun <K, V, Type> NodeRef<Marker.Owned, K, V, Type>.borrowMut():
-    NodeRef<Marker.Mut, K, V, Type> {
-    return NodeRef(height = height, node = node)
-}
+internal fun <K, V, Type> NodeRef<Marker.Owned, K, V, Type>.borrowMut(): NodeRef<Marker.Mut, K, V, Type> = NodeRef(height = height, node = node)
 
 /** Slightly mutably borrows the owned root node. */
-internal fun <K, V, Type> NodeRef<Marker.Owned, K, V, Type>.borrowValmut():
-    NodeRef<Marker.ValMut, K, V, Type> {
-    return NodeRef(height = height, node = node)
-}
+internal fun <K, V, Type> NodeRef<Marker.Owned, K, V, Type>.borrowValmut(): NodeRef<Marker.ValMut, K, V, Type> = NodeRef(height = height, node = node)
 
 /**
  * Irreversibly transitions to a reference that permits traversal and offers
  * destructive methods and little else.
  */
-internal fun <K, V, Type> NodeRef<Marker.Owned, K, V, Type>.intoDying():
-    NodeRef<Marker.Dying, K, V, Type> {
-    return NodeRef(height = height, node = node)
-}
+internal fun <K, V, Type> NodeRef<Marker.Owned, K, V, Type>.intoDying(): NodeRef<Marker.Dying, K, V, Type> = NodeRef(height = height, node = node)
 
 // ---- Owned, LeafOrInternal: tree-shape mutators -------------------------
 
@@ -481,8 +435,7 @@ internal fun <K, V, Type> NodeRef<Marker.Owned, K, V, Type>.intoDying():
  * make that new node the root node, and return it. This increases the height by 1
  * and is the opposite of `popInternalLevel`.
  */
-internal fun <K, V> NodeRef<Marker.Owned, K, V, Marker.LeafOrInternal>.pushInternalLevel():
-    NodeRef<Marker.Mut, K, V, Marker.Internal> {
+internal fun <K, V> NodeRef<Marker.Owned, K, V, Marker.LeafOrInternal>.pushInternalLevel(): NodeRef<Marker.Mut, K, V, Marker.Internal> {
     // takeMut(self, |oldRoot| NodeRef.newInternal(oldRoot).forgetType())
     val oldRoot: NodeRef<Marker.Owned, K, V, Marker.LeafOrInternal> = NodeRef(height = height, node = node)
     val newRoot = NodeRef.newInternal(oldRoot).forgetType()
@@ -542,23 +495,17 @@ internal fun <K, V> NodeRef<Marker.Mut, K, V, Marker.LeafOrInternal>.setParentLi
 /**
  * Borrows exclusive access to the data of an internal node.
  */
-internal fun <K, V> NodeRef<Marker.Mut, K, V, Marker.Internal>.asInternalMut(): InternalNode<K, V> {
-    return asInternalPtr()
-}
+internal fun <K, V> NodeRef<Marker.Mut, K, V, Marker.Internal>.asInternalMut(): InternalNode<K, V> = asInternalPtr()
 
 /**
  * Borrows exclusive access to the leaf portion of a leaf or internal node.
  */
-internal fun <K, V, Type> NodeRef<Marker.Mut, K, V, Type>.asLeafMut(): LeafNode<K, V> {
-    return asLeafPtr()
-}
+internal fun <K, V, Type> NodeRef<Marker.Mut, K, V, Type>.asLeafMut(): LeafNode<K, V> = asLeafPtr()
 
 /**
  * Offers exclusive access to the leaf portion of a leaf or internal node.
  */
-internal fun <K, V, Type> NodeRef<Marker.Mut, K, V, Type>.intoLeafMut(): LeafNode<K, V> {
-    return node
-}
+internal fun <K, V, Type> NodeRef<Marker.Mut, K, V, Type>.intoLeafMut(): LeafNode<K, V> = node
 
 /** Borrows exclusive access to the length of the node. */
 internal fun <K, V, Type> NodeRef<Marker.Mut, K, V, Type>.lenMut(): Int = asLeafMut().len
@@ -568,24 +515,18 @@ internal fun <K, V, Type> NodeRef<Marker.Mut, K, V, Type>.lenMut(): Int = asLeaf
 /**
  * Borrows exclusive access to the leaf portion of a dying leaf or internal node.
  */
-internal fun <K, V, Type> NodeRef<Marker.Dying, K, V, Type>.asLeafDying(): LeafNode<K, V> {
-    return node
-}
+internal fun <K, V, Type> NodeRef<Marker.Dying, K, V, Type>.asLeafDying(): LeafNode<K, V> = node
 
 // ---- NodeRef<Mut, ..., Type>: key/val area accessors -------------------
 
 /** Borrows exclusive access to the key storage area. */
-internal fun <K, V, Type> NodeRef<Marker.Mut, K, V, Type>.keyAreaMut(): MutableList<NodeSlot<K>> =
-    asLeafMut().keys
+internal fun <K, V, Type> NodeRef<Marker.Mut, K, V, Type>.keyAreaMut(): MutableList<NodeSlot<K>> = asLeafMut().keys
 
 /** Borrows exclusive access to the value storage area. */
-internal fun <K, V, Type> NodeRef<Marker.Mut, K, V, Type>.valAreaMut(): MutableList<NodeSlot<V>> =
-    asLeafMut().vals
+internal fun <K, V, Type> NodeRef<Marker.Mut, K, V, Type>.valAreaMut(): MutableList<NodeSlot<V>> = asLeafMut().vals
 
 /** Borrows exclusive access to the edge storage area. */
-internal fun <K, V> NodeRef<Marker.Mut, K, V, Marker.Internal>.edgeAreaMut(): MutableList<LeafNode<K, V>?> {
-    return asInternalMut().edges
-}
+internal fun <K, V> NodeRef<Marker.Mut, K, V, Marker.Internal>.edgeAreaMut(): MutableList<LeafNode<K, V>?> = asInternalMut().edges
 
 // ---- NodeRef<ValMut, ...> ----------------------------------------------
 
@@ -608,9 +549,7 @@ internal fun <K, V, Type> NodeRef<Marker.ValMut, K, V, Type>.intoKeyValMutAt(idx
  * # Safety
  * Every item in `range` is a valid edge index for the node.
  */
-internal fun <K, V> NodeRef<Marker.Mut, K, V, Marker.Internal>.correctChildrensParentLinks(
-    range: IntRange,
-) {
+internal fun <K, V> NodeRef<Marker.Mut, K, V, Marker.Internal>.correctChildrensParentLinks(range: IntRange) {
     for (i in range) {
         check(i <= len())
         Handle.newEdge(this.reborrowMut(), i).correctParentLink()
@@ -645,7 +584,10 @@ internal fun <K, V> NodeRef<Marker.Mut, K, V, Marker.Leaf>.pushWithHandle(
  * Adds a key-value pair to the end of the node, and returns the
  * newly-inserted value.
  */
-internal fun <K, V> NodeRef<Marker.Mut, K, V, Marker.Leaf>.push(key: K, value: V): V {
+internal fun <K, V> NodeRef<Marker.Mut, K, V, Marker.Leaf>.push(
+    key: K,
+    value: V,
+): V {
     val handle = this.pushWithHandle(key, value)
     return handle.intoValMut()
 }
@@ -678,25 +620,21 @@ internal fun <K, V> NodeRef<Marker.Mut, K, V, Marker.Internal>.push(
  * Checks whether a node is an `Internal` node or a `Leaf` node — height
  * == 0 → Leaf, height > 0 → Internal.
  */
-internal fun <BorrowType, K, V> NodeRef<BorrowType, K, V, Marker.LeafOrInternal>.force():
-    ForceResult<NodeRef<BorrowType, K, V, Marker.Leaf>, NodeRef<BorrowType, K, V, Marker.Internal>> {
-    return if (height == 0) {
+internal fun <BorrowType, K, V> NodeRef<BorrowType, K, V, Marker.LeafOrInternal>.force(): ForceResult<NodeRef<BorrowType, K, V, Marker.Leaf>, NodeRef<BorrowType, K, V, Marker.Internal>> =
+    if (height == 0) {
         ForceResult.Leaf(NodeRef(height = height, node = node))
     } else {
         ForceResult.Internal(NodeRef(height = height, node = node))
     }
-}
 
 /** Unsafely asserts to the compiler the static information that this node is a `Leaf`. */
-internal fun <K, V> NodeRef<Marker.Mut, K, V, Marker.LeafOrInternal>.castToLeafUnchecked():
-    NodeRef<Marker.Mut, K, V, Marker.Leaf> {
+internal fun <K, V> NodeRef<Marker.Mut, K, V, Marker.LeafOrInternal>.castToLeafUnchecked(): NodeRef<Marker.Mut, K, V, Marker.Leaf> {
     check(height == 0)
     return NodeRef(height = height, node = node)
 }
 
 /** Unsafely asserts to the compiler the static information that this node is an `Internal`. */
-internal fun <K, V> NodeRef<Marker.Mut, K, V, Marker.LeafOrInternal>.castToInternalUnchecked():
-    NodeRef<Marker.Mut, K, V, Marker.Internal> {
+internal fun <K, V> NodeRef<Marker.Mut, K, V, Marker.LeafOrInternal>.castToInternalUnchecked(): NodeRef<Marker.Mut, K, V, Marker.Internal> {
     check(height > 0)
     return NodeRef(height = height, node = node)
 }
@@ -777,54 +715,27 @@ internal class Handle<Node, Type> internal constructor(
     }
 }
 
-internal fun <Node, Type> Handle<Node, Type>.clone(): Handle<Node, Type> {
-    return Handle(node, idx)
-}
+internal fun <Node, Type> Handle<Node, Type>.clone(): Handle<Node, Type> = Handle(node, idx)
 
 // ---- Handle KV: edges, equality ----------------------------------------
 
-internal fun <BorrowType, K, V, NodeType> Handle<NodeRef<BorrowType, K, V, NodeType>, Marker.KV>.leftEdge():
-    Handle<NodeRef<BorrowType, K, V, NodeType>, Marker.Edge> {
-    return Handle.newEdge(node, idx)
-}
+internal fun <BorrowType, K, V, NodeType> Handle<NodeRef<BorrowType, K, V, NodeType>, Marker.KV>.leftEdge(): Handle<NodeRef<BorrowType, K, V, NodeType>, Marker.Edge> = Handle.newEdge(node, idx)
 
-internal fun <BorrowType, K, V, NodeType> Handle<NodeRef<BorrowType, K, V, NodeType>, Marker.KV>.rightEdge():
-    Handle<NodeRef<BorrowType, K, V, NodeType>, Marker.Edge> {
-    return Handle.newEdge(node, idx + 1)
-}
+internal fun <BorrowType, K, V, NodeType> Handle<NodeRef<BorrowType, K, V, NodeType>, Marker.KV>.rightEdge(): Handle<NodeRef<BorrowType, K, V, NodeType>, Marker.Edge> = Handle.newEdge(node, idx + 1)
 
-internal fun <BorrowType, K, V, NodeType, HandleType>
-Handle<NodeRef<BorrowType, K, V, NodeType>, HandleType>.eq(
+internal fun <BorrowType, K, V, NodeType, HandleType> Handle<NodeRef<BorrowType, K, V, NodeType>, HandleType>.eq(
     other: Handle<NodeRef<BorrowType, K, V, NodeType>, HandleType>,
-): Boolean {
-    return node.eq(other.node) && idx == other.idx
-}
+): Boolean = node.eq(other.node) && idx == other.idx
 
 // ---- Handle: reborrow / dormant / awaken --------------------------------
 
-internal fun <BorrowType, K, V, NodeType, HandleType>
-Handle<NodeRef<BorrowType, K, V, NodeType>, HandleType>.reborrow():
-    Handle<NodeRef<Marker.Immut, K, V, NodeType>, HandleType> {
-    return Handle(node.reborrow(), idx)
-}
+internal fun <BorrowType, K, V, NodeType, HandleType> Handle<NodeRef<BorrowType, K, V, NodeType>, HandleType>.reborrow(): Handle<NodeRef<Marker.Immut, K, V, NodeType>, HandleType> = Handle(node.reborrow(), idx)
 
-internal fun <K, V, NodeType, HandleType>
-Handle<NodeRef<Marker.Mut, K, V, NodeType>, HandleType>.reborrowMut():
-    Handle<NodeRef<Marker.Mut, K, V, NodeType>, HandleType> {
-    return Handle(node.reborrowMut(), idx)
-}
+internal fun <K, V, NodeType, HandleType> Handle<NodeRef<Marker.Mut, K, V, NodeType>, HandleType>.reborrowMut(): Handle<NodeRef<Marker.Mut, K, V, NodeType>, HandleType> = Handle(node.reborrowMut(), idx)
 
-internal fun <K, V, NodeType, HandleType>
-Handle<NodeRef<Marker.Mut, K, V, NodeType>, HandleType>.dormant():
-    Handle<NodeRef<Marker.DormantMut, K, V, NodeType>, HandleType> {
-    return Handle(node.dormant(), idx)
-}
+internal fun <K, V, NodeType, HandleType> Handle<NodeRef<Marker.Mut, K, V, NodeType>, HandleType>.dormant(): Handle<NodeRef<Marker.DormantMut, K, V, NodeType>, HandleType> = Handle(node.dormant(), idx)
 
-internal fun <K, V, NodeType, HandleType>
-Handle<NodeRef<Marker.DormantMut, K, V, NodeType>, HandleType>.awaken():
-    Handle<NodeRef<Marker.Mut, K, V, NodeType>, HandleType> {
-    return Handle(node.awaken(), idx)
-}
+internal fun <K, V, NodeType, HandleType> Handle<NodeRef<Marker.DormantMut, K, V, NodeType>, HandleType>.awaken(): Handle<NodeRef<Marker.Mut, K, V, NodeType>, HandleType> = Handle(node.awaken(), idx)
 
 // ---- Handle Edge: leftKv / rightKv ------------------------------------
 
@@ -843,33 +754,32 @@ internal sealed class EdgeKvResult<BorrowType, K, V, NodeType> {
     ) : EdgeKvResult<BorrowType, K, V, NodeType>()
 }
 
-internal fun <BorrowType, K, V, NodeType>
-Handle<NodeRef<BorrowType, K, V, NodeType>, Marker.Edge>.leftKv():
-    EdgeKvResult<BorrowType, K, V, NodeType> {
-    return if (idx > 0) {
+internal fun <BorrowType, K, V, NodeType> Handle<NodeRef<BorrowType, K, V, NodeType>, Marker.Edge>.leftKv(): EdgeKvResult<BorrowType, K, V, NodeType> =
+    if (idx > 0) {
         EdgeKvResult.Ok(Handle.newKv(node, idx - 1))
     } else {
         EdgeKvResult.Err(this)
     }
-}
 
-internal fun <BorrowType, K, V, NodeType>
-Handle<NodeRef<BorrowType, K, V, NodeType>, Marker.Edge>.rightKv():
-    EdgeKvResult<BorrowType, K, V, NodeType> {
-    return if (idx < node.len()) {
+internal fun <BorrowType, K, V, NodeType> Handle<NodeRef<BorrowType, K, V, NodeType>, Marker.Edge>.rightKv(): EdgeKvResult<BorrowType, K, V, NodeType> =
+    if (idx < node.len()) {
         EdgeKvResult.Ok(Handle.newKv(node, idx))
     } else {
         EdgeKvResult.Err(this)
     }
-}
 
 // =====================================================================
 // LeftOrRight
 // =====================================================================
 
 internal sealed class LeftOrRight<T> {
-    data class Left<T>(val value: T) : LeftOrRight<T>()
-    data class Right<T>(val value: T) : LeftOrRight<T>()
+    data class Left<T>(
+        val value: T,
+    ) : LeftOrRight<T>()
+
+    data class Right<T>(
+        val value: T,
+    ) : LeftOrRight<T>()
 }
 
 /**
@@ -918,26 +828,26 @@ private fun <K, V> Handle<NodeRef<Marker.Mut, K, V, Marker.Leaf>, Marker.Edge>.i
 private fun <K, V> Handle<NodeRef<Marker.Mut, K, V, Marker.Leaf>, Marker.Edge>.insert(
     key: K,
     value: V,
-): Pair<SplitResult<K, V, Marker.Leaf>?, Handle<NodeRef<Marker.DormantMut, K, V, Marker.Leaf>, Marker.KV>> {
-    return if (node.len() < CAPACITY) {
+): Pair<SplitResult<K, V, Marker.Leaf>?, Handle<NodeRef<Marker.DormantMut, K, V, Marker.Leaf>, Marker.KV>> =
+    if (node.len() < CAPACITY) {
         val handle = this.insertFit(key, value)
         Pair(null, handle.dormant())
     } else {
         val (middleKvIdx, insertion) = splitpoint(idx)
         val middle = Handle.newKv(node, middleKvIdx)
         val result = middle.split(SplitTag.Leaf)
-        val insertionEdge = when (insertion) {
-            is LeftOrRight.Left -> {
-                Handle.newEdge(result.left.reborrowMut(), insertion.value)
+        val insertionEdge =
+            when (insertion) {
+                is LeftOrRight.Left -> {
+                    Handle.newEdge(result.left.reborrowMut(), insertion.value)
+                }
+                is LeftOrRight.Right -> {
+                    Handle.newEdge(result.right.borrowMut(), insertion.value)
+                }
             }
-            is LeftOrRight.Right -> {
-                Handle.newEdge(result.right.borrowMut(), insertion.value)
-            }
-        }
         val handle = insertionEdge.insertFit(key, value).dormant()
         Pair(result, handle)
     }
-}
 
 // =====================================================================
 // Handle Mut Internal Edge: correctParentLink, insertFit, insert
@@ -997,14 +907,15 @@ private fun <K, V> Handle<NodeRef<Marker.Mut, K, V, Marker.Internal>, Marker.Edg
         val (middleKvIdx, insertion) = splitpoint(idx)
         val middle = Handle.newKv(node, middleKvIdx)
         val result = middle.split(SplitTag.Internal)
-        val insertionEdge = when (insertion) {
-            is LeftOrRight.Left -> {
-                Handle.newEdge(result.left.reborrowMut(), insertion.value)
+        val insertionEdge =
+            when (insertion) {
+                is LeftOrRight.Left -> {
+                    Handle.newEdge(result.left.reborrowMut(), insertion.value)
+                }
+                is LeftOrRight.Right -> {
+                    Handle.newEdge(result.right.borrowMut(), insertion.value)
+                }
             }
-            is LeftOrRight.Right -> {
-                Handle.newEdge(result.right.borrowMut(), insertion.value)
-            }
-        }
         insertionEdge.insertFit(key, value, edge)
         result
     }
@@ -1029,31 +940,33 @@ internal fun <K, V> Handle<NodeRef<Marker.Mut, K, V, Marker.Leaf>, Marker.Edge>.
     splitRoot: (SplitResult<K, V, Marker.LeafOrInternal>) -> Unit,
 ): Handle<NodeRef<Marker.Mut, K, V, Marker.Leaf>, Marker.KV> {
     val (firstSplit, handle) = this.insert(key, value)
-    var split: SplitResult<K, V, Marker.LeafOrInternal> = if (firstSplit == null) {
-        // handle to the inserted element.
-        return handle.awaken()
-    } else {
-        firstSplit.forgetNodeType(LeafSplitResultForgetNodeType)
-    }
+    var split: SplitResult<K, V, Marker.LeafOrInternal> =
+        if (firstSplit == null) {
+            // handle to the inserted element.
+            return handle.awaken()
+        } else {
+            firstSplit.forgetNodeType(LeafSplitResultForgetNodeType)
+        }
 
     while (true) {
-        split = when (val ascended = split.left.ascend()) {
-            is AscendResult.Ok -> {
-                val parent = ascended.handle
-                val sub = parent.insert(split.kv.first, split.kv.second, split.right)
-                if (sub == null) {
+        split =
+            when (val ascended = split.left.ascend()) {
+                is AscendResult.Ok -> {
+                    val parent = ascended.handle
+                    val sub = parent.insert(split.kv.first, split.kv.second, split.right)
+                    if (sub == null) {
+                        // handle to the inserted element.
+                        return handle.awaken()
+                    } else {
+                        sub.forgetNodeType(InternalSplitResultForgetNodeType)
+                    }
+                }
+                is AscendResult.Err -> {
+                    splitRoot(SplitResult(left = ascended.node, kv = split.kv, right = split.right))
                     // handle to the inserted element.
                     return handle.awaken()
-                } else {
-                    sub.forgetNodeType(InternalSplitResultForgetNodeType)
                 }
             }
-            is AscendResult.Err -> {
-                splitRoot(SplitResult(left = ascended.node, kv = split.kv, right = split.right))
-                // handle to the inserted element.
-                return handle.awaken()
-            }
-        }
     }
 }
 
@@ -1062,9 +975,7 @@ internal fun <K, V> Handle<NodeRef<Marker.Mut, K, V, Marker.Leaf>, Marker.Edge>.
 // =====================================================================
 
 /** Finds the node pointed to by this edge. */
-internal fun <BorrowType : Marker.BorrowType, K, V>
-Handle<NodeRef<BorrowType, K, V, Marker.Internal>, Marker.Edge>.descend():
-    NodeRef<BorrowType, K, V, Marker.LeafOrInternal> {
+internal fun <BorrowType : Marker.BorrowType, K, V> Handle<NodeRef<BorrowType, K, V, Marker.Internal>, Marker.Edge>.descend(): NodeRef<BorrowType, K, V, Marker.LeafOrInternal> {
     // const { assert(BorrowType::TRAVERSAL_PERMIT) } — see ascend() note.
     val parentPtr: InternalNode<K, V> = node.node as InternalNode<K, V>
     val childNode = parentPtr.edges[idx]!!
@@ -1085,14 +996,14 @@ internal fun <K, V, NodeType> Handle<NodeRef<Marker.Immut, K, V, NodeType>, Mark
 // =====================================================================
 // Handle Mut KV: keyMut, intoValMut, intoKvMut, kvMut, replaceKv
 // =====================================================================
-internal fun <K, V, NodeType> Handle<NodeRef<Marker.Mut, K, V, NodeType>, Marker.KV>.keyMut(): K {
-    return node.asLeafMut().keys[idx].initializedValue
-}
+internal fun <K, V, NodeType> Handle<NodeRef<Marker.Mut, K, V, NodeType>, Marker.KV>.keyMut(): K = node.asLeafMut().keys[idx].initializedValue
+
 internal fun <K, V, NodeType> Handle<NodeRef<Marker.Mut, K, V, NodeType>, Marker.KV>.intoValMut(): V {
     check(idx < node.len())
     val leaf = node.intoLeafMut()
     return leaf.vals[idx].initializedValue
 }
+
 internal fun <K, V, NodeType> Handle<NodeRef<Marker.Mut, K, V, NodeType>, Marker.KV>.intoKvMut(): Pair<K, V> {
     check(idx < node.len())
     val leaf = node.intoLeafMut()
@@ -1100,6 +1011,7 @@ internal fun <K, V, NodeType> Handle<NodeRef<Marker.Mut, K, V, NodeType>, Marker
     val v = leaf.vals[idx].initializedValue
     return Pair(k, v)
 }
+
 internal fun <K, V, NodeType> Handle<NodeRef<Marker.Mut, K, V, NodeType>, Marker.KV>.kvMut(): Pair<K, V> {
     check(idx < node.len())
     val leaf = node.asLeafMut()
@@ -1125,10 +1037,7 @@ internal fun <K, V, NodeType> Handle<NodeRef<Marker.Mut, K, V, NodeType>, Marker
 // Handle ValMut KV: intoKvValmut
 // =====================================================================
 
-internal fun <K, V, NodeType> Handle<NodeRef<Marker.ValMut, K, V, NodeType>, Marker.KV>.intoKvValmut():
-    Pair<K, V> {
-    return node.intoKeyValMutAt(idx)
-}
+internal fun <K, V, NodeType> Handle<NodeRef<Marker.ValMut, K, V, NodeType>, Marker.KV>.intoKvValmut(): Pair<K, V> = node.intoKeyValMutAt(idx)
 
 // =====================================================================
 // Handle Dying KV: intoKeyVal, dropKeyVal
@@ -1138,8 +1047,7 @@ internal fun <K, V, NodeType> Handle<NodeRef<Marker.ValMut, K, V, NodeType>, Mar
  * Extracts the key and value that the KV handle refers to. The node that
  * the handle refers to must not yet have been deallocated.
  */
-internal fun <K, V, NodeType> Handle<NodeRef<Marker.Dying, K, V, NodeType>, Marker.KV>.intoKeyVal():
-    Pair<K, V> {
+internal fun <K, V, NodeType> Handle<NodeRef<Marker.Dying, K, V, NodeType>, Marker.KV>.intoKeyVal(): Pair<K, V> {
     check(idx < node.len())
     val leaf = node.asLeafDying()
     val key = leaf.keys[idx].initializedValue
@@ -1174,9 +1082,7 @@ internal fun <K, V, NodeType> Handle<NodeRef<Marker.Dying, K, V, NodeType>, Mark
  * Helps implementations of `split` for a particular `NodeType`,
  * by taking care of leaf data.
  */
-private fun <K, V, NodeType> Handle<NodeRef<Marker.Mut, K, V, NodeType>, Marker.KV>.splitLeafData(
-    newNode: LeafNode<K, V>,
-): Pair<K, V> {
+private fun <K, V, NodeType> Handle<NodeRef<Marker.Mut, K, V, NodeType>, Marker.KV>.splitLeafData(newNode: LeafNode<K, V>): Pair<K, V> {
     check(idx < node.len())
     val oldLen = node.len()
     val newLen = oldLen - idx - 1
@@ -1202,8 +1108,7 @@ private fun <K, V, NodeType> Handle<NodeRef<Marker.Mut, K, V, NodeType>, Marker.
  * - The key and value pointed to by this handle are extracted.
  * - All the key-value pairs to the right of this handle are put into a newly allocated node.
  */
-internal fun <K, V> Handle<NodeRef<Marker.Mut, K, V, Marker.Leaf>, Marker.KV>.split(tag: SplitTag.Leaf):
-    SplitResult<K, V, Marker.Leaf> {
+internal fun <K, V> Handle<NodeRef<Marker.Mut, K, V, Marker.Leaf>, Marker.KV>.split(tag: SplitTag.Leaf): SplitResult<K, V, Marker.Leaf> {
     val newNode = LeafNode.new<K, V>()
     val kv = this.splitLeafData(newNode)
     val right = NodeRef<Marker.Owned, K, V, Marker.Leaf>(height = 0, node = newNode)
@@ -1214,8 +1119,7 @@ internal fun <K, V> Handle<NodeRef<Marker.Mut, K, V, Marker.Leaf>, Marker.KV>.sp
  * Removes the key-value pair pointed to by this handle and returns it, along with the edge
  * that the key-value pair collapsed into.
  */
-internal fun <K, V> Handle<NodeRef<Marker.Mut, K, V, Marker.Leaf>, Marker.KV>.remove():
-    Pair<Pair<K, V>, Handle<NodeRef<Marker.Mut, K, V, Marker.Leaf>, Marker.Edge>> {
+internal fun <K, V> Handle<NodeRef<Marker.Mut, K, V, Marker.Leaf>, Marker.KV>.remove(): Pair<Pair<K, V>, Handle<NodeRef<Marker.Mut, K, V, Marker.Leaf>, Marker.Edge>> {
     val oldLen = node.len()
     val leaf = node.asLeafMut()
     val k = sliceRemove(leaf.keys, oldLen, idx, NodeSlot.Empty).initializedValue
@@ -1236,16 +1140,19 @@ internal fun <K, V> Handle<NodeRef<Marker.Mut, K, V, Marker.Leaf>, Marker.KV>.re
  * - All the edges and key-value pairs to the right of this handle are put into
  *   a newly allocated node.
  */
-internal fun <K, V> Handle<NodeRef<Marker.Mut, K, V, Marker.Internal>, Marker.KV>.split(tag: SplitTag.Internal):
-    SplitResult<K, V, Marker.Internal> {
+internal fun <K, V> Handle<NodeRef<Marker.Mut, K, V, Marker.Internal>, Marker.KV>.split(
+    tag: SplitTag.Internal,
+): SplitResult<K, V, Marker.Internal> {
     val oldLen = node.len()
     val newNode = InternalNode.new<K, V>()
     val kv = this.splitLeafData(newNode)
     val newLen = newNode.len
     val srcInternal = node.asInternalMut()
     moveToSlice(
-        srcInternal.edges, idx + 1,
-        newNode.edges, 0,
+        srcInternal.edges,
+        idx + 1,
+        newNode.edges,
+        0,
         newLen + 1,
         null,
     )
@@ -1258,6 +1165,7 @@ internal fun <K, V> Handle<NodeRef<Marker.Mut, K, V, Marker.Internal>, Marker.KV
 
 internal sealed interface SplitTag {
     data object Leaf : SplitTag
+
     data object Internal : SplitTag
 }
 
@@ -1275,16 +1183,17 @@ internal class BalancingContext<K, V> internal constructor(
     val rightChild: NodeRef<Marker.Mut, K, V, Marker.LeafOrInternal>,
 )
 
-internal fun <K, V> Handle<NodeRef<Marker.Mut, K, V, Marker.Internal>, Marker.KV>.considerForBalancing():
-    BalancingContext<K, V> {
-    val leftChild = Handle<NodeRef<Marker.Mut, K, V, Marker.Internal>, Marker.Edge>(
-        node = NodeRef(height = node.height, node = node.node),
-        idx = idx,
-    ).descend()
-    val rightChild = Handle<NodeRef<Marker.Mut, K, V, Marker.Internal>, Marker.Edge>(
-        node = NodeRef(height = node.height, node = node.node),
-        idx = idx + 1,
-    ).descend()
+internal fun <K, V> Handle<NodeRef<Marker.Mut, K, V, Marker.Internal>, Marker.KV>.considerForBalancing(): BalancingContext<K, V> {
+    val leftChild =
+        Handle<NodeRef<Marker.Mut, K, V, Marker.Internal>, Marker.Edge>(
+            node = NodeRef(height = node.height, node = node.node),
+            idx = idx,
+        ).descend()
+    val rightChild =
+        Handle<NodeRef<Marker.Mut, K, V, Marker.Internal>, Marker.Edge>(
+            node = NodeRef(height = node.height, node = node.node),
+            idx = idx + 1,
+        ).descend()
     return BalancingContext(parent = this, leftChild = leftChild, rightChild = rightChild)
 }
 
@@ -1295,12 +1204,16 @@ internal fun <K, V> Handle<NodeRef<Marker.Mut, K, V, Marker.Internal>, Marker.KV
  * Panics if the parent is empty.
  */
 internal sealed class ChooseParentKvResult<K, V> {
-    data class Ok<K, V>(val context: LeftOrRight<BalancingContext<K, V>>) : ChooseParentKvResult<K, V>()
-    data class Err<K, V>(val node: NodeRef<Marker.Mut, K, V, Marker.LeafOrInternal>) : ChooseParentKvResult<K, V>()
+    data class Ok<K, V>(
+        val context: LeftOrRight<BalancingContext<K, V>>,
+    ) : ChooseParentKvResult<K, V>()
+
+    data class Err<K, V>(
+        val node: NodeRef<Marker.Mut, K, V, Marker.LeafOrInternal>,
+    ) : ChooseParentKvResult<K, V>()
 }
 
-internal fun <K, V> NodeRef<Marker.Mut, K, V, Marker.LeafOrInternal>.chooseParentKv():
-    ChooseParentKvResult<K, V> {
+internal fun <K, V> NodeRef<Marker.Mut, K, V, Marker.LeafOrInternal>.chooseParentKv(): ChooseParentKvResult<K, V> {
     val selfCopy: NodeRef<Marker.Mut, K, V, Marker.LeafOrInternal> = NodeRef(height, node)
     return when (val ascended = selfCopy.ascend()) {
         is AscendResult.Ok -> {
@@ -1308,10 +1221,11 @@ internal fun <K, V> NodeRef<Marker.Mut, K, V, Marker.LeafOrInternal>.chooseParen
             when (val left = parentEdge.leftKv()) {
                 is EdgeKvResult.Ok -> {
                     val leftParentKv = left.handle
-                    val parentForCtx = Handle<NodeRef<Marker.Mut, K, V, Marker.Internal>, Marker.KV>(
-                        node = NodeRef(leftParentKv.node.height, leftParentKv.node.node),
-                        idx = leftParentKv.idx,
-                    )
+                    val parentForCtx =
+                        Handle<NodeRef<Marker.Mut, K, V, Marker.Internal>, Marker.KV>(
+                            node = NodeRef(leftParentKv.node.height, leftParentKv.node.node),
+                            idx = leftParentKv.idx,
+                        )
                     val leftChild = leftParentKv.leftEdge().descend()
                     ChooseParentKvResult.Ok(
                         LeftOrRight.Left(
@@ -1328,10 +1242,11 @@ internal fun <K, V> NodeRef<Marker.Mut, K, V, Marker.LeafOrInternal>.chooseParen
                     when (val right = parentEdge2.rightKv()) {
                         is EdgeKvResult.Ok -> {
                             val rightParentKv = right.handle
-                            val parentForCtx = Handle<NodeRef<Marker.Mut, K, V, Marker.Internal>, Marker.KV>(
-                                node = NodeRef(rightParentKv.node.height, rightParentKv.node.node),
-                                idx = rightParentKv.idx,
-                            )
+                            val parentForCtx =
+                                Handle<NodeRef<Marker.Mut, K, V, Marker.Internal>, Marker.KV>(
+                                    node = NodeRef(rightParentKv.node.height, rightParentKv.node.node),
+                                    idx = rightParentKv.idx,
+                                )
                             val rightChild = rightParentKv.rightEdge().descend()
                             ChooseParentKvResult.Ok(
                                 LeftOrRight.Right(
@@ -1355,21 +1270,18 @@ internal fun <K, V> NodeRef<Marker.Mut, K, V, Marker.LeafOrInternal>.chooseParen
 // ---- BalancingContext: simple accessors --------------------------------
 
 internal fun <K, V> BalancingContext<K, V>.leftChildLen(): Int = leftChild.len()
+
 internal fun <K, V> BalancingContext<K, V>.rightChildLen(): Int = rightChild.len()
 
-internal fun <K, V> BalancingContext<K, V>.intoLeftChild():
-    NodeRef<Marker.Mut, K, V, Marker.LeafOrInternal> = leftChild
+internal fun <K, V> BalancingContext<K, V>.intoLeftChild(): NodeRef<Marker.Mut, K, V, Marker.LeafOrInternal> = leftChild
 
-internal fun <K, V> BalancingContext<K, V>.intoRightChild():
-    NodeRef<Marker.Mut, K, V, Marker.LeafOrInternal> = rightChild
+internal fun <K, V> BalancingContext<K, V>.intoRightChild(): NodeRef<Marker.Mut, K, V, Marker.LeafOrInternal> = rightChild
 
 /**
  * Returns whether merging is possible, i.e., whether there is enough room
  * in a node to combine the central KV with both adjacent child nodes.
  */
-internal fun <K, V> BalancingContext<K, V>.canMerge(): Boolean {
-    return leftChild.len() + 1 + rightChild.len() <= CAPACITY
-}
+internal fun <K, V> BalancingContext<K, V>.canMerge(): Boolean = leftChild.len() + 1 + rightChild.len() <= CAPACITY
 
 // ---- BalancingContext: doMerge ----------------------------------------
 
@@ -1399,8 +1311,10 @@ private inline fun <K, V, R> BalancingContext<K, V>.doMerge(
     val parentKey = sliceRemove(parentNode.asLeafMut().keys, oldParentLen, parentIdx, NodeSlot.Empty)
     leftNode.keyAreaMut()[oldLeftLen] = parentKey
     moveToSlice(
-        rightNode.asLeafMut().keys, 0,
-        leftNode.asLeafMut().keys, oldLeftLen + 1,
+        rightNode.asLeafMut().keys,
+        0,
+        leftNode.asLeafMut().keys,
+        oldLeftLen + 1,
         rightLen,
         NodeSlot.Empty,
     )
@@ -1408,8 +1322,10 @@ private inline fun <K, V, R> BalancingContext<K, V>.doMerge(
     val parentVal = sliceRemove(parentNode.asLeafMut().vals, oldParentLen, parentIdx, NodeSlot.Empty)
     leftNode.valAreaMut()[oldLeftLen] = parentVal
     moveToSlice(
-        rightNode.asLeafMut().vals, 0,
-        leftNode.asLeafMut().vals, oldLeftLen + 1,
+        rightNode.asLeafMut().vals,
+        0,
+        leftNode.asLeafMut().vals,
+        oldLeftLen + 1,
         rightLen,
         NodeSlot.Empty,
     )
@@ -1424,8 +1340,10 @@ private inline fun <K, V, R> BalancingContext<K, V>.doMerge(
         val leftInternal = leftNode.reborrowMut().castToInternalUnchecked()
         val rightInternal = rightNode.castToInternalUnchecked()
         moveToSlice(
-            rightInternal.asInternalMut().edges, 0,
-            leftInternal.asInternalMut().edges, oldLeftLen + 1,
+            rightInternal.asInternalMut().edges,
+            0,
+            leftInternal.asInternalMut().edges,
+            oldLeftLen + 1,
             rightLen + 1,
             null,
         )
@@ -1443,19 +1361,13 @@ private inline fun <K, V, R> BalancingContext<K, V>.doMerge(
  * Merges the parent's key-value pair and both adjacent child nodes into
  * the left child node and returns the shrunk parent node.
  */
-internal fun <K, V> BalancingContext<K, V>.mergeTrackingParent():
-    NodeRef<Marker.Mut, K, V, Marker.Internal> {
-    return this.doMerge { parent, _child -> parent }
-}
+internal fun <K, V> BalancingContext<K, V>.mergeTrackingParent(): NodeRef<Marker.Mut, K, V, Marker.Internal> = this.doMerge { parent, _child -> parent }
 
 /**
  * Merges the parent's key-value pair and both adjacent child nodes into
  * the left child node and returns that child node.
  */
-internal fun <K, V> BalancingContext<K, V>.mergeTrackingChild():
-    NodeRef<Marker.Mut, K, V, Marker.LeafOrInternal> {
-    return this.doMerge { _parent, child -> child }
-}
+internal fun <K, V> BalancingContext<K, V>.mergeTrackingChild(): NodeRef<Marker.Mut, K, V, Marker.LeafOrInternal> = this.doMerge { _parent, child -> child }
 
 /**
  * Merges the parent's key-value pair and both adjacent child nodes into
@@ -1474,10 +1386,11 @@ internal fun <K, V> BalancingContext<K, V>.mergeTrackingChildEdge(
         },
     )
     val child = this.mergeTrackingChild()
-    val newIdx = when (trackEdgeIdx) {
-        is LeftOrRight.Left -> trackEdgeIdx.value
-        is LeftOrRight.Right -> oldLeftLen + 1 + trackEdgeIdx.value
-    }
+    val newIdx =
+        when (trackEdgeIdx) {
+            is LeftOrRight.Left -> trackEdgeIdx.value
+            is LeftOrRight.Right -> oldLeftLen + 1 + trackEdgeIdx.value
+        }
     return Handle.newEdge(child, newIdx)
 }
 
@@ -1561,8 +1474,10 @@ internal fun <K, V> BalancingContext<K, V>.bulkStealLeft(count: Int) {
 
                     // Steal edges.
                     moveToSlice(
-                        leftEdges, newLeftLen + 1,
-                        rightEdges, 0,
+                        leftEdges,
+                        newLeftLen + 1,
+                        rightEdges,
+                        0,
                         count,
                         null,
                     )
@@ -1630,8 +1545,10 @@ internal fun <K, V> BalancingContext<K, V>.bulkStealRight(count: Int) {
                     val rightEdges = right.asInternalMut().edges
                     // Steal edges.
                     moveToSlice(
-                        rightEdges, 0,
-                        leftEdges, oldLeftLen + 1,
+                        rightEdges,
+                        0,
+                        leftEdges,
+                        oldLeftLen + 1,
                         count,
                         null,
                     )
@@ -1658,11 +1575,7 @@ internal fun <K, V> BalancingContext<K, V>.bulkStealRight(count: Int) {
 // Handle forgetNodeType (Leaf Edge / Internal Edge / Leaf KV)
 // =====================================================================
 
-internal fun <BorrowType, K, V, NodeType, HandleType>
-Handle<NodeRef<BorrowType, K, V, NodeType>, HandleType>.forgetNodeType():
-    Handle<NodeRef<BorrowType, K, V, Marker.LeafOrInternal>, HandleType> {
-    return Handle(node.forgetType(), idx)
-}
+internal fun <BorrowType, K, V, NodeType, HandleType> Handle<NodeRef<BorrowType, K, V, NodeType>, HandleType>.forgetNodeType(): Handle<NodeRef<BorrowType, K, V, Marker.LeafOrInternal>, HandleType> = Handle(node.forgetType(), idx)
 
 internal object LeafEdgeForgetNodeType
 
@@ -1672,49 +1585,41 @@ internal object LeafKvForgetNodeType
 
 internal fun <BorrowType, K, V> Handle<NodeRef<BorrowType, K, V, Marker.Leaf>, Marker.Edge>.forgetNodeType(
     route: LeafEdgeForgetNodeType,
-): Handle<NodeRef<BorrowType, K, V, Marker.LeafOrInternal>, Marker.Edge> {
-    return when (route) {
+): Handle<NodeRef<BorrowType, K, V, Marker.LeafOrInternal>, Marker.Edge> =
+    when (route) {
         LeafEdgeForgetNodeType -> forgetNodeType()
     }
-}
 
 internal fun <BorrowType, K, V> Handle<NodeRef<BorrowType, K, V, Marker.Internal>, Marker.Edge>.forgetNodeType(
     route: InternalEdgeForgetNodeType,
-): Handle<NodeRef<BorrowType, K, V, Marker.LeafOrInternal>, Marker.Edge> {
-    return when (route) {
+): Handle<NodeRef<BorrowType, K, V, Marker.LeafOrInternal>, Marker.Edge> =
+    when (route) {
         InternalEdgeForgetNodeType -> forgetNodeType()
     }
-}
 
 internal fun <BorrowType, K, V> Handle<NodeRef<BorrowType, K, V, Marker.Leaf>, Marker.KV>.forgetNodeType(
     route: LeafKvForgetNodeType,
-): Handle<NodeRef<BorrowType, K, V, Marker.LeafOrInternal>, Marker.KV> {
-    return when (route) {
+): Handle<NodeRef<BorrowType, K, V, Marker.LeafOrInternal>, Marker.KV> =
+    when (route) {
         LeafKvForgetNodeType -> forgetNodeType()
     }
-}
 
 // =====================================================================
 // Handle LeafOrInternal: force, castToLeafUnchecked
 // =====================================================================
 
 /** Checks whether the underlying node is an `Internal` node or a `Leaf` node. */
-internal fun <BorrowType, K, V, Type>
-Handle<NodeRef<BorrowType, K, V, Marker.LeafOrInternal>, Type>.force():
-    ForceResult<
-        Handle<NodeRef<BorrowType, K, V, Marker.Leaf>, Type>,
-        Handle<NodeRef<BorrowType, K, V, Marker.Internal>, Type>,
-    > {
-    return when (val r = node.force()) {
+internal fun <BorrowType, K, V, Type> Handle<NodeRef<BorrowType, K, V, Marker.LeafOrInternal>, Type>.force(): ForceResult<
+    Handle<NodeRef<BorrowType, K, V, Marker.Leaf>, Type>,
+    Handle<NodeRef<BorrowType, K, V, Marker.Internal>, Type>,
+> =
+    when (val r = node.force()) {
         is ForceResult.Leaf -> ForceResult.Leaf(Handle(r.value, idx))
         is ForceResult.Internal -> ForceResult.Internal(Handle(r.value, idx))
     }
-}
 
 /** Unsafely asserts to the compiler the static information that the handle's node is a `Leaf`. */
-internal fun <K, V, Type>
-Handle<NodeRef<Marker.Mut, K, V, Marker.LeafOrInternal>, Type>.castToLeafUnchecked():
-    Handle<NodeRef<Marker.Mut, K, V, Marker.Leaf>, Type> {
+internal fun <K, V, Type> Handle<NodeRef<Marker.Mut, K, V, Marker.LeafOrInternal>, Type>.castToLeafUnchecked(): Handle<NodeRef<Marker.Mut, K, V, Marker.Leaf>, Type> {
     val leafNode = node.castToLeafUnchecked()
     return Handle(leafNode, idx)
 }
@@ -1745,36 +1650,44 @@ internal fun <K, V> Handle<NodeRef<Marker.Mut, K, V, Marker.LeafOrInternal>, Mar
         rightNode.asLeafMut().len = newRightLen
 
         moveToSlice(
-            leftNode.asLeafMut().keys, newLeftLen,
-            rightNode.asLeafMut().keys, 0,
+            leftNode.asLeafMut().keys,
+            newLeftLen,
+            rightNode.asLeafMut().keys,
+            0,
             newRightLen,
             NodeSlot.Empty,
         )
         moveToSlice(
-            leftNode.asLeafMut().vals, newLeftLen,
-            rightNode.asLeafMut().vals, 0,
+            leftNode.asLeafMut().vals,
+            newLeftLen,
+            rightNode.asLeafMut().vals,
+            0,
             newRightLen,
             NodeSlot.Empty,
         )
         when (val lf = leftNode.force()) {
-            is ForceResult.Internal -> when (val rf = rightNode.force()) {
-                is ForceResult.Internal -> {
-                    val left = lf.value
-                    val rightI = rf.value
-                    moveToSlice(
-                        left.asInternalMut().edges, newLeftLen + 1,
-                        rightI.asInternalMut().edges, 1,
-                        newRightLen,
-                        null,
-                    )
-                    rightI.correctChildrensParentLinks(1..newRightLen)
+            is ForceResult.Internal ->
+                when (val rf = rightNode.force()) {
+                    is ForceResult.Internal -> {
+                        val left = lf.value
+                        val rightI = rf.value
+                        moveToSlice(
+                            left.asInternalMut().edges,
+                            newLeftLen + 1,
+                            rightI.asInternalMut().edges,
+                            1,
+                            newRightLen,
+                            null,
+                        )
+                        rightI.correctChildrensParentLinks(1..newRightLen)
+                    }
+                    is ForceResult.Leaf -> error("unreachable")
                 }
-                is ForceResult.Leaf -> error("unreachable")
-            }
-            is ForceResult.Leaf -> when (val rf = rightNode.force()) {
-                is ForceResult.Leaf -> { /* ok */ }
-                is ForceResult.Internal -> error("unreachable")
-            }
+            is ForceResult.Leaf ->
+                when (val rf = rightNode.force()) {
+                    is ForceResult.Leaf -> { /* ok */ }
+                    is ForceResult.Internal -> error("unreachable")
+                }
         }
     }
 }
@@ -1784,8 +1697,13 @@ internal fun <K, V> Handle<NodeRef<Marker.Mut, K, V, Marker.LeafOrInternal>, Mar
 // =====================================================================
 
 internal sealed class ForceResult<L, I> {
-    data class Leaf<L, I>(val value: L) : ForceResult<L, I>()
-    data class Internal<L, I>(val value: I) : ForceResult<L, I>()
+    data class Leaf<L, I>(
+        val value: L,
+    ) : ForceResult<L, I>()
+
+    data class Internal<L, I>(
+        val value: I,
+    ) : ForceResult<L, I>()
 }
 
 /**
@@ -1806,28 +1724,24 @@ internal object InternalSplitResultForgetNodeType
 
 internal fun <K, V> SplitResult<K, V, Marker.Leaf>.forgetNodeType(
     route: LeafSplitResultForgetNodeType,
-): SplitResult<K, V, Marker.LeafOrInternal> {
-    return when (route) {
+): SplitResult<K, V, Marker.LeafOrInternal> =
+    when (route) {
         LeafSplitResultForgetNodeType -> forgetNodeType()
     }
-}
 
 internal fun <K, V> SplitResult<K, V, Marker.Internal>.forgetNodeType(
     route: InternalSplitResultForgetNodeType,
-): SplitResult<K, V, Marker.LeafOrInternal> {
-    return when (route) {
+): SplitResult<K, V, Marker.LeafOrInternal> =
+    when (route) {
         InternalSplitResultForgetNodeType -> forgetNodeType()
     }
-}
 
-internal fun <K, V, NodeType> SplitResult<K, V, NodeType>.forgetNodeType():
-    SplitResult<K, V, Marker.LeafOrInternal> {
-    return SplitResult(
+internal fun <K, V, NodeType> SplitResult<K, V, NodeType>.forgetNodeType(): SplitResult<K, V, Marker.LeafOrInternal> =
+    SplitResult(
         left = left.forgetType(),
         kv = kv,
         right = right.forgetType(),
     )
-}
 
 // =====================================================================
 // Marker namespace
@@ -1885,7 +1799,12 @@ internal object Marker {
  * # Safety
  * The slice has more than `idx` elements (i.e. `idx < sliceLen`).
  */
-private fun <T> sliceInsert(slice: MutableList<T>, sliceLen: Int, idx: Int, value: T) {
+private fun <T> sliceInsert(
+    slice: MutableList<T>,
+    sliceLen: Int,
+    idx: Int,
+    value: T,
+) {
     check(sliceLen > idx)
     if (sliceLen > idx + 1) {
         for (i in sliceLen - 1 downTo idx + 1) {
@@ -1902,7 +1821,12 @@ private fun <T> sliceInsert(slice: MutableList<T>, sliceLen: Int, idx: Int, valu
  * # Safety
  * The slice has more than `idx` elements (i.e. `idx < sliceLen`).
  */
-private fun <T> sliceRemove(slice: MutableList<T>, sliceLen: Int, idx: Int, empty: T): T {
+private fun <T> sliceRemove(
+    slice: MutableList<T>,
+    sliceLen: Int,
+    idx: Int,
+    empty: T,
+): T {
     check(idx < sliceLen)
     val ret = slice[idx]
     for (i in idx until sliceLen - 1) {
@@ -1918,7 +1842,11 @@ private fun <T> sliceRemove(slice: MutableList<T>, sliceLen: Int, idx: Int, empt
  * # Safety
  * The slice has at least `distance` elements (`distance <= sliceLen`).
  */
-private fun <T> sliceShl(slice: MutableList<T>, sliceLen: Int, distance: Int) {
+private fun <T> sliceShl(
+    slice: MutableList<T>,
+    sliceLen: Int,
+    distance: Int,
+) {
     for (i in 0 until sliceLen - distance) {
         slice[i] = slice[i + distance]
     }
@@ -1930,7 +1858,11 @@ private fun <T> sliceShl(slice: MutableList<T>, sliceLen: Int, distance: Int) {
  * # Safety
  * The slice has at least `distance` elements (`distance <= sliceLen`).
  */
-private fun <T> sliceShr(slice: MutableList<T>, sliceLen: Int, distance: Int) {
+private fun <T> sliceShr(
+    slice: MutableList<T>,
+    sliceLen: Int,
+    distance: Int,
+) {
     for (i in sliceLen - 1 downTo distance) {
         slice[i] = slice[i - distance]
     }

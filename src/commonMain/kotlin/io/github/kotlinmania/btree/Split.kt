@@ -17,10 +17,12 @@ internal fun <K, V> calcSplitLength(
     if (rootA.height() < rootB.height()) {
         lengthA = rootA.reborrow().calcLength()
         lengthB = totalNum - lengthA
-        check(lengthB == rootB.reborrow().calcLength())    } else {
+        check(lengthB == rootB.reborrow().calcLength())
+    } else {
         lengthB = rootB.reborrow().calcLength()
         lengthA = totalNum - lengthB
-        check(lengthA == rootA.reborrow().calcLength())    }
+        check(lengthA == rootA.reborrow().calcLength())
+    }
     return Pair(lengthA, lengthB)
 }
 
@@ -41,28 +43,31 @@ internal fun <K, V, Q> NodeRef<Marker.Owned, K, V, Marker.LeafOrInternal>.splitO
     var rightNode = rightRoot.borrowMut()
 
     while (true) {
-        val splitEdge = when (val r = leftNode.searchNode(key, compare)) {
-            // key is going to the right tree
-            is SearchResult.Found -> r.handle.leftEdge()
-            is SearchResult.GoDown -> r.handle
-        }
+        val splitEdge =
+            when (val r = leftNode.searchNode(key, compare)) {
+                // key is going to the right tree
+                is SearchResult.Found -> r.handle.leftEdge()
+                is SearchResult.GoDown -> r.handle
+            }
 
         splitEdge.moveSuffix(rightNode)
 
         val lf = splitEdge.force()
         val rf = rightNode.force()
         when (lf) {
-            is ForceResult.Internal -> when (rf) {
-                is ForceResult.Internal -> {
-                    leftNode = lf.value.descend()
-                    rightNode = rf.value.firstEdge().descend()
+            is ForceResult.Internal ->
+                when (rf) {
+                    is ForceResult.Internal -> {
+                        leftNode = lf.value.descend()
+                        rightNode = rf.value.firstEdge().descend()
+                    }
+                    is ForceResult.Leaf -> error("unreachable")
                 }
-                is ForceResult.Leaf -> error("unreachable")
-            }
-            is ForceResult.Leaf -> when (rf) {
-                is ForceResult.Leaf -> break
-                is ForceResult.Internal -> error("unreachable")
-            }
+            is ForceResult.Leaf ->
+                when (rf) {
+                    is ForceResult.Leaf -> break
+                    is ForceResult.Internal -> error("unreachable")
+                }
         }
     }
 
@@ -73,8 +78,7 @@ internal fun <K, V, Q> NodeRef<Marker.Owned, K, V, Marker.LeafOrInternal>.splitO
 
 internal fun <K, V, Q : Comparable<Q>> NodeRef<Marker.Owned, K, V, Marker.LeafOrInternal>.splitOff(
     key: Q,
-): NodeRef<Marker.Owned, K, V, Marker.LeafOrInternal> where K : Comparable<Q> =
-    splitOff(key) { stored, query -> stored.compareTo(query) }
+): NodeRef<Marker.Owned, K, V, Marker.LeafOrInternal> where K : Comparable<Q> = splitOff(key) { stored, query -> stored.compareTo(query) }
 
 /** Creates a tree consisting of empty nodes. */
 private fun <K, V> newPillar(height: Int): NodeRef<Marker.Owned, K, V, Marker.LeafOrInternal> {

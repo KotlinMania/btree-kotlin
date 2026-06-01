@@ -1,7 +1,11 @@
 // port-lint: source range.rs
 // Derived from the Rust standard library (rust-lang/rust),
 // copyright The Rust Project Developers, dual-licensed Apache-2.0 / MIT.
+@file:OptIn(kotlin.experimental.ExperimentalObjCRefinement::class)
+
 package io.github.kotlinmania.btree
+
+import kotlin.native.HiddenFromObjC
 
 /**
  * An unbounded range (`..`).
@@ -9,10 +13,12 @@ package io.github.kotlinmania.btree
  * `RangeFull` is primarily used as a slicing index, its shorthand is `..`.
  * It cannot serve as an `Iterator` because it doesn't have a starting point.
  */
+@HiddenFromObjC
 data object RangeFull : RangeBounds<Nothing> {
     override fun toString(): String = ".."
 
     override fun startBound(): Bound<Nothing> = Bound.Unbounded
+
     override fun endBound(): Bound<Nothing> = Bound.Unbounded
 }
 
@@ -23,6 +29,7 @@ data object RangeFull : RangeBounds<Nothing> {
  * The range `start..end` contains all values with `start <= x < end`.
  * It is empty if `start >= end`.
  */
+@HiddenFromObjC
 data class OpsRange<Idx : Comparable<Idx>>(
     /** The lower bound of the range (inclusive). */
     val start: Idx,
@@ -32,6 +39,7 @@ data class OpsRange<Idx : Comparable<Idx>>(
     override fun toString(): String = "$start..$end"
 
     override fun startBound(): Bound<Idx> = Bound.Included(start)
+
     override fun endBound(): Bound<Idx> = Bound.Excluded(end)
 
     /**
@@ -46,9 +54,7 @@ data class OpsRange<Idx : Comparable<Idx>>(
      * Returns `true` if the range contains no items. The range is empty if
      * `start >= end`.
      */
-    fun isEmpty(): Boolean {
-        return !(start.compareTo(end) < 0)
-    }
+    fun isEmpty(): Boolean = !(start.compareTo(end) < 0)
 }
 
 /**
@@ -62,6 +68,7 @@ data class OpsRange<Idx : Comparable<Idx>>(
  * trait. For primitive integers, this follows the normal rules, and respects
  * the overflow checks profile (panic in debug, wrap in release).
  */
+@HiddenFromObjC
 data class RangeFrom<Idx : Comparable<Idx>>(
     /** The lower bound of the range (inclusive). */
     val start: Idx,
@@ -69,6 +76,7 @@ data class RangeFrom<Idx : Comparable<Idx>>(
     override fun toString(): String = "$start.."
 
     override fun startBound(): Bound<Idx> = Bound.Included(start)
+
     override fun endBound(): Bound<Idx> = Bound.Unbounded
 
     /** Returns `true` if `item` is contained in the range. */
@@ -81,6 +89,7 @@ data class RangeFrom<Idx : Comparable<Idx>>(
  * The `RangeTo` `..end` contains all values with `x < end`.
  * It cannot serve as an `Iterator` because it doesn't have a starting point.
  */
+@HiddenFromObjC
 data class RangeTo<Idx : Comparable<Idx>>(
     /** The upper bound of the range (exclusive). */
     val end: Idx,
@@ -88,6 +97,7 @@ data class RangeTo<Idx : Comparable<Idx>>(
     override fun toString(): String = "..$end"
 
     override fun startBound(): Bound<Idx> = Bound.Unbounded
+
     override fun endBound(): Bound<Idx> = Bound.Excluded(end)
 
     /** Returns `true` if `item` is contained in the range. */
@@ -104,6 +114,7 @@ data class RangeTo<Idx : Comparable<Idx>>(
  * iteration has finished are unspecified other than that `isEmpty()`
  * will return `true` once no more values will be produced.
  */
+@HiddenFromObjC
 class RangeInclusive<Idx : Comparable<Idx>>(
     start: Idx,
     end: Idx,
@@ -133,8 +144,7 @@ class RangeInclusive<Idx : Comparable<Idx>>(
     /** Destructures the `RangeInclusive` into (lower bound, upper (inclusive) bound). */
     fun intoInner(): Pair<Idx, Idx> = Pair(start, end)
 
-    override fun toString(): String =
-        if (exhausted) "$start..=$end (exhausted)" else "$start..=$end"
+    override fun toString(): String = if (exhausted) "$start..=$end (exhausted)" else "$start..=$end"
 
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
@@ -150,6 +160,7 @@ class RangeInclusive<Idx : Comparable<Idx>>(
     }
 
     override fun startBound(): Bound<Idx> = Bound.Included(start)
+
     override fun endBound(): Bound<Idx> =
         if (exhausted) {
             // When the iterator is exhausted, we usually have start == end,
@@ -160,9 +171,7 @@ class RangeInclusive<Idx : Comparable<Idx>>(
         }
 
     /** Returns `true` if `item` is contained in the range. */
-    fun contains(item: Idx): Boolean {
-        return !exhausted && item.compareTo(start) >= 0 && item.compareTo(end) <= 0
-    }
+    fun contains(item: Idx): Boolean = !exhausted && item.compareTo(start) >= 0 && item.compareTo(end) <= 0
 
     /** Returns `true` if the range contains no items. */
     fun isEmpty(): Boolean {
@@ -172,7 +181,10 @@ class RangeInclusive<Idx : Comparable<Idx>>(
 
     companion object {
         /** Creates a new inclusive range. Equivalent to writing `start..=end`. */
-        fun <Idx : Comparable<Idx>> new(start: Idx, end: Idx): RangeInclusive<Idx> = RangeInclusive(start, end)
+        fun <Idx : Comparable<Idx>> new(
+            start: Idx,
+            end: Idx,
+        ): RangeInclusive<Idx> = RangeInclusive(start, end)
     }
 }
 
@@ -199,6 +211,7 @@ internal fun RangeInclusive<Int>.intoSliceRange(): OpsRange<Int> {
  * The `RangeToInclusive` `..=end` contains all values with `x <= end`.
  * It cannot serve as an `Iterator` because it doesn't have a starting point.
  */
+@HiddenFromObjC
 data class RangeToInclusive<Idx : Comparable<Idx>>(
     /** The upper bound of the range (inclusive) */
     val end: Idx,
@@ -206,6 +219,7 @@ data class RangeToInclusive<Idx : Comparable<Idx>>(
     override fun toString(): String = "..=$end"
 
     override fun startBound(): Bound<Idx> = Bound.Unbounded
+
     override fun endBound(): Bound<Idx> = Bound.Included(end)
 
     /** Returns `true` if `item` is contained in the range. */
@@ -223,14 +237,19 @@ data class RangeToInclusive<Idx : Comparable<Idx>>(
  * (1..12).endBound()   == Excluded(12)
  * ```
  */
+@HiddenFromObjC
 sealed class Bound<out T> {
     /** An inclusive bound. */
-    data class Included<T>(val value: T) : Bound<T>() {
+    data class Included<T>(
+        val value: T,
+    ) : Bound<T>() {
         override fun toString(): String = "Included($value)"
     }
 
     /** An exclusive bound. */
-    data class Excluded<T>(val value: T) : Bound<T>() {
+    data class Excluded<T>(
+        val value: T,
+    ) : Bound<T>() {
         override fun toString(): String = "Excluded($value)"
     }
 
@@ -243,11 +262,12 @@ sealed class Bound<out T> {
      * Maps a `Bound<T>` to a `Bound<U>` by applying a function to the contained value
      * (including both `Included` and `Excluded`), returning a `Bound` of the same kind.
      */
-    fun <U> map(f: (T) -> U): Bound<U> = when (this) {
-        is Unbounded -> Unbounded
-        is Included -> Included(f(value))
-        is Excluded -> Excluded(f(value))
-    }
+    fun <U> map(f: (T) -> U): Bound<U> =
+        when (this) {
+            is Unbounded -> Unbounded
+            is Included -> Included(f(value))
+            is Excluded -> Excluded(f(value))
+        }
 
     /** Returns this bound. Identity conversion in Kotlin. */
     fun asRef(): Bound<T> = this
@@ -261,11 +281,13 @@ sealed class Bound<out T> {
 /**
  * Map a `Bound<T>` to a `Bound<T>` by cloning the contents of the bound.
  */
+@HiddenFromObjC
 fun <T> Bound<T>.cloned(): Bound<T> = this
 
 /**
  * Map a `Bound<T>` to a `Bound<T>` by copying the contents of the bound.
  */
+@HiddenFromObjC
 fun <T> Bound<T>.copied(): Bound<T> = this
 
 /**
@@ -281,6 +303,7 @@ fun <T> Bound<T>.copied(): Bound<T> = this
  * provide a specialised body, exactly mirroring Rust's per-impl override
  * of a default method.
  */
+@HiddenFromObjC
 interface RangeBounds<T> {
     /**
      * Start index bound. Returns the start value as a `Bound`.
@@ -299,12 +322,14 @@ interface RangeBounds<T> {
  * trait-bound on the method's generic parameter as a method-level Kotlin
  * generic bound.
  */
+@HiddenFromObjC
 fun <T : Comparable<T>> RangeBounds<T>.contains(item: T): Boolean {
-    val startOk = when (val s = startBound()) {
-        is Bound.Included -> item >= s.value
-        is Bound.Excluded -> item > s.value
-        Bound.Unbounded -> true
-    }
+    val startOk =
+        when (val s = startBound()) {
+            is Bound.Included -> item >= s.value
+            is Bound.Excluded -> item > s.value
+            Bound.Unbounded -> true
+        }
     if (!startOk) return false
     return when (val e = endBound()) {
         is Bound.Included -> item <= e.value
@@ -319,6 +344,7 @@ fun <T : Comparable<T>> RangeBounds<T>.contains(item: T): Boolean {
  * of upstream `RangeBounds.isEmpty` and its `T : PartialOrd` clause
  * as a method-level Kotlin generic bound.
  */
+@HiddenFromObjC
 fun <T : Comparable<T>> RangeBounds<T>.isEmpty(): Boolean {
     val s = startBound()
     val e = endBound()
@@ -338,6 +364,7 @@ fun <T : Comparable<T>> RangeBounds<T>.isEmpty(): Boolean {
  * Used to convert a range into start and end bounds, consuming the
  * range by value.
  */
+@HiddenFromObjC
 interface IntoBounds<T : Comparable<T>> : RangeBounds<T> {
     /**
      * Convert this range into the start and end bounds.
@@ -352,57 +379,61 @@ interface IntoBounds<T : Comparable<T>> : RangeBounds<T> {
         val (selfStart, selfEnd) = this.intoBounds()
         val (otherStart, otherEnd) = other.intoBounds()
 
-        val start: Bound<T> = run {
-            when {
-                selfStart is Bound.Included && otherStart is Bound.Included -> {
-                    Bound.Included(
-                        if (selfStart.value.compareTo(otherStart.value) >= 0) selfStart.value else otherStart.value,
-                    )
-                }
-                selfStart is Bound.Excluded && otherStart is Bound.Excluded -> {
-                    Bound.Excluded(
-                        if (selfStart.value.compareTo(otherStart.value) >= 0) selfStart.value else otherStart.value,
-                    )
-                }
-                selfStart is Bound.Unbounded && otherStart is Bound.Unbounded -> Bound.Unbounded
-                selfStart is Bound.Unbounded -> otherStart
-                otherStart is Bound.Unbounded -> selfStart
-                else -> {
-                    // (Included, Excluded) or (Excluded, Included)
-                    val (i, e) = if (selfStart is Bound.Included) {
-                        (selfStart.value to (otherStart as Bound.Excluded).value)
-                    } else {
-                        ((otherStart as Bound.Included).value to (selfStart as Bound.Excluded).value)
+        val start: Bound<T> =
+            run {
+                when {
+                    selfStart is Bound.Included && otherStart is Bound.Included -> {
+                        Bound.Included(
+                            if (selfStart.value.compareTo(otherStart.value) >= 0) selfStart.value else otherStart.value,
+                        )
                     }
-                    if (i.compareTo(e) > 0) Bound.Included(i) else Bound.Excluded(e)
+                    selfStart is Bound.Excluded && otherStart is Bound.Excluded -> {
+                        Bound.Excluded(
+                            if (selfStart.value.compareTo(otherStart.value) >= 0) selfStart.value else otherStart.value,
+                        )
+                    }
+                    selfStart is Bound.Unbounded && otherStart is Bound.Unbounded -> Bound.Unbounded
+                    selfStart is Bound.Unbounded -> otherStart
+                    otherStart is Bound.Unbounded -> selfStart
+                    else -> {
+                        // (Included, Excluded) or (Excluded, Included)
+                        val (i, e) =
+                            if (selfStart is Bound.Included) {
+                                (selfStart.value to (otherStart as Bound.Excluded).value)
+                            } else {
+                                ((otherStart as Bound.Included).value to (selfStart as Bound.Excluded).value)
+                            }
+                        if (i.compareTo(e) > 0) Bound.Included(i) else Bound.Excluded(e)
+                    }
                 }
             }
-        }
-        val end: Bound<T> = run {
-            when {
-                selfEnd is Bound.Included && otherEnd is Bound.Included -> {
-                    Bound.Included(
-                        if (selfEnd.value.compareTo(otherEnd.value) <= 0) selfEnd.value else otherEnd.value,
-                    )
-                }
-                selfEnd is Bound.Excluded && otherEnd is Bound.Excluded -> {
-                    Bound.Excluded(
-                        if (selfEnd.value.compareTo(otherEnd.value) <= 0) selfEnd.value else otherEnd.value,
-                    )
-                }
-                selfEnd is Bound.Unbounded && otherEnd is Bound.Unbounded -> Bound.Unbounded
-                selfEnd is Bound.Unbounded -> otherEnd
-                otherEnd is Bound.Unbounded -> selfEnd
-                else -> {
-                    val (i, e) = if (selfEnd is Bound.Included) {
-                        (selfEnd.value to (otherEnd as Bound.Excluded).value)
-                    } else {
-                        ((otherEnd as Bound.Included).value to (selfEnd as Bound.Excluded).value)
+        val end: Bound<T> =
+            run {
+                when {
+                    selfEnd is Bound.Included && otherEnd is Bound.Included -> {
+                        Bound.Included(
+                            if (selfEnd.value.compareTo(otherEnd.value) <= 0) selfEnd.value else otherEnd.value,
+                        )
                     }
-                    if (i.compareTo(e) < 0) Bound.Included(i) else Bound.Excluded(e)
+                    selfEnd is Bound.Excluded && otherEnd is Bound.Excluded -> {
+                        Bound.Excluded(
+                            if (selfEnd.value.compareTo(otherEnd.value) <= 0) selfEnd.value else otherEnd.value,
+                        )
+                    }
+                    selfEnd is Bound.Unbounded && otherEnd is Bound.Unbounded -> Bound.Unbounded
+                    selfEnd is Bound.Unbounded -> otherEnd
+                    otherEnd is Bound.Unbounded -> selfEnd
+                    else -> {
+                        val (i, e) =
+                            if (selfEnd is Bound.Included) {
+                                (selfEnd.value to (otherEnd as Bound.Excluded).value)
+                            } else {
+                                ((otherEnd as Bound.Included).value to (selfEnd as Bound.Excluded).value)
+                            }
+                        if (i.compareTo(e) < 0) Bound.Included(i) else Bound.Excluded(e)
+                    }
                 }
             }
-        }
 
         return Pair(start, end)
     }
@@ -412,48 +443,57 @@ interface IntoBounds<T : Comparable<T>> : RangeBounds<T> {
  * Wrapper around a pair of [Bound]s that implements [RangeBounds]. [boundsPair]
  * gives a concise factory.
  */
+@HiddenFromObjC
 data class BoundsPair<T : Comparable<T>>(
     val startBoundValue: Bound<T>,
     val endBoundValue: Bound<T>,
 ) : IntoBounds<T> {
     override fun startBound(): Bound<T> = startBoundValue
+
     override fun endBound(): Bound<T> = endBoundValue
+
     override fun intoBounds(): Pair<Bound<T>, Bound<T>> = Pair(startBoundValue, endBoundValue)
 }
 
 /** Convenience factory for a [BoundsPair] from a start and end bound. */
-fun <T : Comparable<T>> boundsPair(start: Bound<T>, end: Bound<T>): BoundsPair<T> = BoundsPair(start, end)
+@HiddenFromObjC
+fun <T : Comparable<T>> boundsPair(
+    start: Bound<T>,
+    end: Bound<T>,
+): BoundsPair<T> = BoundsPair(start, end)
 
 /** [IntoBounds] for [RangeFull]. */
 fun RangeFull.intoBounds(): Pair<Bound<Nothing>, Bound<Nothing>> = Pair(Bound.Unbounded, Bound.Unbounded)
 
 /** [IntoBounds] for [RangeFrom]. */
-fun <T : Comparable<T>> RangeFrom<T>.intoBounds(): Pair<Bound<T>, Bound<T>> =
-    Pair(Bound.Included(start), Bound.Unbounded)
+@HiddenFromObjC
+fun <T : Comparable<T>> RangeFrom<T>.intoBounds(): Pair<Bound<T>, Bound<T>> = Pair(Bound.Included(start), Bound.Unbounded)
 
 /** [IntoBounds] for [RangeTo]. */
-fun <T : Comparable<T>> RangeTo<T>.intoBounds(): Pair<Bound<T>, Bound<T>> =
-    Pair(Bound.Unbounded, Bound.Excluded(end))
+@HiddenFromObjC
+fun <T : Comparable<T>> RangeTo<T>.intoBounds(): Pair<Bound<T>, Bound<T>> = Pair(Bound.Unbounded, Bound.Excluded(end))
 
 /** [IntoBounds] for [OpsRange]. */
-fun <T : Comparable<T>> OpsRange<T>.intoBounds(): Pair<Bound<T>, Bound<T>> =
-    Pair(Bound.Included(start), Bound.Excluded(end))
+@HiddenFromObjC
+fun <T : Comparable<T>> OpsRange<T>.intoBounds(): Pair<Bound<T>, Bound<T>> = Pair(Bound.Included(start), Bound.Excluded(end))
 
 /** [IntoBounds] for [RangeInclusive]. */
-fun <T : Comparable<T>> RangeInclusive<T>.intoBounds(): Pair<Bound<T>, Bound<T>> = Pair(
-    Bound.Included(start),
-    if (exhausted) {
-        // When the iterator is exhausted, we usually have start == end,
-        // but we want the range to appear empty, containing nothing.
-        Bound.Excluded(end)
-    } else {
-        Bound.Included(end)
-    },
-)
+@HiddenFromObjC
+fun <T : Comparable<T>> RangeInclusive<T>.intoBounds(): Pair<Bound<T>, Bound<T>> =
+    Pair(
+        Bound.Included(start),
+        if (exhausted) {
+            // When the iterator is exhausted, we usually have start == end,
+            // but we want the range to appear empty, containing nothing.
+            Bound.Excluded(end)
+        } else {
+            Bound.Included(end)
+        },
+    )
 
 /** [IntoBounds] for [RangeToInclusive]. */
-fun <T : Comparable<T>> RangeToInclusive<T>.intoBounds(): Pair<Bound<T>, Bound<T>> =
-    Pair(Bound.Unbounded, Bound.Included(end))
+@HiddenFromObjC
+fun <T : Comparable<T>> RangeToInclusive<T>.intoBounds(): Pair<Bound<T>, Bound<T>> = Pair(Bound.Unbounded, Bound.Included(end))
 
 /**
  * An internal helper for `splitOff` functions indicating
@@ -476,6 +516,7 @@ enum class OneSidedRangeBound {
  * return [Bound.Unbounded] from one of [RangeBounds.startBound] or
  * [RangeBounds.endBound].
  */
+@HiddenFromObjC
 interface OneSidedRange<T : Comparable<T>> : RangeBounds<T> {
     /**
      * An internal-only helper function for `splitOff` and
@@ -485,13 +526,13 @@ interface OneSidedRange<T : Comparable<T>> : RangeBounds<T> {
 }
 
 /** [OneSidedRange.bound] for [RangeTo]. */
+@HiddenFromObjC
 fun <T : Comparable<T>> RangeTo<T>.bound(): Pair<OneSidedRangeBound, T> = Pair(OneSidedRangeBound.End, end)
 
 /** [OneSidedRange.bound] for [RangeFrom]. */
-fun <T : Comparable<T>> RangeFrom<T>.bound(): Pair<OneSidedRangeBound, T> =
-    Pair(OneSidedRangeBound.StartInclusive, start)
+@HiddenFromObjC
+fun <T : Comparable<T>> RangeFrom<T>.bound(): Pair<OneSidedRangeBound, T> = Pair(OneSidedRangeBound.StartInclusive, start)
 
 /** [OneSidedRange.bound] for [RangeToInclusive]. */
-fun <T : Comparable<T>> RangeToInclusive<T>.bound(): Pair<OneSidedRangeBound, T> =
-    Pair(OneSidedRangeBound.EndInclusive, end)
-
+@HiddenFromObjC
+fun <T : Comparable<T>> RangeToInclusive<T>.bound(): Pair<OneSidedRangeBound, T> = Pair(OneSidedRangeBound.EndInclusive, end)

@@ -11,12 +11,11 @@ package io.github.kotlinmania.btree
  */
 internal fun <K, V> Handle<NodeRef<Marker.Mut, K, V, Marker.LeafOrInternal>, Marker.KV>.removeKvTracking(
     handleEmptiedInternalRoot: () -> Unit,
-): Pair<Pair<K, V>, Handle<NodeRef<Marker.Mut, K, V, Marker.Leaf>, Marker.Edge>> {
-    return when (val f = this.force()) {
+): Pair<Pair<K, V>, Handle<NodeRef<Marker.Mut, K, V, Marker.Leaf>, Marker.Edge>> =
+    when (val f = this.force()) {
         is ForceResult.Leaf -> f.value.removeLeafKv(handleEmptiedInternalRoot)
         is ForceResult.Internal -> f.value.removeInternalKv(handleEmptiedInternalRoot)
     }
-}
 
 private fun <K, V> Handle<NodeRef<Marker.Mut, K, V, Marker.Leaf>, Marker.KV>.removeLeafKv(
     handleEmptiedInternalRoot: () -> Unit,
@@ -30,28 +29,29 @@ private fun <K, V> Handle<NodeRef<Marker.Mut, K, V, Marker.Leaf>, Marker.KV>.rem
         // distinct node type for the immediate parents of a leaf.
         val newPos: Handle<NodeRef<Marker.Mut, K, V, Marker.LeafOrInternal>, Marker.Edge> =
             when (val choose = pos.intoNode().forgetType().chooseParentKv()) {
-                is ChooseParentKvResult.Ok -> when (val side = choose.context) {
-                    is LeftOrRight.Left -> {
-                        val leftParentKv = side.value
-                        check(leftParentKv.rightChildLen() == MIN_LEN - 1)
-                        if (leftParentKv.canMerge()) {
-                            leftParentKv.mergeTrackingChildEdge(LeftOrRight.Right(idx))
-                        } else {
-                            check(leftParentKv.leftChildLen() > MIN_LEN)
-                            leftParentKv.stealLeft(idx)
+                is ChooseParentKvResult.Ok ->
+                    when (val side = choose.context) {
+                        is LeftOrRight.Left -> {
+                            val leftParentKv = side.value
+                            check(leftParentKv.rightChildLen() == MIN_LEN - 1)
+                            if (leftParentKv.canMerge()) {
+                                leftParentKv.mergeTrackingChildEdge(LeftOrRight.Right(idx))
+                            } else {
+                                check(leftParentKv.leftChildLen() > MIN_LEN)
+                                leftParentKv.stealLeft(idx)
+                            }
+                        }
+                        is LeftOrRight.Right -> {
+                            val rightParentKv = side.value
+                            check(rightParentKv.leftChildLen() == MIN_LEN - 1)
+                            if (rightParentKv.canMerge()) {
+                                rightParentKv.mergeTrackingChildEdge(LeftOrRight.Left(idx))
+                            } else {
+                                check(rightParentKv.rightChildLen() > MIN_LEN)
+                                rightParentKv.stealRight(idx)
+                            }
                         }
                     }
-                    is LeftOrRight.Right -> {
-                        val rightParentKv = side.value
-                        check(rightParentKv.leftChildLen() == MIN_LEN - 1)
-                        if (rightParentKv.canMerge()) {
-                            rightParentKv.mergeTrackingChildEdge(LeftOrRight.Left(idx))
-                        } else {
-                            check(rightParentKv.rightChildLen() > MIN_LEN)
-                            rightParentKv.stealRight(idx)
-                        }
-                    }
-                }
                 // started from; its length is `len` and `idx` was a valid
                 // edge index there, so `idx <= len` still holds.
                 is ChooseParentKvResult.Err -> Handle.newEdge(choose.node, idx)
@@ -83,7 +83,12 @@ private fun <K, V> Handle<NodeRef<Marker.Mut, K, V, Marker.Internal>, Marker.KV>
     // Remove an adjacent KV from its leaf and then put it back in place of
     // the element we were asked to remove. Prefer the left adjacent KV,
     // for the reasons listed in `chooseParentKv`.
-    val leftLeafEdgeKv = this.leftEdge().descend().lastLeafEdge().leftKv()
+    val leftLeafEdgeKv =
+        this
+            .leftEdge()
+            .descend()
+            .lastLeafEdge()
+            .leftKv()
     // subtree, so `lastLeafEdge` lands at a leaf edge with at least one KV
     // to its left — `leftKv` is therefore always `Ok` here.
     val leftLeafKv = (leftLeafEdgeKv as EdgeKvResult.Ok).handle

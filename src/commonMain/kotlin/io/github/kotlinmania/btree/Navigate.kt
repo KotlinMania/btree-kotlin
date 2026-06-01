@@ -9,16 +9,12 @@ internal class LeafRange<BorrowType, K, V>(
     var back: Handle<NodeRef<BorrowType, K, V, Marker.Leaf>, Marker.Edge>?,
 ) {
     companion object {
-        internal fun <BorrowType, K, V> default(): LeafRange<BorrowType, K, V> =
-            LeafRange(front = null, back = null)
+        internal fun <BorrowType, K, V> default(): LeafRange<BorrowType, K, V> = LeafRange(front = null, back = null)
 
-        internal fun <BorrowType, K, V> none(): LeafRange<BorrowType, K, V> =
-            LeafRange(front = null, back = null)
+        internal fun <BorrowType, K, V> none(): LeafRange<BorrowType, K, V> = LeafRange(front = null, back = null)
     }
 
-    internal fun clone(): LeafRange<BorrowType, K, V> {
-        return LeafRange(front, back)
-    }
+    internal fun clone(): LeafRange<BorrowType, K, V> = LeafRange(front, back)
 
     private fun isEmpty(): Boolean {
         val f = front
@@ -31,16 +27,14 @@ internal class LeafRange<BorrowType, K, V>(
     }
 
     /** Temporarily takes out another, immutable equivalent of the same range. */
-    internal fun reborrow(): LeafRange<Marker.Immut, K, V> {
-        return LeafRange(
+    internal fun reborrow(): LeafRange<Marker.Immut, K, V> =
+        LeafRange(
             front = front?.reborrow(),
             back = back?.reborrow(),
         )
-    }
 }
 
-private fun <BorrowType : Marker.BorrowType, K, V, NodeType>
-    Handle<NodeRef<BorrowType, K, V, NodeType>, Marker.KV>.intoKvPair(): Pair<K, V> {
+private fun <BorrowType : Marker.BorrowType, K, V, NodeType> Handle<NodeRef<BorrowType, K, V, NodeType>, Marker.KV>.intoKvPair(): Pair<K, V> {
     check(idx < node.len())
     val leaf = node.node
     val k = leaf.keys[idx].initializedValue
@@ -48,13 +42,9 @@ private fun <BorrowType : Marker.BorrowType, K, V, NodeType>
     return Pair(k, v)
 }
 
-internal fun <BorrowType : Marker.BorrowType, K, V> LeafRange<BorrowType, K, V>.nextChecked(): Pair<K, V>? {
-    return performNextChecked { kv -> kv.intoKvPair() }
-}
+internal fun <BorrowType : Marker.BorrowType, K, V> LeafRange<BorrowType, K, V>.nextChecked(): Pair<K, V>? = performNextChecked { kv -> kv.intoKvPair() }
 
-internal fun <BorrowType : Marker.BorrowType, K, V> LeafRange<BorrowType, K, V>.nextBackChecked(): Pair<K, V>? {
-    return performNextBackChecked { kv -> kv.intoKvPair() }
-}
+internal fun <BorrowType : Marker.BorrowType, K, V> LeafRange<BorrowType, K, V>.nextBackChecked(): Pair<K, V>? = performNextBackChecked { kv -> kv.intoKvPair() }
 
 /**
  * If possible, extract some result from the following KV and move to the edge beyond it.
@@ -64,14 +54,16 @@ private fun <BorrowType : Marker.BorrowType, K, V, R> LeafRange<BorrowType, K, V
 ): R? {
     if (isEmptyInternal()) return null
     val frontVal = front!!
-    val (newFront, result) = replace(frontVal) { fr ->
-        val kv = when (val r = fr.nextKv()) {
-            is NextKvResult.Ok -> r.handle
-            is NextKvResult.Err -> error("unreachable: isEmpty() short-circuits empty ranges")
+    val (newFront, result) =
+        replace(frontVal) { fr ->
+            val kv =
+                when (val r = fr.nextKv()) {
+                    is NextKvResult.Ok -> r.handle
+                    is NextKvResult.Err -> error("unreachable: isEmpty() short-circuits empty ranges")
+                }
+            val ret = f(kv)
+            Pair(kv.nextLeafEdge(), ret)
         }
-        val ret = f(kv)
-        Pair(kv.nextLeafEdge(), ret)
-    }
     front = newFront
     return result
 }
@@ -84,14 +76,16 @@ private fun <BorrowType : Marker.BorrowType, K, V, R> LeafRange<BorrowType, K, V
 ): R? {
     if (isEmptyInternal()) return null
     val backVal = back!!
-    val (newBack, result) = replace(backVal) { bk ->
-        val kv = when (val r = bk.nextBackKv()) {
-            is NextKvResult.Ok -> r.handle
-            is NextKvResult.Err -> error("unreachable: isEmpty() short-circuits empty ranges")
+    val (newBack, result) =
+        replace(backVal) { bk ->
+            val kv =
+                when (val r = bk.nextBackKv()) {
+                    is NextKvResult.Ok -> r.handle
+                    is NextKvResult.Err -> error("unreachable: isEmpty() short-circuits empty ranges")
+                }
+            val ret = f(kv)
+            Pair(kv.nextBackLeafEdge(), ret)
         }
-        val ret = f(kv)
-        Pair(kv.nextBackLeafEdge(), ret)
-    }
     back = newBack
     return result
 }
@@ -116,19 +110,18 @@ internal sealed class LazyLeafHandle<BorrowType, K, V> {
         val edge: Handle<NodeRef<BorrowType, K, V, Marker.Leaf>, Marker.Edge>,
     ) : LazyLeafHandle<BorrowType, K, V>()
 
-    internal fun clone(): LazyLeafHandle<BorrowType, K, V> {
-        return when (this) {
+    internal fun clone(): LazyLeafHandle<BorrowType, K, V> =
+        when (this) {
             is Root -> Root(node)
             is Edge -> Edge(edge)
         }
-    }
 }
 
-internal fun <BorrowType, K, V> LazyLeafHandle<BorrowType, K, V>.reborrow():
-    LazyLeafHandle<Marker.Immut, K, V> = when (this) {
-    is LazyLeafHandle.Root -> LazyLeafHandle.Root(node.reborrow())
-    is LazyLeafHandle.Edge -> LazyLeafHandle.Edge(edge.reborrow())
-}
+internal fun <BorrowType, K, V> LazyLeafHandle<BorrowType, K, V>.reborrow(): LazyLeafHandle<Marker.Immut, K, V> =
+    when (this) {
+        is LazyLeafHandle.Root -> LazyLeafHandle.Root(node.reborrow())
+        is LazyLeafHandle.Edge -> LazyLeafHandle.Edge(edge.reborrow())
+    }
 
 // `front` and `back` are always both `None` or both `Some`.
 internal class LazyLeafRange<BorrowType, K, V>(
@@ -136,24 +129,19 @@ internal class LazyLeafRange<BorrowType, K, V>(
     var back: LazyLeafHandle<BorrowType, K, V>?,
 ) {
     companion object {
-        internal fun <BorrowType, K, V> default(): LazyLeafRange<BorrowType, K, V> =
-            LazyLeafRange(front = null, back = null)
+        internal fun <BorrowType, K, V> default(): LazyLeafRange<BorrowType, K, V> = LazyLeafRange(front = null, back = null)
 
-        internal fun <BorrowType, K, V> none(): LazyLeafRange<BorrowType, K, V> =
-            LazyLeafRange(front = null, back = null)
+        internal fun <BorrowType, K, V> none(): LazyLeafRange<BorrowType, K, V> = LazyLeafRange(front = null, back = null)
     }
 
-    internal fun clone(): LazyLeafRange<BorrowType, K, V> {
-        return LazyLeafRange(front?.clone(), back?.clone())
-    }
+    internal fun clone(): LazyLeafRange<BorrowType, K, V> = LazyLeafRange(front?.clone(), back?.clone())
 
     /** Temporarily takes out another, immutable equivalent of the same range. */
-    internal fun reborrow(): LazyLeafRange<Marker.Immut, K, V> {
-        return LazyLeafRange(
+    internal fun reborrow(): LazyLeafRange<Marker.Immut, K, V> =
+        LazyLeafRange(
             front = front?.reborrow(),
             back = back?.reborrow(),
         )
-    }
 }
 
 internal fun <BorrowType : Marker.BorrowType, K, V> LazyLeafRange<BorrowType, K, V>.nextUnchecked(): Pair<K, V> {
@@ -170,8 +158,7 @@ internal fun <BorrowType : Marker.BorrowType, K, V> LazyLeafRange<BorrowType, K,
     return kv
 }
 
-internal fun <K, V> LazyLeafRange<Marker.Dying, K, V>.takeFront():
-    Handle<NodeRef<Marker.Dying, K, V, Marker.Leaf>, Marker.Edge>? {
+internal fun <K, V> LazyLeafRange<Marker.Dying, K, V>.takeFront(): Handle<NodeRef<Marker.Dying, K, V, Marker.Leaf>, Marker.Edge>? {
     val taken = front ?: return null
     front = null
     return when (taken) {
@@ -180,8 +167,7 @@ internal fun <K, V> LazyLeafRange<Marker.Dying, K, V>.takeFront():
     }
 }
 
-internal fun <K, V> LazyLeafRange<Marker.Dying, K, V>.deallocatingNextUnchecked():
-    Handle<NodeRef<Marker.Dying, K, V, Marker.LeafOrInternal>, Marker.KV> {
+internal fun <K, V> LazyLeafRange<Marker.Dying, K, V>.deallocatingNextUnchecked(): Handle<NodeRef<Marker.Dying, K, V, Marker.LeafOrInternal>, Marker.KV> {
     check(front != null)
     val edge = initFront()!!
     val (newEdge, kv) = edge.deallocatingNextUnchecked()
@@ -189,8 +175,7 @@ internal fun <K, V> LazyLeafRange<Marker.Dying, K, V>.deallocatingNextUnchecked(
     return kv
 }
 
-internal fun <K, V> LazyLeafRange<Marker.Dying, K, V>.deallocatingNextBackUnchecked():
-    Handle<NodeRef<Marker.Dying, K, V, Marker.LeafOrInternal>, Marker.KV> {
+internal fun <K, V> LazyLeafRange<Marker.Dying, K, V>.deallocatingNextBackUnchecked(): Handle<NodeRef<Marker.Dying, K, V, Marker.LeafOrInternal>, Marker.KV> {
     check(back != null)
     val edge = initBack()!!
     val (newEdge, kv) = edge.deallocatingNextBackUnchecked()
@@ -203,8 +188,7 @@ internal fun <K, V> LazyLeafRange<Marker.Dying, K, V>.deallocatingEnd() {
     front?.deallocatingEnd()
 }
 
-internal fun <BorrowType : Marker.BorrowType, K, V> LazyLeafRange<BorrowType, K, V>.initFront():
-    Handle<NodeRef<BorrowType, K, V, Marker.Leaf>, Marker.Edge>? {
+internal fun <BorrowType : Marker.BorrowType, K, V> LazyLeafRange<BorrowType, K, V>.initFront(): Handle<NodeRef<BorrowType, K, V, Marker.Leaf>, Marker.Edge>? {
     val current = front
     if (current is LazyLeafHandle.Root) {
         front = LazyLeafHandle.Edge(current.node.firstLeafEdge())
@@ -216,8 +200,7 @@ internal fun <BorrowType : Marker.BorrowType, K, V> LazyLeafRange<BorrowType, K,
     }
 }
 
-internal fun <BorrowType : Marker.BorrowType, K, V> LazyLeafRange<BorrowType, K, V>.initBack():
-    Handle<NodeRef<BorrowType, K, V, Marker.Leaf>, Marker.Edge>? {
+internal fun <BorrowType : Marker.BorrowType, K, V> LazyLeafRange<BorrowType, K, V>.initBack(): Handle<NodeRef<BorrowType, K, V, Marker.Leaf>, Marker.Edge>? {
     val current = back
     if (current is LazyLeafHandle.Root) {
         back = LazyLeafHandle.Edge(current.node.lastLeafEdge())
@@ -244,25 +227,24 @@ internal fun <BorrowType : Marker.BorrowType, K, V> LazyLeafRange<BorrowType, K,
  * Unless `BorrowType` is `Immut`, do not use the handles to visit the same
  * KV twice.
  */
-internal inline fun <BorrowType : Marker.BorrowType, K, reified V, Q : Comparable<Q>, R : RangeBounds<Q>>
-    NodeRef<BorrowType, K, V, Marker.LeafOrInternal>.findLeafEdgesSpanningRange(
+internal inline fun <BorrowType : Marker.BorrowType, K, reified V, Q : Comparable<Q>, R : RangeBounds<Q>> NodeRef<BorrowType, K, V, Marker.LeafOrInternal>.findLeafEdgesSpanningRange(
     range: R,
 ): LeafRange<BorrowType, K, V> where K : Comparable<Q> = findLeafEdgesSpanningRangeExplicit(range, isSetVal<V>())
 
-internal fun <BorrowType : Marker.BorrowType, K, V, Q, R : RangeBounds<Q>>
-    NodeRef<BorrowType, K, V, Marker.LeafOrInternal>.findLeafEdgesSpanningRangeExplicit(
+internal fun <BorrowType : Marker.BorrowType, K, V, Q, R : RangeBounds<Q>> NodeRef<BorrowType, K, V, Marker.LeafOrInternal>.findLeafEdgesSpanningRangeExplicit(
     range: R,
     isSet: Boolean,
     compare: (K, Q) -> Int,
     compareBounds: (Q, Q) -> Int,
 ): LeafRange<BorrowType, K, V> {
     when (
-        val r = this.searchTreeForBifurcationExplicit<BorrowType, K, V, Q, R>(
-            range,
-            isSet,
-            compare,
-            compareBounds,
-        )
+        val r =
+            this.searchTreeForBifurcationExplicit<BorrowType, K, V, Q, R>(
+                range,
+                isSet,
+                compare,
+                compareBounds,
+            )
     ) {
         is BifurcationResult.LeafEdge -> return LeafRange.none()
         is BifurcationResult.Ok -> {
@@ -296,8 +278,7 @@ internal fun <BorrowType : Marker.BorrowType, K, V, Q, R : RangeBounds<Q>>
     error("unreachable: while(true) above always returns or throws")
 }
 
-internal fun <BorrowType : Marker.BorrowType, K, V, Q : Comparable<Q>, R : RangeBounds<Q>>
-    NodeRef<BorrowType, K, V, Marker.LeafOrInternal>.findLeafEdgesSpanningRangeExplicit(
+internal fun <BorrowType : Marker.BorrowType, K, V, Q : Comparable<Q>, R : RangeBounds<Q>> NodeRef<BorrowType, K, V, Marker.LeafOrInternal>.findLeafEdgesSpanningRangeExplicit(
     range: R,
     isSet: Boolean,
 ): LeafRange<BorrowType, K, V> where K : Comparable<Q> =
@@ -311,12 +292,11 @@ internal fun <BorrowType : Marker.BorrowType, K, V, Q : Comparable<Q>, R : Range
 internal fun <BorrowType : Marker.BorrowType, K, V> fullRange(
     root1: NodeRef<BorrowType, K, V, Marker.LeafOrInternal>,
     root2: NodeRef<BorrowType, K, V, Marker.LeafOrInternal>,
-): LazyLeafRange<BorrowType, K, V> {
-    return LazyLeafRange(
+): LazyLeafRange<BorrowType, K, V> =
+    LazyLeafRange(
         front = LazyLeafHandle.Root(root1),
         back = LazyLeafHandle.Root(root2),
     )
-}
 
 /**
  * Finds the pair of leaf edges delimiting a specific range in a tree.
@@ -324,39 +304,30 @@ internal fun <BorrowType : Marker.BorrowType, K, V> fullRange(
  * The result is meaningful only if the tree is ordered by key, like the tree
  * in a [BTreeMap] is.
  */
-internal inline fun <BorrowType : Marker.BorrowType, K, reified V, Q : Comparable<Q>, R : RangeBounds<Q>>
-    NodeRef<BorrowType, K, V, Marker.LeafOrInternal>.rangeSearch(
+internal inline fun <BorrowType : Marker.BorrowType, K, reified V, Q : Comparable<Q>, R : RangeBounds<Q>> NodeRef<BorrowType, K, V, Marker.LeafOrInternal>.rangeSearch(
     range: R,
-): LeafRange<BorrowType, K, V> where K : Comparable<Q> {
-    return this.findLeafEdgesSpanningRange<BorrowType, K, V, Q, R>(range)
-}
+): LeafRange<BorrowType, K, V> where K : Comparable<Q> = this.findLeafEdgesSpanningRange<BorrowType, K, V, Q, R>(range)
 
-internal fun <BorrowType : Marker.BorrowType, K, V, Q : Comparable<Q>, R : RangeBounds<Q>>
-    NodeRef<BorrowType, K, V, Marker.LeafOrInternal>.rangeSearch(
+internal fun <BorrowType : Marker.BorrowType, K, V, Q : Comparable<Q>, R : RangeBounds<Q>> NodeRef<BorrowType, K, V, Marker.LeafOrInternal>.rangeSearch(
     range: R,
     isSet: Boolean,
-): LeafRange<BorrowType, K, V> where K : Comparable<Q> {
-    return this.findLeafEdgesSpanningRangeExplicit<BorrowType, K, V, Q, R>(range, isSet)
-}
+): LeafRange<BorrowType, K, V> where K : Comparable<Q> = this.findLeafEdgesSpanningRangeExplicit<BorrowType, K, V, Q, R>(range, isSet)
 
-internal fun <BorrowType : Marker.BorrowType, K, V, Q, R : RangeBounds<Q>>
-    NodeRef<BorrowType, K, V, Marker.LeafOrInternal>.rangeSearch(
+internal fun <BorrowType : Marker.BorrowType, K, V, Q, R : RangeBounds<Q>> NodeRef<BorrowType, K, V, Marker.LeafOrInternal>.rangeSearch(
     range: R,
     isSet: Boolean,
     compare: (K, Q) -> Int,
     compareBounds: (Q, Q) -> Int,
-): LeafRange<BorrowType, K, V> {
-    return this.findLeafEdgesSpanningRangeExplicit<BorrowType, K, V, Q, R>(
+): LeafRange<BorrowType, K, V> =
+    this.findLeafEdgesSpanningRangeExplicit<BorrowType, K, V, Q, R>(
         range,
         isSet,
         compare,
         compareBounds,
     )
-}
 
 /** Finds the pair of leaf edges delimiting an entire tree. */
-internal fun <BorrowType : Marker.BorrowType, K, V> NodeRef<BorrowType, K, V, Marker.LeafOrInternal>.fullRange():
-    LazyLeafRange<BorrowType, K, V> {
+internal fun <BorrowType : Marker.BorrowType, K, V> NodeRef<BorrowType, K, V, Marker.LeafOrInternal>.fullRange(): LazyLeafRange<BorrowType, K, V> {
     val self2 = NodeRef<BorrowType, K, V, Marker.LeafOrInternal>(height = height, node = node)
     return fullRange(this, self2)
 }
@@ -378,36 +349,36 @@ internal sealed class NextKvResult<BorrowType, K, V> {
  * or in an ancestor node. If the leaf edge is the last one in the tree,
  * returns [NextKvResult.Err] with the root node.
  */
-internal fun <BorrowType : Marker.BorrowType, K, V>
-    Handle<NodeRef<BorrowType, K, V, Marker.Leaf>, Marker.Edge>.nextKv():
-    NextKvResult<BorrowType, K, V> {
+internal fun <BorrowType : Marker.BorrowType, K, V> Handle<NodeRef<BorrowType, K, V, Marker.Leaf>, Marker.Edge>.nextKv(): NextKvResult<BorrowType, K, V> {
     var edge: Handle<NodeRef<BorrowType, K, V, Marker.LeafOrInternal>, Marker.Edge> =
         this.forgetNodeType(LeafEdgeForgetNodeType)
     while (true) {
-        edge = when (val rk = edge.rightKv()) {
-            is EdgeKvResult.Ok -> return NextKvResult.Ok(rk.handle)
-            is EdgeKvResult.Err -> when (val asc = rk.handle.intoNode().ascend()) {
-                is AscendResult.Ok -> asc.handle.forgetNodeType(InternalEdgeForgetNodeType)
-                is AscendResult.Err -> return NextKvResult.Err(asc.node)
+        edge =
+            when (val rk = edge.rightKv()) {
+                is EdgeKvResult.Ok -> return NextKvResult.Ok(rk.handle)
+                is EdgeKvResult.Err ->
+                    when (val asc = rk.handle.intoNode().ascend()) {
+                        is AscendResult.Ok -> asc.handle.forgetNodeType(InternalEdgeForgetNodeType)
+                        is AscendResult.Err -> return NextKvResult.Err(asc.node)
+                    }
             }
-        }
     }
 }
 
 /** Mirror of [nextKv] for the left side. */
-internal fun <BorrowType : Marker.BorrowType, K, V>
-    Handle<NodeRef<BorrowType, K, V, Marker.Leaf>, Marker.Edge>.nextBackKv():
-    NextKvResult<BorrowType, K, V> {
+internal fun <BorrowType : Marker.BorrowType, K, V> Handle<NodeRef<BorrowType, K, V, Marker.Leaf>, Marker.Edge>.nextBackKv(): NextKvResult<BorrowType, K, V> {
     var edge: Handle<NodeRef<BorrowType, K, V, Marker.LeafOrInternal>, Marker.Edge> =
         this.forgetNodeType(LeafEdgeForgetNodeType)
     while (true) {
-        edge = when (val lk = edge.leftKv()) {
-            is EdgeKvResult.Ok -> return NextKvResult.Ok(lk.handle)
-            is EdgeKvResult.Err -> when (val asc = lk.handle.intoNode().ascend()) {
-                is AscendResult.Ok -> asc.handle.forgetNodeType(InternalEdgeForgetNodeType)
-                is AscendResult.Err -> return NextKvResult.Err(asc.node)
+        edge =
+            when (val lk = edge.leftKv()) {
+                is EdgeKvResult.Ok -> return NextKvResult.Ok(lk.handle)
+                is EdgeKvResult.Err ->
+                    when (val asc = lk.handle.intoNode().ascend()) {
+                        is AscendResult.Ok -> asc.handle.forgetNodeType(InternalEdgeForgetNodeType)
+                        is AscendResult.Err -> return NextKvResult.Err(asc.node)
+                    }
             }
-        }
     }
 }
 
@@ -426,26 +397,26 @@ internal sealed class NextKvInternalResult<BorrowType, K, V> {
  * Given an internal edge handle, returns Ok with a handle to the neighboring KV
  * on the right side, which is either in the same internal node or in an ancestor node.
  */
-internal fun <BorrowType : Marker.BorrowType, K, V>
-    Handle<NodeRef<BorrowType, K, V, Marker.Internal>, Marker.Edge>.nextKvInternal():
-    NextKvInternalResult<BorrowType, K, V> {
+internal fun <BorrowType : Marker.BorrowType, K, V> Handle<NodeRef<BorrowType, K, V, Marker.Internal>, Marker.Edge>.nextKvInternal(): NextKvInternalResult<BorrowType, K, V> {
     var edge: Handle<NodeRef<BorrowType, K, V, Marker.Internal>, Marker.Edge> = this
     while (true) {
-        edge = when (val rk = edge.rightKv()) {
-            is EdgeKvResult.Ok -> return NextKvInternalResult.Ok(rk.handle)
-            is EdgeKvResult.Err -> when (val asc = rk.handle.intoNode().ascend()) {
-                is AscendResult.Ok -> asc.handle
-                is AscendResult.Err -> {
-                    // Receiver is `Internal`, so the recovered root is
-                    // `Internal` at runtime — narrow back via direct
-                    // construction with the known type tag.
-                    val recovered = asc.node
-                    return NextKvInternalResult.Err(
-                        NodeRef(height = recovered.height, node = recovered.node),
-                    )
-                }
+        edge =
+            when (val rk = edge.rightKv()) {
+                is EdgeKvResult.Ok -> return NextKvInternalResult.Ok(rk.handle)
+                is EdgeKvResult.Err ->
+                    when (val asc = rk.handle.intoNode().ascend()) {
+                        is AscendResult.Ok -> asc.handle
+                        is AscendResult.Err -> {
+                            // Receiver is `Internal`, so the recovered root is
+                            // `Internal` at runtime — narrow back via direct
+                            // construction with the known type tag.
+                            val recovered = asc.node
+                            return NextKvInternalResult.Err(
+                                NodeRef(height = recovered.height, node = recovered.node),
+                            )
+                        }
+                    }
             }
-        }
     }
 }
 
@@ -464,58 +435,56 @@ internal fun <BorrowType : Marker.BorrowType, K, V>
  * - The returned KV handle is only valid to access the key and value,
  *   and only valid until the next call to a deallocating method.
  */
-internal fun <K, V>
-    Handle<NodeRef<Marker.Dying, K, V, Marker.Leaf>, Marker.Edge>.deallocatingNext():
-    Pair<
-        Handle<NodeRef<Marker.Dying, K, V, Marker.Leaf>, Marker.Edge>,
-        Handle<NodeRef<Marker.Dying, K, V, Marker.LeafOrInternal>, Marker.KV>,
-        >? {
+internal fun <K, V> Handle<NodeRef<Marker.Dying, K, V, Marker.Leaf>, Marker.Edge>.deallocatingNext(): Pair<
+    Handle<NodeRef<Marker.Dying, K, V, Marker.Leaf>, Marker.Edge>,
+    Handle<NodeRef<Marker.Dying, K, V, Marker.LeafOrInternal>, Marker.KV>,
+>? {
     var edge: Handle<NodeRef<Marker.Dying, K, V, Marker.LeafOrInternal>, Marker.Edge> =
         this.forgetNodeType(LeafEdgeForgetNodeType)
     while (true) {
-        edge = when (val rk = edge.rightKv()) {
-            is EdgeKvResult.Ok -> {
-                val kv = rk.handle
-                return Pair(kv.nextLeafEdge(), kv)
-            }
-            is EdgeKvResult.Err -> {
-                val node = rk.handle.intoNode()
-                val parent = node.deallocateAndAscend()
-                if (parent != null) {
-                    parent.forgetNodeType(InternalEdgeForgetNodeType)
-                } else {
-                    return null
+        edge =
+            when (val rk = edge.rightKv()) {
+                is EdgeKvResult.Ok -> {
+                    val kv = rk.handle
+                    return Pair(kv.nextLeafEdge(), kv)
+                }
+                is EdgeKvResult.Err -> {
+                    val node = rk.handle.intoNode()
+                    val parent = node.deallocateAndAscend()
+                    if (parent != null) {
+                        parent.forgetNodeType(InternalEdgeForgetNodeType)
+                    } else {
+                        return null
+                    }
                 }
             }
-        }
     }
 }
 
 /** Mirror of [deallocatingNext] for the left side. */
-internal fun <K, V>
-    Handle<NodeRef<Marker.Dying, K, V, Marker.Leaf>, Marker.Edge>.deallocatingNextBack():
-    Pair<
-        Handle<NodeRef<Marker.Dying, K, V, Marker.Leaf>, Marker.Edge>,
-        Handle<NodeRef<Marker.Dying, K, V, Marker.LeafOrInternal>, Marker.KV>,
-        >? {
+internal fun <K, V> Handle<NodeRef<Marker.Dying, K, V, Marker.Leaf>, Marker.Edge>.deallocatingNextBack(): Pair<
+    Handle<NodeRef<Marker.Dying, K, V, Marker.Leaf>, Marker.Edge>,
+    Handle<NodeRef<Marker.Dying, K, V, Marker.LeafOrInternal>, Marker.KV>,
+>? {
     var edge: Handle<NodeRef<Marker.Dying, K, V, Marker.LeafOrInternal>, Marker.Edge> =
         this.forgetNodeType(LeafEdgeForgetNodeType)
     while (true) {
-        edge = when (val lk = edge.leftKv()) {
-            is EdgeKvResult.Ok -> {
-                val kv = lk.handle
-                return Pair(kv.nextBackLeafEdge(), kv)
-            }
-            is EdgeKvResult.Err -> {
-                val node = lk.handle.intoNode()
-                val parent = node.deallocateAndAscend()
-                if (parent != null) {
-                    parent.forgetNodeType(InternalEdgeForgetNodeType)
-                } else {
-                    return null
+        edge =
+            when (val lk = edge.leftKv()) {
+                is EdgeKvResult.Ok -> {
+                    val kv = lk.handle
+                    return Pair(kv.nextBackLeafEdge(), kv)
+                }
+                is EdgeKvResult.Err -> {
+                    val node = lk.handle.intoNode()
+                    val parent = node.deallocateAndAscend()
+                    if (parent != null) {
+                        parent.forgetNodeType(InternalEdgeForgetNodeType)
+                    } else {
+                        return null
+                    }
                 }
             }
-        }
     }
 }
 
@@ -527,8 +496,7 @@ internal fun <K, V>
  * only to be called when all keys and values have been returned,
  * no cleanup is done on any of the keys or values.
  */
-internal fun <K, V>
-    Handle<NodeRef<Marker.Dying, K, V, Marker.Leaf>, Marker.Edge>.deallocatingEnd() {
+internal fun <K, V> Handle<NodeRef<Marker.Dying, K, V, Marker.Leaf>, Marker.Edge>.deallocatingEnd() {
     var edge: Handle<NodeRef<Marker.Dying, K, V, Marker.LeafOrInternal>, Marker.Edge> =
         this.forgetNodeType(LeafEdgeForgetNodeType)
     while (true) {
@@ -543,16 +511,16 @@ internal fun <K, V>
  * Safety:
  * There must be another KV in the direction travelled.
  */
-internal fun <BorrowType : Marker.BorrowType, K, V>
-    Handle<NodeRef<BorrowType, K, V, Marker.Leaf>, Marker.Edge>.nextUnchecked():
-    Pair<Handle<NodeRef<BorrowType, K, V, Marker.Leaf>, Marker.Edge>, Pair<K, V>> {
-    val (newEdge, kvRef) = replace(this) { leafEdge ->
-        val kv = when (val r = leafEdge.nextKv()) {
-            is NextKvResult.Ok -> r.handle
-            is NextKvResult.Err -> error("unreachable: caller-asserted there is another KV")
+internal fun <BorrowType : Marker.BorrowType, K, V> Handle<NodeRef<BorrowType, K, V, Marker.Leaf>, Marker.Edge>.nextUnchecked(): Pair<Handle<NodeRef<BorrowType, K, V, Marker.Leaf>, Marker.Edge>, Pair<K, V>> {
+    val (newEdge, kvRef) =
+        replace(this) { leafEdge ->
+            val kv =
+                when (val r = leafEdge.nextKv()) {
+                    is NextKvResult.Ok -> r.handle
+                    is NextKvResult.Err -> error("unreachable: caller-asserted there is another KV")
+                }
+            Pair(kv.nextLeafEdge(), kv)
         }
-        Pair(kv.nextLeafEdge(), kv)
-    }
     return Pair(newEdge, kvRef.intoKvPair())
 }
 
@@ -562,16 +530,16 @@ internal fun <BorrowType : Marker.BorrowType, K, V>
  * Safety:
  * There must be another KV in the direction travelled.
  */
-internal fun <BorrowType : Marker.BorrowType, K, V>
-    Handle<NodeRef<BorrowType, K, V, Marker.Leaf>, Marker.Edge>.nextBackUnchecked():
-    Pair<Handle<NodeRef<BorrowType, K, V, Marker.Leaf>, Marker.Edge>, Pair<K, V>> {
-    val (newEdge, kvRef) = replace(this) { leafEdge ->
-        val kv = when (val r = leafEdge.nextBackKv()) {
-            is NextKvResult.Ok -> r.handle
-            is NextKvResult.Err -> error("unreachable: caller-asserted there is another KV")
+internal fun <BorrowType : Marker.BorrowType, K, V> Handle<NodeRef<BorrowType, K, V, Marker.Leaf>, Marker.Edge>.nextBackUnchecked(): Pair<Handle<NodeRef<BorrowType, K, V, Marker.Leaf>, Marker.Edge>, Pair<K, V>> {
+    val (newEdge, kvRef) =
+        replace(this) { leafEdge ->
+            val kv =
+                when (val r = leafEdge.nextBackKv()) {
+                    is NextKvResult.Ok -> r.handle
+                    is NextKvResult.Err -> error("unreachable: caller-asserted there is another KV")
+                }
+            Pair(kv.nextBackLeafEdge(), kv)
         }
-        Pair(kv.nextBackLeafEdge(), kv)
-    }
     return Pair(newEdge, kvRef.intoKvPair())
 }
 
@@ -589,16 +557,13 @@ internal fun <BorrowType : Marker.BorrowType, K, V>
  * The only safe way to proceed with the updated handle is to compare it, drop it,
  * or call this method or counterpart `deallocatingNextBackUnchecked` again.
  */
-internal fun <K, V>
-    Handle<NodeRef<Marker.Dying, K, V, Marker.Leaf>, Marker.Edge>.deallocatingNextUnchecked():
-    Pair<
-        Handle<NodeRef<Marker.Dying, K, V, Marker.Leaf>, Marker.Edge>,
-        Handle<NodeRef<Marker.Dying, K, V, Marker.LeafOrInternal>, Marker.KV>,
-        > {
-    return replace(this) { leafEdge ->
+internal fun <K, V> Handle<NodeRef<Marker.Dying, K, V, Marker.Leaf>, Marker.Edge>.deallocatingNextUnchecked(): Pair<
+    Handle<NodeRef<Marker.Dying, K, V, Marker.Leaf>, Marker.Edge>,
+    Handle<NodeRef<Marker.Dying, K, V, Marker.LeafOrInternal>, Marker.KV>,
+> =
+    replace(this) { leafEdge ->
         leafEdge.deallocatingNext() ?: error("unreachable: caller-asserted KV present")
     }
-}
 
 /**
  * Moves the leaf edge handle to the previous leaf edge and returns the key and value
@@ -614,30 +579,26 @@ internal fun <K, V>
  * The only safe way to proceed with the updated handle is to compare it, drop it,
  * or call this method or counterpart `deallocatingNextUnchecked` again.
  */
-internal fun <K, V>
-    Handle<NodeRef<Marker.Dying, K, V, Marker.Leaf>, Marker.Edge>.deallocatingNextBackUnchecked():
-    Pair<
-        Handle<NodeRef<Marker.Dying, K, V, Marker.Leaf>, Marker.Edge>,
-        Handle<NodeRef<Marker.Dying, K, V, Marker.LeafOrInternal>, Marker.KV>,
-        > {
-    return replace(this) { leafEdge ->
+internal fun <K, V> Handle<NodeRef<Marker.Dying, K, V, Marker.Leaf>, Marker.Edge>.deallocatingNextBackUnchecked(): Pair<
+    Handle<NodeRef<Marker.Dying, K, V, Marker.Leaf>, Marker.Edge>,
+    Handle<NodeRef<Marker.Dying, K, V, Marker.LeafOrInternal>, Marker.KV>,
+> =
+    replace(this) { leafEdge ->
         leafEdge.deallocatingNextBack() ?: error("unreachable: caller-asserted KV present")
     }
-}
 
 /**
  * Returns the leftmost leaf edge in or underneath a node - in other words, the edge
  * you need first when navigating forward (or last when navigating backward).
  */
-internal fun <BorrowType : Marker.BorrowType, K, V>
-    NodeRef<BorrowType, K, V, Marker.LeafOrInternal>.firstLeafEdge():
-    Handle<NodeRef<BorrowType, K, V, Marker.Leaf>, Marker.Edge> {
+internal fun <BorrowType : Marker.BorrowType, K, V> NodeRef<BorrowType, K, V, Marker.LeafOrInternal>.firstLeafEdge(): Handle<NodeRef<BorrowType, K, V, Marker.Leaf>, Marker.Edge> {
     var node = this
     while (true) {
-        node = when (val f = node.force()) {
-            is ForceResult.Leaf -> return f.value.firstEdge()
-            is ForceResult.Internal -> f.value.firstEdge().descend()
-        }
+        node =
+            when (val f = node.force()) {
+                is ForceResult.Leaf -> return f.value.firstEdge()
+                is ForceResult.Internal -> f.value.firstEdge().descend()
+            }
     }
 }
 
@@ -645,15 +606,14 @@ internal fun <BorrowType : Marker.BorrowType, K, V>
  * Returns the rightmost leaf edge in or underneath a node - in other words, the edge
  * you need last when navigating forward (or first when navigating backward).
  */
-internal fun <BorrowType : Marker.BorrowType, K, V>
-    NodeRef<BorrowType, K, V, Marker.LeafOrInternal>.lastLeafEdge():
-    Handle<NodeRef<BorrowType, K, V, Marker.Leaf>, Marker.Edge> {
+internal fun <BorrowType : Marker.BorrowType, K, V> NodeRef<BorrowType, K, V, Marker.LeafOrInternal>.lastLeafEdge(): Handle<NodeRef<BorrowType, K, V, Marker.Leaf>, Marker.Edge> {
     var node = this
     while (true) {
-        node = when (val f = node.force()) {
-            is ForceResult.Leaf -> return f.value.lastEdge()
-            is ForceResult.Internal -> f.value.lastEdge().descend()
-        }
+        node =
+            when (val f = node.force()) {
+                is ForceResult.Leaf -> return f.value.lastEdge()
+                is ForceResult.Internal -> f.value.lastEdge().descend()
+            }
     }
 }
 
@@ -687,24 +647,25 @@ internal inline fun <K, V> NodeRef<Marker.Immut, K, V, Marker.LeafOrInternal>.vi
             var edge: Handle<NodeRef<Marker.Immut, K, V, Marker.Internal>, Marker.Edge> =
                 internal.firstEdge()
             while (true) {
-                edge = when (val descForced = edge.descend().force()) {
-                    is ForceResult.Leaf -> {
-                        val leaf = descForced.value
-                        visit(Position.Leaf(leaf))
-                        when (val nk = edge.nextKvInternal()) {
-                            is NextKvInternalResult.Ok -> {
-                                visit(Position.InternalKV())
-                                nk.kv.rightEdge()
+                edge =
+                    when (val descForced = edge.descend().force()) {
+                        is ForceResult.Leaf -> {
+                            val leaf = descForced.value
+                            visit(Position.Leaf(leaf))
+                            when (val nk = edge.nextKvInternal()) {
+                                is NextKvInternalResult.Ok -> {
+                                    visit(Position.InternalKV())
+                                    nk.kv.rightEdge()
+                                }
+                                is NextKvInternalResult.Err -> return
                             }
-                            is NextKvInternalResult.Err -> return
+                        }
+                        is ForceResult.Internal -> {
+                            val sub = descForced.value
+                            visit(Position.Internal(sub))
+                            sub.firstEdge()
                         }
                     }
-                    is ForceResult.Internal -> {
-                        val sub = descForced.value
-                        visit(Position.Internal(sub))
-                        sub.firstEdge()
-                    }
-                }
             }
         }
     }
@@ -724,10 +685,8 @@ internal fun <K, V> NodeRef<Marker.Immut, K, V, Marker.LeafOrInternal>.calcLengt
 }
 
 /** Returns the leaf edge closest to a KV for forward navigation. */
-internal fun <BorrowType : Marker.BorrowType, K, V>
-    Handle<NodeRef<BorrowType, K, V, Marker.LeafOrInternal>, Marker.KV>.nextLeafEdge():
-    Handle<NodeRef<BorrowType, K, V, Marker.Leaf>, Marker.Edge> {
-    return when (val f = this.force()) {
+internal fun <BorrowType : Marker.BorrowType, K, V> Handle<NodeRef<BorrowType, K, V, Marker.LeafOrInternal>, Marker.KV>.nextLeafEdge(): Handle<NodeRef<BorrowType, K, V, Marker.Leaf>, Marker.Edge> =
+    when (val f = this.force()) {
         is ForceResult.Leaf -> f.value.rightEdge()
         is ForceResult.Internal -> {
             val internalKv = f.value
@@ -735,13 +694,10 @@ internal fun <BorrowType : Marker.BorrowType, K, V>
             nextInternalEdge.descend().firstLeafEdge()
         }
     }
-}
 
 /** Returns the leaf edge closest to a KV for backward navigation. */
-internal fun <BorrowType : Marker.BorrowType, K, V>
-    Handle<NodeRef<BorrowType, K, V, Marker.LeafOrInternal>, Marker.KV>.nextBackLeafEdge():
-    Handle<NodeRef<BorrowType, K, V, Marker.Leaf>, Marker.Edge> {
-    return when (val f = this.force()) {
+internal fun <BorrowType : Marker.BorrowType, K, V> Handle<NodeRef<BorrowType, K, V, Marker.LeafOrInternal>, Marker.KV>.nextBackLeafEdge(): Handle<NodeRef<BorrowType, K, V, Marker.Leaf>, Marker.Edge> =
+    when (val f = this.force()) {
         is ForceResult.Leaf -> f.value.leftEdge()
         is ForceResult.Internal -> {
             val internalKv = f.value
@@ -749,14 +705,12 @@ internal fun <BorrowType : Marker.BorrowType, K, V>
             nextInternalEdge.descend().lastLeafEdge()
         }
     }
-}
 
 /**
  * Returns the leaf edge corresponding to the first point at which the
  * given bound is true.
  */
-internal fun <BorrowType : Marker.BorrowType, K, V, Q>
-    NodeRef<BorrowType, K, V, Marker.LeafOrInternal>.lowerBound(
+internal fun <BorrowType : Marker.BorrowType, K, V, Q> NodeRef<BorrowType, K, V, Marker.LeafOrInternal>.lowerBound(
     bound: SearchBound<Q>,
     compare: (K, Q) -> Int,
 ): Handle<NodeRef<BorrowType, K, V, Marker.Leaf>, Marker.Edge> {
@@ -774,18 +728,15 @@ internal fun <BorrowType : Marker.BorrowType, K, V, Q>
     }
 }
 
-internal fun <BorrowType : Marker.BorrowType, K, V, Q : Comparable<Q>>
-    NodeRef<BorrowType, K, V, Marker.LeafOrInternal>.lowerBound(
+internal fun <BorrowType : Marker.BorrowType, K, V, Q : Comparable<Q>> NodeRef<BorrowType, K, V, Marker.LeafOrInternal>.lowerBound(
     bound: SearchBound<Q>,
-): Handle<NodeRef<BorrowType, K, V, Marker.Leaf>, Marker.Edge> where K : Comparable<Q> =
-    lowerBound(bound) { stored, query -> stored.compareTo(query) }
+): Handle<NodeRef<BorrowType, K, V, Marker.Leaf>, Marker.Edge> where K : Comparable<Q> = lowerBound(bound) { stored, query -> stored.compareTo(query) }
 
 /**
  * Returns the leaf edge corresponding to the last point at which the
  * given bound is true.
  */
-internal fun <BorrowType : Marker.BorrowType, K, V, Q>
-    NodeRef<BorrowType, K, V, Marker.LeafOrInternal>.upperBound(
+internal fun <BorrowType : Marker.BorrowType, K, V, Q> NodeRef<BorrowType, K, V, Marker.LeafOrInternal>.upperBound(
     bound: SearchBound<Q>,
     compare: (K, Q) -> Int,
 ): Handle<NodeRef<BorrowType, K, V, Marker.Leaf>, Marker.Edge> {
@@ -803,8 +754,6 @@ internal fun <BorrowType : Marker.BorrowType, K, V, Q>
     }
 }
 
-internal fun <BorrowType : Marker.BorrowType, K, V, Q : Comparable<Q>>
-    NodeRef<BorrowType, K, V, Marker.LeafOrInternal>.upperBound(
+internal fun <BorrowType : Marker.BorrowType, K, V, Q : Comparable<Q>> NodeRef<BorrowType, K, V, Marker.LeafOrInternal>.upperBound(
     bound: SearchBound<Q>,
-): Handle<NodeRef<BorrowType, K, V, Marker.Leaf>, Marker.Edge> where K : Comparable<Q> =
-    upperBound(bound) { stored, query -> stored.compareTo(query) }
+): Handle<NodeRef<BorrowType, K, V, Marker.Leaf>, Marker.Edge> where K : Comparable<Q> = upperBound(bound) { stored, query -> stored.compareTo(query) }
