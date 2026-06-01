@@ -28,7 +28,7 @@ plugins {
 }
 
 group = "io.github.kotlinmania"
-version = "0.2.1"
+version = "0.2.2"
 
 val androidCommandLineToolsRevision = "14742923"
 val projectCompileSdk = "34"

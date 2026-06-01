@@ -49,7 +49,7 @@ memory-management pieces to Kotlin Multiplatform.
 
 ```kotlin
 dependencies {
-    implementation("io.github.kotlinmania:btree-kotlin:0.2.1")
+    implementation("io.github.kotlinmania:btree-kotlin:0.2.2")
 }
 ```
 
