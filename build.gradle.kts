@@ -410,6 +410,7 @@ tasks.named("check") {
     // device slices can't execute on this host — they run on their own CI runner.
     dependsOn("testAndroidHostTest")
     // Swift Export smoke test (macOS-only; self-skips elsewhere via onlyIf).
+    dependsOn("hostTests")
     dependsOn("swiftExportSmokeTest")
 }
 
