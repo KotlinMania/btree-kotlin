@@ -243,6 +243,7 @@ kotlin {
         allWarningsAsErrors.set(true)
         optIn.addAll(commonOptIns)
         freeCompilerArgs.add("-Xexpect-actual-classes")
+        freeCompilerArgs.add("-Xsuppress-version-warnings")
     }
 
     val xcf = XCFramework(frameworkName)
