@@ -426,41 +426,35 @@ Then stop. A human will pick it up.
    workspace-canonical `allWarningsAsErrors.set(true)` these become
    compile errors.
 
-   **First-choice fix when Swift does not need that surface:** keep the
-   Kotlin declaration public, but hide only the Swift-hostile member or
-   type with `@HiddenFromObjC` and add the required file opt-in:
+   **First-choice fix:** keep the Apple-facing public API usable. Replace
+   `kotlin.Result<T>` / `Throwable` surfaces with Swift-exportable outcome
+   and error types, or keep the Swift-hostile implementation internal and
+   expose a concrete facade.
 
    ```kotlin
-   @file:OptIn(kotlin.experimental.ExperimentalObjCRefinement::class)
-
    package io.github.kotlinmania.example
 
-   import kotlin.native.HiddenFromObjC
+   public sealed class ParseOutcome {
+       public data class Ok(public val value: Value) : ParseOutcome()
+       public data class Err(public val error: ParseError) : ParseOutcome()
+   }
 
-   @HiddenFromObjC
-   public class ParseError(/* ... */) : Exception()
+   public data class ParseError(public val message: String)
 
    public class Parser {
-       @HiddenFromObjC
-       public fun tryParse(input: String): Result<Value> =
-           parseValue(input).fold(
-               onSuccess = { Result.success(it) },
-               onFailure = { Result.failure(ParseError(it.message)) },
-           )
+       public fun tryParse(input: String): ParseOutcome =
+           when (val parsed = parseValue(input)) {
+               is InternalParseResult.Ok -> ParseOutcome.Ok(parsed.value)
+               is InternalParseResult.Err -> ParseOutcome.Err(ParseError(parsed.message))
+           }
    }
    ```
 
-   `@HiddenFromObjC` affects only the Kotlin/Native Obj-C / Swift bridge;
-   Kotlin callers, including sibling `*-kotlin` repos, continue to see the
-   same public API. This is the correct repair when the Kotlin port must
-   preserve upstream-shaped public signatures but the Swift smoke test only
-   needs the rest of the module to import and link. uuid-kotlin PR #13 used
-   this pattern for public `Result<Uuid>` parser helpers plus public
-   `Exception`-derived parse error types.
-
-   **When Swift consumers legitimately need the failing result surface:**
-   replace `kotlin.Result<T>` in that public API with a repo-local concrete
-   result type using the flat-class pattern below. See
+   `@HiddenFromObjC` is not a fix. It only removes the declaration from
+   the Objective-C / Swift framework surface; Kotlin callers still see it,
+   but Apple consumers do not. Repair the public API by renaming colliding
+   declarations and replacing Swift-hostile shapes with strongly-typed,
+   bridgeable Kotlin declarations. See
    [`triage-kotlin-stdlib-in-public-api.md`](./triage-kotlin-stdlib-in-public-api.md)
    for the workspace-wide hit list.
 
@@ -633,25 +627,19 @@ become deletable.
    erasure problem in the bridge). If the function-type value is
    internal-only, marking the field `internal` is also valid.
 
-   **Alternative when the public API must stay public.** Both triggers
-   8a and 8b accept a second valid fix: tag the offending declaration
-   with `@HiddenFromObjC` (and add `@file:OptIn(kotlin.experimental.ExperimentalObjCRefinement::class)`
-   at the top of the file). The annotation tells the Kotlin/Native
-   Obj-C / Swift bridge to skip the declaration without changing its
-   Kotlin visibility, so callers in Kotlin (and in other Kotlin
-   sibling repos) still see the same public surface. Use this when
-   making the class `internal` would break the repo's published API
-   contract or when the surface is the public face of a clean-room
-   port whose Rust upstream exposed the type publicly. Evidence:
-   tree-sitter-kotlin commit on `CBufferIter<T>` (trigger 8a, public
-   iterator wrapper that had to stay public to mirror the upstream
-   Rust API) and the follow-on sweep that batch-tagged every public
-   callback typealias and enclosing class in
-   `treesitter/lib/*.kt` (mix of 8a and 8b across the internal
-   C-runtime subpackage). The `internal class` recipe is still the
-   default when there is no API-contract reason to keep the
-   declaration public; `@HiddenFromObjC` is the escape hatch when
-   there is.
+   **Primary solution when Kotlin compatibility must stay public.** Keep
+   the public Kotlin API source-compatible by changing the surface to
+   bridgeable nominal types, not by hiding declarations. For trigger 8a,
+   public factories keep their Kotlin generic parameters but return
+   stdlib interfaces (`Iterator<T>`, `Sequence<T>`, `Iterable<T>`,
+   `List<T>`, etc.) while the concrete implementation class becomes
+   internal. For trigger 8b, replace public function-type positions with
+   named `fun interface` SAMs so existing lambda call sites still compile
+   and Swift Export sees a stable type name. For Swift and Java emitted
+   name collisions, rename the Kotlin declaration or file itself and
+   migrate callers; do not preserve the old colliding spelling with a
+   typealias or platform naming annotation. The compatibility path is a
+   real bridgeable API, not an annotation tag.
 
    **DO NOT** scope `allWarningsAsErrors=false` to the
    `compileSwiftExportMain*` task family for either trigger. That was
@@ -737,7 +725,7 @@ become deletable.
    > **This is NOT the gap-#8 anti-pattern.** Gap #8 forbids this exact
    > block when it is used to silence unchecked-cast warnings in the
    > bridge for *your own* public API — because there you fix the source
-   > (make it `internal` / `@HiddenFromObjC` / `fun interface`). The
+   > (rename it, make it `internal`, or use a named `fun interface`). The
    > distinction is *whose code emits the warning*: gap #8 = your bridge
    > (fix source, never relax); gap #9 = the generated
    > `KotlinCoroutineSupport.kt` coroutine runtime (no source exists,
@@ -1132,48 +1120,35 @@ tree-sitter-kotlin batch SAM-ification of seven public typealiases
 and inline callback parameters, where this naming choice meant the
 `jvmMain`, `androidMain`, and `nativeMain` actuals needed zero edits.
 
-### Alternative: `@HiddenFromObjC` when the public API must stay public
+### Kotlin compatibility through named SAMs
 
-The `fun interface` rewrite changes the public Kotlin API (callers
-that wrote out `(UInt, Boolean) -> Boolean` explicitly must update to
-the SAM type name). When the source-of-truth contract for the Kotlin
-port requires keeping the original function-type shape — e.g. the
-clean-room Rust upstream exposed the callback as a function-pointer
-and the Kotlin port mirrors that signature publicly — tag the
-declaration with `@HiddenFromObjC` instead and leave the function
-type alone:
+The `fun interface` rewrite preserves the normal Kotlin call shape:
+callers that pass lambdas keep writing the same lambda expression.
+Callers that wrote out `(UInt, Boolean) -> Boolean` as an explicit type
+must move to the named SAM type. That is the intended compatibility
+boundary because the published API is now a bridgeable nominal type
+instead of an erased `FunctionN`.
 
 ```kotlin
-@file:OptIn(kotlin.experimental.ExperimentalObjCRefinement::class)
-
 package io.github.kotlinmania.treesitter
 
-import kotlin.native.HiddenFromObjC
+fun interface ParseProgressCallback {
+    fun invoke(
+        byteOffset: UInt,
+        hasError: Boolean,
+    ): Boolean
+}
 
-@HiddenFromObjC
-class CBufferIter<T> internal constructor(
-    private val items: List<T>,
-) : Iterator<T> {
-    // ... unchanged
+public class Parser {
+    public fun parseWithProgress(callback: ParseProgressCallback): Tree =
+        parseInternal { offset, hasError -> callback.invoke(offset, hasError) }
 }
 ```
 
-The annotation only affects the Kotlin/Native Obj-C / Swift bridge:
-Kotlin callers (including other sibling `*-kotlin` repos) keep
-seeing the same public class with the same signature. The Swift
-Export bridge file skips the declaration entirely, so the
-`Unchecked cast of 'Any'` line never appears. This applies to both
-trigger 8a (generic class) and trigger 8b (function-type field /
-parameter / return).
-
-When most or all of a subpackage is internal-by-convention runtime
-code that should never reach Swift — tree-sitter-kotlin's
-`treesitter.lib` C-runtime port is the canonical example — sweep it
-with file-level OptIn plus per-class `@HiddenFromObjC` rather than
-tagging one declaration at a time. `@HiddenFromObjC` has no `FILE`
-target, so the annotation must go on each class / property / function
-individually; the file-level `@file:OptIn(ExperimentalObjCRefinement)`
-is what enables those per-declaration annotations.
+When most or all of a subpackage is implementation runtime code that
+should never reach Swift or Java consumers, make it `internal` and keep
+public entry points in a small strongly-typed API layer. Do not ship a
+public API and then hide it from one platform.
 
 ### Tests
 
@@ -1274,9 +1249,8 @@ a single PR ahead of CI evidence):
      → introduce a co-located named SAM and replace the parameter
      type.
    - **subpackage that is internal-by-convention runtime port** →
-     tag every class with `@HiddenFromObjC` (file-level
-     `@file:OptIn(ExperimentalObjCRefinement)` enables the
-     per-class annotation; there is no `@file:HiddenFromObjC` target).
+     make it `internal` and expose only the strongly-typed public entry
+     points that Swift and Java consumers should actually use.
 3. Compile the three highest-coverage targets (`macosArm64`, `jvm`,
    `androidMain`) locally to confirm the SAM conversion didn't break
    any call site. Lambda call sites at invocation positions
@@ -1337,8 +1311,9 @@ internal fun getTtyFd(): Int { ... }
 where every platform actual is already in a source set that's a
 dependency of the Apple target. If the `expect` exists so that
 `otherMain` / `jvmMain` / `wasmJsMain` can provide a no-op or
-JVM-specific actual, you still need the `expect`/`actual` pair — but
-consider whether the function should be `@HiddenFromObjC` instead.
+JVM-specific actual, you still need the `expect`/`actual` pair. For
+Apple export, keep it `internal` and expose the public operation through
+a strongly-typed bridgeable declaration.
 
 ### 10. JVM class name clashes between commonMain and platform source sets
 
@@ -1360,28 +1335,25 @@ This is a JVM-only issue — Kotlin/Native and Kotlin/JS don't have this
 problem because they don't use the same class-file naming scheme. But
 androidMain, jvmMain, and any JVM-based source set all hit it.
 
-**Fix (three options, pick one).**
+**Fix.** Rename the Kotlin file or declaration that emits the duplicate
+JVM class. The actual-implementation file gets a descriptive name that
+reflects what it contains, not the same name as the commonMain expect
+file:
 
-1. **Rename the platform-actual file** (cleanest, recommended). The
-   actual-implementation file gets a descriptive name that reflects what
-   it contains, not the same name as the commonMain expect file:
+```kotlin
+// commonMain/src/AnsiSupport.kt -> defines expect fun enableVtProcessing()
+// jvmMain/src/VtProcessing.kt   -> defines actual fun enableVtProcessing()
+// androidMain/src/VtProcessing.kt -> defines actual fun enableVtProcessing()
+```
 
-   ```kotlin
-   // commonMain/src/AnsiSupport.kt → defines expect fun enableVtProcessing()
-   // jvmMain/src/VtProcessing.kt   → defines actual fun enableVtProcessing()
-   // androidMain/src/VtProcessing.kt → defines actual fun enableVtProcessing()
-   ```
+The JVM class names become `AnsiSupportKt` (commonMain) and
+`VtProcessingKt` (jvmMain + androidMain) — no clash.
 
-   The JVM class names become `AnsiSupportKt` (commonMain) and
-   `VtProcessingKt` (jvmMain + androidMain) — no clash.
-
-2. **`@file:JvmName("DistinctName")`** on one of the files. Adds an
-   annotation but keeps filenames the same. Works but adds noise to
-   every file that shares a basename with its commonMain counterpart.
-
-3. **`@file:JvmMultifileClass`** to merge into a shared class. Useful
-   when multiple platform files contribute to the same logical
-   namespace, but changes the API surface for Java interop consumers.
+Do not use `@file:JvmName` or `@file:JvmMultifileClass` to paper over
+the collision. Those annotations change the Java interop surface and
+keep the underlying naming mistake in place. The project rule for Java
+matches the Swift rule: rename the Kotlin source element that emits the
+bad name.
 
 **Prevention.** After porting `expect`/`actual` declarations, check
 for JVM class name clashes by compiling `compileAndroidMain` or
@@ -1451,7 +1423,7 @@ tasks.named("check") {
     dependsOn(tasks.withType<io.gitlab.arturbosch.detekt.Detekt>())
     dependsOn("ktlintCheck")
     dependsOn("testAndroidHostTest")     // not in the build set
-    dependsOn("swiftExportSmokeTest")    // macOS-only; self-skips via onlyIf
+    dependsOn("swiftExportSmokeTest")
 }
 ```
 
@@ -1556,54 +1528,115 @@ Swift Export's generated bridge fails `allWarningsAsErrors=true` in four distinc
 - **Public `Pair<A, B>`** → named record class.
 - **Public `() -> X` / `(A) -> B`** function types → `fun interface` SAM type. Swift Export can't bridge raw Kotlin function types.
 
-### Tactical escape hatch — `@HiddenFromObjC` (NOT the long-term answer)
+### Annotation hiding is not an API repair
 
-`@HiddenFromObjC` is the **stopgap** that gets a repo's Swift Export gate green without breaking Kotlin callers. Use it when you need the gate green *today* and reshaping the API safely will take more than the current session can give:
+`@HiddenFromObjC` hides a declaration from Objective-C / Swift export.
+That is not a repair for a published Apple framework. If a declaration
+should not be exported, make it `internal`. If a declaration is part of
+the public API, make it bridgeable by construction.
+
+For Swift name collisions, the fix is to rename the Kotlin type itself.
+Do not hide the declaration, do not rely on `@ObjCName`, and do not keep a
+backward-compatible `typealias` with the old colliding name. Swift Export
+emits the Kotlin declaration surface, including typealiases, so the old
+name keeps colliding.
+
+The concrete reference is `syn-kotlin`: commit `e34775e` renamed
+`Type` / `Error` / `Result` to `SynType` / `SynError` / `SynResult`, and
+commit `afbebfe` removed the aliases after CI showed
+`typealias Type = SynType` was still exported and rejected by Swift.
 
 ```kotlin
-@file:OptIn(ExperimentalObjCRefinement)
+// Before: collides with Swift's `foo.Type` metatype expression.
+public sealed class Type
 
-import kotlin.experimental.ExperimentalObjCRefinement
-import kotlin.native.HiddenFromObjC
+// Correct: rename the Kotlin API and migrate callers.
+public sealed class SynType
 
-@HiddenFromObjC
-public class FooBar<T : Any>(…)
+public data class BareFnArg(
+    public val ty: SynType,
+)
+
+// Wrong: aliases are exported too, so this keeps the Swift collision.
+public typealias Type = SynType
 ```
 
-Reference: `arc-swap-kotlin` PR #20, `itertools-kotlin` PR #37, `schemars-kotlin` PR #11 (the first non-trivial repo — 37 `.kt` files — fully green with gap #7 + gap #8 + iosX64 all aligned). Diff against `schemars-kotlin` when applying the rollout to another repo.
+The reviewed API-hiding failure case is `lru-kotlin` PR #18. The PR
+annotated the main cache type:
+
+```kotlin
+class LruCache<K : Any, V : Any> private constructor(...)
+```
+
+The generated framework could still import, but Swift / Objective-C
+consumers could not construct or use the cache. The correct direction is
+one of:
+
+- keep `LruCache` exported and make its public surface bridgeable;
+- when the failure is a Swift name collision, rename the Kotlin type to a
+  Swift-safe name and update Kotlin callers to that name;
+- when the failure is generic bridge shape, keep a generic implementation
+  internal and provide exported concrete types with Swift-safe names;
+- make unsupported iterator/view/helper types `internal` while the
+  primary cache API remains exported and usable.
+
+Do not accept an import-only smoke test as proof that Swift Export is
+healthy. The Swift harness must instantiate at least one primary exported
+type and call a representative method.
 
 **Fallback** (when faithfulness isn't a constraint): mark `internal` + expose a factory returning the public stdlib interface.
 
 ### Project goal: strongly-typed public APIs — generics only where design requires
 
-After a `@HiddenFromObjC` sweep lands and a repo's Swift Export gate is green, the **follow-up pass is to de-generify**. The project goal across the workspace is **strongly-typed public APIs**: no unconstrained generics, no `<T : Any>` exposed to Swift, no `<T, E>` Result-style wrappers — unless the design genuinely requires the type parameter (parser combinators, typed builders, container types where the element type carries real meaning).
+After a Swift Export compatibility pass lands and a repo's gate is green,
+the **follow-up pass is to de-generify**. The project goal across the
+workspace is **strongly-typed public APIs**: no unconstrained generics, no
+`<T : Any>` exposed to Swift, no `<T, E>` Result-style wrappers — unless
+the design genuinely requires the type parameter (parser combinators,
+typed builders, container types where the element type carries real
+meaning).
 
 Why this is a real rule and not a style preference:
-- `@HiddenFromObjC` *hides* the Swift bridge problem; it doesn't *solve* it. The Swift side sees no API for that surface at all — which is worse than a non-generic Swift API. Swift callers either can't use the type or have to drop into Objective-C interop.
+- Annotation hiding only removes the Swift bridge problem from view. The Swift side sees no API for that surface at all, which is worse than a non-generic Swift API. Swift callers either cannot use the type or have to drop into Objective-C interop.
 - The Class A "unchecked cast `Any?` → `Foo<T>`" failure is generated by the same erased-bridge code path no matter what you do; hiding it means the next type the bridge tries to express through that path hits the same wall.
 - Strongly-typed public APIs survive Kotlin/Native compiler upgrades. The generic-bridge handling in Swift Export is the most volatile surface of the K/N toolchain and keeps changing between 2.3.x patches; non-generic APIs don't care.
 
-**The de-generify checklist** (run as the *next* session after a `@HiddenFromObjC` gate-green pass):
-1. List every `@HiddenFromObjC` declaration in commonMain. Each one is a TODO for de-generification.
-2. For each: is the generic parameter actually doing structural work for callers? If **no** → replace with the concrete type (or a small set of concrete subtypes — `IntFoo`, `StringFoo`, `DoubleFoo`) and delete `@HiddenFromObjC`.
-3. If the parameter *is* doing structural work but the only public use ever instantiates it at one or two concrete types: hoist those instantiations into named non-generic subclasses (`class IntCell : Cell<Int>()`), expose those publicly, mark the generic base `internal`, drop `@HiddenFromObjC`.
-4. If the parameter is genuinely required by design (e.g. a typed builder DSL, a generic container that callers really instantiate at arbitrary types), leave the generic — but document *why* in a one-line `// generic by design:` comment so the next sweep doesn't mistake it for unfinished work.
-5. `Pair<A, B>` → named record class. Always. There is no design justification for leaking `kotlin.Pair` into a public API.
-6. `Result<T, E>` / generic Outcome wrappers → per-error-domain sealed classes. `AddConstraintOutcome` not `Outcome<Unit, AddConstraintError>`.
-7. Function-type surfaces (`(A) -> B`) → `fun interface` SAM with a meaningful name.
+**The strong-typing checklist:**
+1. Is the generic parameter actually doing structural work for callers?
+   If **no**, replace it with the concrete type or a small set of
+   concrete named subtypes (`IntFoo`, `StringFoo`, `DoubleFoo`).
+2. If the parameter is doing structural work but public use only
+   instantiates one or two concrete types, hoist those instantiations
+   into named non-generic subclasses (`class IntCell : Cell<Int>()`),
+   expose those publicly, and make the generic base `internal`.
+3. If the parameter is genuinely required by design (for example, a
+   typed builder DSL or a generic container callers instantiate at
+   arbitrary types), leave the generic and document why in a one-line
+   `// generic by design:` comment so the next sweep does not mistake it
+   for unfinished work.
+4. `Pair<A, B>` -> named record class. Always. There is no design
+   justification for leaking `kotlin.Pair` into a public API.
+5. `Result<T, E>` / generic Outcome wrappers -> per-error-domain sealed
+   classes. `AddConstraintOutcome` not `Outcome<Unit, AddConstraintError>`.
+6. Function-type surfaces (`(A) -> B`) -> `fun interface` SAM with a
+   meaningful name.
 
 **Forbidden phrasing** in commits and PR descriptions:
-- "Hide `Foo` from Swift" as the *only* change for that API. → Acceptable as a tactical stopgap PR; not acceptable as the permanent design.
+- "Hide `Foo` from Swift" as the *only* change for that API. → Not acceptable when `Foo` is the only useful Apple-facing API; provide an exported facade or redesign the surface.
 - "Generic API kept for flexibility." → Specify *which caller* needs the flexibility, or de-generify.
 
-Memory hook: `feedback_swift_export_three_patterns.md`, `feedback_swift_export_throwable_result_array.md`, and `feedback_swift_export_gap8_internal_generics.md` all predate this goal. They describe how to *paper over* generic-bridge failures with `@HiddenFromObjC`. The de-generify pass is what comes *after* those fixes land, not instead of them.
+Memory hook: `feedback_swift_export_three_patterns.md`,
+`feedback_swift_export_throwable_result_array.md`, and
+`feedback_swift_export_gap8_internal_generics.md` predate the stricter
+public-API rule. Treat them as bridge-failure diagnostics, not as
+permission to hide the only Swift-facing API.
 
 ### The 5-class sweep (per-repo, run before every Swift release)
 
 Inspect commonMain for **all** of these, not just whatever last tripped CI:
 1. `runs-on:` on `swift.yml` is `macos-26`; no `setup-xcode` action.
 2. Public mutable collection surfaces (`MutableList`, `MutableMap`, `MutableSet`) → read-only Kotlin types + internal copy-and-replace helpers.
-3. Public generic types / SAMs / function-type surfaces → **first choice: de-generify** (concrete named subtypes, `fun interface` SAM with a real name, internal generic base). `@HiddenFromObjC` is the tactical stopgap only when the de-generify pass can't land safely in the current session. See "Project goal: strongly-typed public APIs" above.
+3. Public generic types / SAMs / function-type surfaces -> **first choice: de-generify** (concrete named subtypes, `fun interface` SAM with a real name, internal generic base). See "Project goal: strongly-typed public APIs" above.
 4. Public `kotlin.Result<X>` / `Throwable` subclasses → sealed Outcome types + non-Throwable error classes.
 5. Public `Pair<A, B>` helpers → named record class.
 
@@ -1613,16 +1646,7 @@ Run the gate after every repair, not just at the end:
 ./gradlew test --no-daemon          # must include swift test
 ```
 
-### Annotation hygiene
-
-When you reach for `@HiddenFromObjC`, also add the file-level opt-in:
-```kotlin
-@file:OptIn(kotlin.experimental.ExperimentalObjCRefinement::class)
-```
-at the top of the file (before `package`). Otherwise compilation fails with "this declaration is experimental and its usage must be marked."
-
-
-### 12. Kotlin `typealias` names that conflict with Swift keywords
+### 12. Kotlin names that conflict with Swift or Java emitted names
 
 **Symptom.** `compileSwiftExportMainKotlinMacosArm64` or the
 `xcodebuild` step inside `macosArm64DebugBuildSPMPackage` fails with:
@@ -1633,23 +1657,57 @@ error: type member must not be named 'Error'
 error: type member must not be named 'Result'
 ```
 
-**Root cause.** Kotlin `typealias` declarations are exported to Swift by
-Swift Export. If the alias name collides with a Swift keyword or built-in
-type (`Type`, `Error`, `Result`, etc.), the Swift compiler rejects the
-generated module. This happens even when the typealias was introduced as
-a "backward-compatible" alias for a renamed class (e.g.
-`typealias Type = SynType` after renaming the Kotlin class from `Type` to
-`SynType` to avoid the same Swift conflict).
+**Root cause.** Swift Export emits Kotlin declaration names into the
+generated Swift module, and JVM compilation emits Kotlin files and
+declarations as Java-visible class and method names. If a Kotlin public
+type or typealias is named like a Swift keyword, metatype expression,
+protocol, or built-in type (`Type`, `Error`, `Result`, etc.), the Swift
+compiler rejects the module. If common/platform Kotlin files or
+declarations emit the same JVM class or method signature, Java/JVM
+compilation fails.
 
-**Fix.** Remove the typealiases entirely. Replace all references to the
-alias with the concrete renamed name (`SynType`, `SynError`, `SynResult`,
-etc.). If callers in downstream `*-kotlin` repos use the alias, update
-them too — there is no bridge that preserves the old name without
-conflicting with Swift.
+`@HiddenFromObjC` only removes the API from Apple consumers. `@ObjCName`,
+`@JvmName`, and `@JvmMultifileClass` are not fixes. A Kotlin `typealias`
+does not preserve compatibility either because Swift Export emits aliases
+too: `typealias Type = SynType` still exports `Type` and still collides.
 
-**Evidence.** syn-kotlin PR #30 removed `typealias Type = SynType`,
+**Fix.** Rename the Kotlin declaration or file itself to an emitted-safe
+name and migrate every Kotlin caller to that new name. Remove any
+compatibility typealias or platform naming annotation that preserves the
+old colliding name. If downstream `*-kotlin` repos use the old name,
+update them in the same compatibility pass; there is no bridge that
+preserves the old source spelling without reintroducing the collision.
+
+Concrete pattern from `syn-kotlin`:
+
+```kotlin
+// Before
+public sealed class Type {
+    public data class Tuple(
+        val elems: Punctuated<Type, Comma>,
+    ) : Type()
+}
+
+// After
+public sealed class SynType {
+    public data class Tuple(
+        val elems: Punctuated<SynType, Comma>,
+    ) : SynType()
+}
+
+public data class BareFnArg(
+    public val ty: SynType,
+)
+
+// Forbidden: this is exported and collides in Swift.
+public typealias Type = SynType
+```
+
+**Evidence.** `syn-kotlin` commit `e34775e` renamed
+`Type` / `Error` / `Result` to `SynType` / `SynError` / `SynResult`.
+Commit `afbebfe` then removed `typealias Type = SynType`,
 `typealias Error = SynError`, and `typealias Result<T> = SynResult<T>`
-after CI confirmed the aliases were being exported and rejected by Swift.
+after CI confirmed the aliases were exported and rejected by Swift.
 
 ### 13. `NoClassDefFoundError: kotlinx/coroutines/internal/intellij/IntellijCoroutines` during Swift Export
 
@@ -1693,51 +1751,18 @@ class (e.g. `SynResult<T>`), the bridge erases the type parameter to
 This produces Kotlin-level argument type mismatches in the generated
 bridge file that fail compilation.
 
-**Fix.** Hide the custom result type and all functions that take or
-return it from Swift Export using `@HiddenFromObjC` (with
-`@file:OptIn(kotlin.experimental.ExperimentalObjCRefinement::class)` and
-`import kotlin.native.HiddenFromObjC`). These are Kotlin-internal parser
-APIs that Swift consumers don't need. After hiding, no bridge code is
-generated for those declarations, eliminating the type-erasure mismatch.
+**Fix.** If these are Kotlin-internal parser APIs that Swift consumers do
+not need, make them `internal`. If they are public API, replace the
+custom generic sealed result with a Swift-exportable concrete outcome
+type.
 
-**Alternative (when Swift legitimately needs the result surface).** Use
-the flat-class pattern from [§ Recipe for replacing `kotlin.Result<T>`
-in a public API](#recipe-for-replacing-kotlinresultt-in-a-public-api)
-instead of a sealed class. The flat class with `value`/`error` nullable
-fields and `isSuccess()`/`isFailure()` predicates bridges cleanly.
+The flat-class pattern from [§ Recipe for replacing `kotlin.Result<T>`
+in a public API](#recipe-for-replacing-kotlinresultt-in-a-public-api) is
+the correct shape for exported result APIs. The flat class with
+`value`/`error` nullable fields and `isSuccess()`/`isFailure()`
+predicates bridges cleanly.
 
-**Evidence.** syn-kotlin PR #30 added `@HiddenFromObjC` to `SynResult`,
-`SynError`, and all public functions returning `SynResult<T>`.
-
-### 15. `@HiddenFromObjC` requires explicit `import kotlin.native.HiddenFromObjC`
-
-**Symptom.** `compileAndroidMain` (or any JVM-target compilation) fails
-with `Unresolved reference 'HiddenFromObjC'` on every file that uses the
-annotation.
-
-**Root cause.** `@HiddenFromObjC` lives in the `kotlin.native` package.
-Unlike `@OptIn` annotations (which the compiler resolves from the
-`@file:OptIn` file-level declaration), `@HiddenFromObjC` requires an
-explicit `import kotlin.native.HiddenFromObjC` statement in every file
-that uses it — even in `commonMain`. The annotation is available in
-`commonMain` for KMP projects (the compiler resolves it per-target), but
-it is not auto-imported.
-
-**Fix.** Add `import kotlin.native.HiddenFromObjC` to every file that uses
-`@HiddenFromObjC`, alongside the `@file:OptIn` declaration:
-
-```kotlin
-@file:OptIn(kotlin.experimental.ExperimentalObjCRefinement::class)
-// port-lint: source ...
-package io.github.kotlinmania.example
-
-import kotlin.native.HiddenFromObjC
-
-@HiddenFromObjC
-public class ParseError(/* ... */) : Exception()
-```
-
-**Evidence.** syn-kotlin commit `566af1d` added missing imports to five
-files that had `@HiddenFromObjC` annotations but no import statement.
-uuid-kotlin has always included the import and passes all CI targets
-including Android.
+**Evidence.** syn-kotlin's durable fix was the type-rename pass:
+`Type` / `Error` / `Result` became `SynType` / `SynError` / `SynResult`,
+and the compatibility aliases were removed after CI proved aliases are
+exported too.

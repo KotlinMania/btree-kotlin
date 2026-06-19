@@ -140,17 +140,17 @@ as the default next action when infra is clean.
 
 ### Hard constraints to remember while doing the above
 
-- **`allWarningsAsErrors = true`** is the template default. Every warning
+- **`allWarningsAsErrors = true`** is the workspace default. Every warning
   is a build failure. Treat every warning as a real defect — never scope
   the flag down to silence Swift Export gate noise (§4 forbids it
   explicitly).
-- **All configured targets build** (§0 condition 3 + §5
+- **All current KotlinMania targets build** (§0 condition 3 + §5
   `fullTargetBuildTaskNames`). Never shrink the gate to dodge a CI
   failure. The exceptions are the documented retired targets:
   `watchosArm32` (§5.5.1, retired 2026-05-24 — Apple Watch armv7k EOL +
   Mach-O 24-bit scattered relocation limit) and the JetBrains-deprecated
   x86_64 simulator targets `tvosX64` / `watchosX64` / `macosX64`
-  (§5.5.2). These are template-law retirements, not per-repo shrinks.
+  (§5.5.2). These are workspace-wide retirements, not per-repo shrinks.
 - **Swift test passes locally** (§0 condition 4). Don't wait for GitHub
   to find Swift Export bugs — by then you've burned a CI run.
 - **Test parity with `tmp/` Rust** (§6). Every upstream `#[test]` /
@@ -185,10 +185,11 @@ impossible:
    upstream Rust in `tmp/`. CI plumbing, branch cleanup, dependency bumps,
    workflow edits, dry-runs, and status reports are *additive*, never a
    substitute for the source-porting requirement.
-3. **All configured targets build.** "All targets" = the full target surface
-   declared in `build.gradle.kts` and the repo-local contract — not whichever
-   tasks happen to be cheap on the current host. The `fullTargetBuildTaskNames`
-   wiring (§5) makes this enforceable on `./gradlew build`.
+3. **All current KotlinMania targets build.** "All targets" = the full
+   organization target surface required by this workspace — not
+   whichever tasks happen to be cheap on the current host, and not a
+   repo-selected subset. The `fullTargetBuildTaskNames` wiring (§5) makes
+   this enforceable on `./gradlew build`.
 4. **Swift test passes locally.** If the repo configures `swiftExport { … }`,
    `./gradlew test` (or `check`) must invoke `swift test` against the
    `embedSwiftExportForXcode`-produced SPM package and treat a non-zero exit
@@ -570,13 +571,14 @@ For detailed information on the `ordered_priority` schema, Kahn-style layers, gr
 
 Every `*-kotlin` repo with `swiftExport { … }` carries a `SWIFT.md` file (which is the renamed `SWIFT_EXPORT_ROLLOUT.md`).
 
-For detailed instructions on the 5-class sweep, the mandatory infrastructure pins, the `@HiddenFromObjC` stopgap annotations, the de-generification checklists, and the SAM interface / flat-class templates, please refer to [SWIFT.md](file:///Volumes/stuff/Projects/kotlinmania/SWIFT.md).
+For detailed instructions on the 5-class sweep, the mandatory infrastructure pins, structural rename rules for Swift/Java emitted-name collisions, the strong-typing checklists, and the SAM interface / flat-class patterns, please refer to [SWIFT.md](file:///Volumes/stuff/Projects/kotlinmania/SWIFT.md).
 
 ---
 
-## 5. The build-gate — `build` must compile every configured target
+## 5. The build-gate — `build` must compile every current KotlinMania target
 
-For detailed build-gate requirements, canonical `build.gradle.kts` templates, target lists, watchosArm32 retirement checklists, and deprecated Intel simulator drops, please refer to [BUILD_GATE.md](file:///Volumes/stuff/Projects/kotlinmania/BUILD_GATE.md).
+The build-gate contract in this file is the source of truth. Do not use a
+separate build-gate document as source-of-truth.
 
 ---
 
@@ -682,7 +684,7 @@ For JS npm warning mitigation, resolutions, vendored karma-webpack setups, and D
 
 Every native compile/link step on `macos-latest` Apple-Silicon free tier
 emits `w: The number of threads 4 is more than the number of processors
-3`. With `allWarningsAsErrors=true` (which the starlark template sets),
+3`. With `allWarningsAsErrors=true` (which repo build files set),
 this is a hard failure waiting on the next runner SKU bump.
 
 ```properties
@@ -829,7 +831,6 @@ Every session ends with a report that includes:
 - Canonical Swift Export rollout:
   `automation-artifacts/swift-export-rollout/` (apply.sh, blast.sh,
   PR_BODY.md, SWIFT_EXPORT_ROLLOUT.md, triage docs)
-- Canonical CI/build template repo: `http-kotlin`
 - Canonical Swift Export reference: `schemars-kotlin` (first non-trivial
   repo fully green) and `anstyle-kotlin` (canonical SWIFT_EXPORT_ROLLOUT.md)
 - Canonical Android SDK normalization: `serial-test-kotlin` `dc29a78`,
@@ -873,11 +874,9 @@ Every session ends with a report that includes:
 1. `/Volumes/stuff/Projects/kotlinmania/AGENTS.md` (this file).
 2. `/Volumes/stuff/Projects/kotlinmania/CLAUDE.md` (legacy; this file
    is the merged authority).
-3. `/Volumes/stuff/Projects/kotlinmania/BUILD_TEMPLATE_HANDOFF.md`
-   (template diffing target).
-4. Per-repo `AGENTS.md`, `CLAUDE.md`, `README.md`,
+3. Per-repo `AGENTS.md`, `CLAUDE.md`, `README.md`,
    `SWIFT_EXPORT_ROLLOUT.md`.
-5. `automation-artifacts/swift-export-rollout/` for the rollout script
+4. `automation-artifacts/swift-export-rollout/` for the rollout script
    bundle.
-6. `automation-artifacts/2026-05-19-kotlinmania-ci-hourly-roster/RUNBOOK.md`
+5. `automation-artifacts/2026-05-19-kotlinmania-ci-hourly-roster/RUNBOOK.md`
    for the persisted hourly runbook.
