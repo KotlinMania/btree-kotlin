@@ -2057,7 +2057,7 @@ class MapTests {
         right.insert(b.spawn(Panic.InDrop), Unit)
         right.insert(c.spawn(Panic.Never), Unit)
 
-        assertFailsWithMoved(left, right) { left.merge(right) { _, _, _ -> Unit } }
+        assertFailsWithMoved(left, right) { left.merge(right) { _, _, _ -> } }
         assertEquals(1, a.dropped())
         assertEquals(2, b.dropped())
         assertEquals(2, c.dropped())
@@ -2113,7 +2113,7 @@ class MapTests {
         map2.check()
         assertEquals(2, map1.len())
         assertEquals(4, map2.len())
-        map1.merge(map2) { _, _, _ -> Unit }
+        map1.merge(map2) { _, _, _ -> }
         assertEquals(5, map1.len())
         map1.check()
     }
