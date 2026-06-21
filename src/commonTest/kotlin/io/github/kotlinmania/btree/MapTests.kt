@@ -1439,42 +1439,42 @@ class MapTests {
             v: BTreeMap<T, Unit>,
             t: T,
         ) {
-            val _ignore = v.get(t)
+            val ignoreVal = v.get(t)
         }
 
         fun <T : Comparable<T>> getMut(
             v: BTreeMap<T, Unit>,
             t: T,
         ) {
-            val _ignore = v.getMut(t)
+            val ignoreVal = v.getMut(t)
         }
 
         fun <T : Comparable<T>> getKeyValue(
             v: BTreeMap<T, Unit>,
             t: T,
         ) {
-            val _ignore = v.getKeyValue(t)
+            val ignoreVal = v.getKeyValue(t)
         }
 
         fun <T : Comparable<T>> containsKey(
             v: BTreeMap<T, Unit>,
             t: T,
         ) {
-            val _ignore = v.containsKey(t)
+            val ignoreVal = v.containsKey(t)
         }
 
         fun <T : Comparable<T>> range(
             v: BTreeMap<T, Unit>,
             t: T,
         ) {
-            val _ignore = v.range(RangeFrom(t))
+            val ignoreVal = v.range(RangeFrom(t))
         }
 
         fun <T : Comparable<T>> rangeMut(
             v: BTreeMap<T, Unit>,
             t: T,
         ) {
-            val _ignore = v.rangeMut(RangeFrom(t))
+            val ignoreVal = v.rangeMut(RangeFrom(t))
         }
 
         fun <T : Comparable<T>> remove(
@@ -1734,36 +1734,36 @@ class MapTests {
     @Test
     fun testOrdAbsence() {
         fun <K> map(map: BTreeMap<K, Unit>) {
-            val _ignore1 = map.isEmpty()
-            val _ignore2 = map.len()
+            val ignoreVal1 = map.isEmpty()
+            val ignoreVal2 = map.len()
             map.clear()
-            val _ignore3 = map.iter()
-            val _ignore4 = map.iterMut()
-            val _ignore5 = map.keys()
-            val _ignore6 = map.values()
-            val _ignore7 = map.valuesMut()
+            val ignoreVal3 = map.iter()
+            val ignoreVal4 = map.iterMut()
+            val ignoreVal5 = map.keys()
+            val ignoreVal6 = map.values()
+            val ignoreVal7 = map.valuesMut()
             if (true) {
-                val _ignore8 = map.intoValues()
+                val ignoreVal8 = map.intoValues()
             } else if (true) {
-                val _ignore9 = map.intoIter()
+                val ignoreVal9 = map.intoIter()
             } else {
-                val _ignore10 = map.intoKeys()
+                val ignoreVal10 = map.intoKeys()
             }
         }
 
         fun <K> mapDebug(map: BTreeMap<K, Unit>) {
-            val _ignore1 = map.toString()
-            val _ignore2 = map.iter().toString()
-            val _ignore3 = map.iterMut().toString()
-            val _ignore4 = map.keys().toString()
-            val _ignore5 = map.values().toString()
-            val _ignore6 = map.valuesMut().toString()
+            val ignoreVal1 = map.toString()
+            val ignoreVal2 = map.iter().toString()
+            val ignoreVal3 = map.iterMut().toString()
+            val ignoreVal4 = map.keys().toString()
+            val ignoreVal5 = map.values().toString()
+            val ignoreVal6 = map.valuesMut().toString()
             if (true) {
-                val _ignore7 = map.intoIter().toString()
+                val ignoreVal7 = map.intoIter().toString()
             } else if (true) {
-                val _ignore8 = map.intoKeys().toString()
+                val ignoreVal8 = map.intoKeys().toString()
             } else {
-                val _ignore9 = map.intoValues().toString()
+                val ignoreVal9 = map.intoValues().toString()
             }
         }
 
