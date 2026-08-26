@@ -711,8 +711,7 @@ mavenPublishing {
 tasks.register("test") {
     group = "verification"
     description = "Runs the commonTest-backed KMP suite, Android host tests, and Swift Export smoke test."
-    dependsOn("allTests")
-    dependsOn("testAndroidHostTest")
+    dependsOn("hostTests")
     dependsOn("swiftExportSmokeTest")
 }
 
@@ -750,12 +749,15 @@ tasks.register("swiftExportSmokeTest") {
 
     doLast {
         val execOperations = serviceOf<ExecOperations>()
-        val swiftBuildDir =
+        val swiftBuildDirFile =
             layout.buildDirectory
                 .dir("swift-test")
                 .get()
                 .asFile
-                .absolutePath
+        if (swiftBuildDirFile.exists()) {
+            swiftBuildDirFile.deleteRecursively()
+        }
+        val swiftBuildDir = swiftBuildDirFile.absolutePath
         execOperations
             .exec {
                 workingDir = projectDir
@@ -765,6 +767,7 @@ tasks.register("swiftExportSmokeTest") {
                     "--no-configuration-cache",
                     "--no-daemon",
                     "--console=plain",
+                    "-Dorg.gradle.jvmargs=-Xmx4g -XX:MaxMetaspaceSize=1g",
                 )
                 environment(
                     mapOf(
