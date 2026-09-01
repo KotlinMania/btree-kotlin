@@ -4,14 +4,14 @@ Based on AST analysis, here are the concrete next steps.
 
 ## Summary
 
-- **Files Present:** 22/23 (95.7%)
-- **Function parity:** 529/610 matched (target 1000) — 86.7%
+- **Files Present:** 23/23 (100.0%)
+- **Function parity:** 530/610 matched (target 1002) — 86.9%
 - **Class/type parity:** 90/101 matched (target 177) — 89.1%
-- **Combined symbol parity:** 619/711 matched (target 1177) — 87.1%
-- **Average inline-code cosine:** 0.58 (function body across 22 matched files)
+- **Combined symbol parity:** 620/711 matched (target 1179) — 87.2%
+- **Average inline-code cosine:** 0.60 (function body across 22 matched files)
 - **Average documentation cosine:** 0.72 (doc text across 22 matched files)
 - **Cheat-zeroed Files:** 0
-- **Critical Issues:** 11 files with <0.60 function similarity
+- **Critical Issues:** 12 files with <0.60 function similarity
 
 ## Priority 1: Fix Incomplete High-Dependency Files
 
@@ -41,11 +41,11 @@ Every matched file is listed below with function and type symbol parity.
 ### 2. dedup_sorted_iter
 
 - **Target:** `btree.DedupSortedIter`
-- **Similarity:** 0.12
+- **Similarity:** 0.54
 - **Dependents:** 1
-- **Priority Score:** 1020408.8
-- **Functions:** 1/2 matched (target 5)
-- **Missing functions:** `new`
+- **Priority Score:** 1010404.6
+- **Functions:** 2/2 matched (target 6)
+- **Missing functions:** _none_
 - **Types:** 1/2 matched
 - **Missing types:** `Item`
 
@@ -145,7 +145,7 @@ Every matched file is listed below with function and type symbol parity.
 - **Similarity:** 0.13
 - **Dependents:** 0
 - **Priority Score:** 30908.7
-- **Functions:** 2/5 matched (target 8)
+- **Functions:** 2/5 matched (target 9)
 - **Missing functions:** `partial_cmp`, `cmp`, `eq`
 - **Types:** 4/4 matched (target 7)
 - **Missing types:** _none_
@@ -272,6 +272,17 @@ Every matched file is listed below with function and type symbol parity.
 - **Types:** 0/0 matched
 - **Missing types:** _none_
 
+### 23. mod
+
+- **Target:** `btree.Mod [STUB]`
+- **Similarity:** 1.00
+- **Dependents:** 0
+- **Priority Score:** 0.0
+- **Functions:** 0/0 matched
+- **Missing functions:** _none_
+- **Types:** 0/0 matched
+- **Missing types:** _none_
+
 ## Success Criteria
 
 For each file to be considered "complete":
@@ -281,13 +292,3 @@ For each file to be considered "complete":
 - Documentation ported
 - port-lint header present
 
-## Next Commands
-
-```bash
-# Initialize task queue for systematic porting
-cd tools/ast_distance
-./ast_distance --init-tasks ../../tmp/rust-stdlib-collections-btree rust ../../src/commonMain/kotlin/io/github/kotlinmania/btree kotlin tasks.json ../../AGENTS.md
-
-# Get next high-priority task
-./ast_distance --assign tasks.json <agent-id>
-```
