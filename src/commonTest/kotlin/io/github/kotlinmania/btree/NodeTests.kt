@@ -34,7 +34,9 @@ internal fun <K, V> NodeRef<Marker.Immut, K, V, Marker.LeafOrInternal>.dumpKeys(
                         .toString(),
                 )
             }
+
             is Position.Internal -> {}
+
             is Position.InternalKV -> {}
         }
     }
@@ -66,6 +68,7 @@ class NodeTests {
                     assertTrue(edgeIdx <= leftLen)
                     leftLen += 1
                 }
+
                 is LeftOrRight.Right -> {
                     val edgeIdx = insertion.value
                     assertTrue(edgeIdx <= rightLen)

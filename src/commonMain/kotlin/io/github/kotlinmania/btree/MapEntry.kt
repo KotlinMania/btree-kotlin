@@ -61,7 +61,10 @@ sealed class Entry<K, V> {
      */
     fun orInsertWithKey(default: (K) -> V): V =
         when (this) {
-            is Occupied -> entry.intoMut()
+            is Occupied -> {
+                entry.intoMut()
+            }
+
             is Vacant -> {
                 val value = default(entry.key())
                 entry.insert(value)
@@ -86,6 +89,7 @@ sealed class Entry<K, V> {
                 val updated = f(old)
                 entry.insert(updated)
             }
+
             is Vacant -> { /* no-op */ }
         }
         return this
@@ -98,7 +102,10 @@ sealed class Entry<K, V> {
                 entry.insert(value)
                 entry
             }
-            is Vacant -> entry.insertEntry(value)
+
+            is Vacant -> {
+                entry.insertEntry(value)
+            }
         }
 
     /**

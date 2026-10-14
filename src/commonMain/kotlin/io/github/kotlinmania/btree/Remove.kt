@@ -29,7 +29,7 @@ private fun <K, V> Handle<NodeRef<Marker.Mut, K, V, Marker.Leaf>, Marker.KV>.rem
         // distinct node type for the immediate parents of a leaf.
         val newPos: Handle<NodeRef<Marker.Mut, K, V, Marker.LeafOrInternal>, Marker.Edge> =
             when (val choose = pos.intoNode().forgetType().chooseParentKv()) {
-                is ChooseParentKvResult.Ok ->
+                is ChooseParentKvResult.Ok -> {
                     when (val side = choose.context) {
                         is LeftOrRight.Left -> {
                             val leftParentKv = side.value
@@ -41,6 +41,7 @@ private fun <K, V> Handle<NodeRef<Marker.Mut, K, V, Marker.Leaf>, Marker.KV>.rem
                                 leftParentKv.stealLeft(idx)
                             }
                         }
+
                         is LeftOrRight.Right -> {
                             val rightParentKv = side.value
                             check(rightParentKv.leftChildLen() == MIN_LEN - 1)
@@ -52,9 +53,13 @@ private fun <K, V> Handle<NodeRef<Marker.Mut, K, V, Marker.Leaf>, Marker.KV>.rem
                             }
                         }
                     }
+                }
+
                 // started from; its length is `len` and `idx` was a valid
                 // edge index there, so `idx <= len` still holds.
-                is ChooseParentKvResult.Err -> Handle.newEdge(choose.node, idx)
+                is ChooseParentKvResult.Err -> {
+                    Handle.newEdge(choose.node, idx)
+                }
             }
         pos = newPos.castToLeafUnchecked()
 
@@ -71,7 +76,10 @@ private fun <K, V> Handle<NodeRef<Marker.Mut, K, V, Marker.Leaf>, Marker.KV>.rem
                     handleEmptiedInternalRoot()
                 }
             }
-            is AscendResult.Err -> Unit
+
+            is AscendResult.Err -> {
+                // No parent: root node reached
+            }
         }
     }
     return Pair(oldKv, pos)

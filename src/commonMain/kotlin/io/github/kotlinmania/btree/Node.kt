@@ -841,6 +841,7 @@ private fun <K, V> Handle<NodeRef<Marker.Mut, K, V, Marker.Leaf>, Marker.Edge>.i
                 is LeftOrRight.Left -> {
                     Handle.newEdge(result.left.reborrowMut(), insertion.value)
                 }
+
                 is LeftOrRight.Right -> {
                     Handle.newEdge(result.right.borrowMut(), insertion.value)
                 }
@@ -912,6 +913,7 @@ private fun <K, V> Handle<NodeRef<Marker.Mut, K, V, Marker.Internal>, Marker.Edg
                 is LeftOrRight.Left -> {
                     Handle.newEdge(result.left.reborrowMut(), insertion.value)
                 }
+
                 is LeftOrRight.Right -> {
                     Handle.newEdge(result.right.borrowMut(), insertion.value)
                 }
@@ -961,6 +963,7 @@ internal fun <K, V> Handle<NodeRef<Marker.Mut, K, V, Marker.Leaf>, Marker.Edge>.
                         sub.forgetNodeType(InternalSplitResultForgetNodeType)
                     }
                 }
+
                 is AscendResult.Err -> {
                     splitRoot(SplitResult(left = ascended.node, kv = split.kv, right = split.right))
                     // handle to the inserted element.
@@ -1237,6 +1240,7 @@ internal fun <K, V> NodeRef<Marker.Mut, K, V, Marker.LeafOrInternal>.chooseParen
                         ),
                     )
                 }
+
                 is EdgeKvResult.Err -> {
                     val parentEdge2 = left.handle
                     when (val right = parentEdge2.rightKv()) {
@@ -1258,12 +1262,18 @@ internal fun <K, V> NodeRef<Marker.Mut, K, V, Marker.LeafOrInternal>.chooseParen
                                 ),
                             )
                         }
-                        is EdgeKvResult.Err -> error("empty internal node")
+
+                        is EdgeKvResult.Err -> {
+                            error("empty internal node")
+                        }
                     }
                 }
             }
         }
-        is AscendResult.Err -> ChooseParentKvResult.Err(this)
+
+        is AscendResult.Err -> {
+            ChooseParentKvResult.Err(this)
+        }
     }
 }
 
@@ -1484,13 +1494,20 @@ internal fun <K, V> BalancingContext<K, V>.bulkStealLeft(count: Int) {
 
                     right.correctChildrensParentLinks(0..newRightLen)
                 }
-                is ForceResult.Leaf -> error("unreachable")
+
+                is ForceResult.Leaf -> {
+                    error("unreachable")
+                }
             }
         }
+
         is ForceResult.Leaf -> {
             when (val rf = rightNode.reborrowMut().force()) {
                 is ForceResult.Leaf -> { /* ok */ }
-                is ForceResult.Internal -> error("unreachable")
+
+                is ForceResult.Internal -> {
+                    error("unreachable")
+                }
             }
         }
     }
@@ -1559,13 +1576,20 @@ internal fun <K, V> BalancingContext<K, V>.bulkStealRight(count: Int) {
                     left.correctChildrensParentLinks(oldLeftLen + 1..newLeftLen)
                     right.correctChildrensParentLinks(0..newRightLen)
                 }
-                is ForceResult.Leaf -> error("unreachable")
+
+                is ForceResult.Leaf -> {
+                    error("unreachable")
+                }
             }
         }
+
         is ForceResult.Leaf -> {
             when (val rf = rightNode.reborrowMut().force()) {
                 is ForceResult.Leaf -> { /* ok */ }
-                is ForceResult.Internal -> error("unreachable")
+
+                is ForceResult.Internal -> {
+                    error("unreachable")
+                }
             }
         }
     }
@@ -1666,7 +1690,7 @@ internal fun <K, V> Handle<NodeRef<Marker.Mut, K, V, Marker.LeafOrInternal>, Mar
             NodeSlot.Empty,
         )
         when (val lf = leftNode.force()) {
-            is ForceResult.Internal ->
+            is ForceResult.Internal -> {
                 when (val rf = rightNode.force()) {
                     is ForceResult.Internal -> {
                         val left = lf.value
@@ -1681,13 +1705,22 @@ internal fun <K, V> Handle<NodeRef<Marker.Mut, K, V, Marker.LeafOrInternal>, Mar
                         )
                         rightI.correctChildrensParentLinks(1..newRightLen)
                     }
-                    is ForceResult.Leaf -> error("unreachable")
+
+                    is ForceResult.Leaf -> {
+                        error("unreachable")
+                    }
                 }
-            is ForceResult.Leaf ->
+            }
+
+            is ForceResult.Leaf -> {
                 when (val rf = rightNode.force()) {
                     is ForceResult.Leaf -> { /* ok */ }
-                    is ForceResult.Internal -> error("unreachable")
+
+                    is ForceResult.Internal -> {
+                        error("unreachable")
+                    }
                 }
+            }
         }
     }
 }

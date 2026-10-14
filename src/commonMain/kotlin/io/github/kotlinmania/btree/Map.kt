@@ -214,6 +214,7 @@ class BTreeMap<K, V>(
                     }
                     return outTree
                 }
+
                 is ForceResult.Internal -> {
                     val internal = f.value
                     val outTree = cloneSubtree(internal.firstEdge().descend())
@@ -289,7 +290,10 @@ class BTreeMap<K, V>(
         value: V,
     ): V? =
         when (val e = entry(key)) {
-            is Entry.Occupied -> e.entry.insert(value)
+            is Entry.Occupied -> {
+                e.entry.insert(value)
+            }
+
             is Entry.Vacant -> {
                 e.entry.insert(value)
                 null
@@ -332,12 +336,16 @@ class BTreeMap<K, V>(
         val (mapRef, dormantMap) = DormantMutRef.new(this)
         val rootNode = mapRef.root?.borrowMut() ?: return null
         return when (val r = rootNode.searchTree(key, ::compareKeys)) {
-            is SearchResult.Found ->
+            is SearchResult.Found -> {
                 OccupiedEntry(
                     handle = r.handle,
                     dormantMap = dormantMap,
                 ).removeEntry()
-            is SearchResult.GoDown -> null
+            }
+
+            is SearchResult.GoDown -> {
+                null
+            }
         }
     }
 
@@ -436,12 +444,16 @@ class BTreeMap<K, V>(
                             selfCursor.insertAfterUnchecked(k, newV)
                         }
                     }
+
                     cmp > 0 -> {
                         // We know `firstOtherKey` is less than `selfKey`, so
                         // inserting before guarantees sorted order.
                         selfCursor.insertBeforeUnchecked(firstOtherKey, firstOtherVal)
                     }
-                    else -> error("unreachable: Cursor's peekNext should return null.")
+
+                    else -> {
+                        error("unreachable: Cursor's peekNext should return null.")
+                    }
                 }
             } else {
                 // Reaching here means our cursor is at the end of this
@@ -482,12 +494,14 @@ class BTreeMap<K, V>(
                                 }
                                 break
                             }
+
                             cmp > 0 -> {
                                 // We know `otherKey` is less than `selfKey`, so
                                 // inserting before guarantees sorted order.
                                 selfCursor.insertBeforeUnchecked(otherKey, otherVal)
                                 break
                             }
+
                             else -> {
                                 selfCursor.next()
                             }
@@ -553,14 +567,17 @@ class BTreeMap<K, V>(
             Entry.Vacant(VacantEntry(key = key, handle = null, dormantMap = dormantMap))
         } else {
             when (val sr = r.borrowMut().searchTree(key, ::compareKeys)) {
-                is SearchResult.Found ->
+                is SearchResult.Found -> {
                     Entry.Occupied(
                         OccupiedEntry(handle = sr.handle, dormantMap = dormantMap),
                     )
-                is SearchResult.GoDown ->
+                }
+
+                is SearchResult.GoDown -> {
                     Entry.Vacant(
                         VacantEntry(key = key, handle = sr.handle, dormantMap = dormantMap),
                     )
+                }
             }
         }
     }
@@ -829,7 +846,10 @@ class BTreeMap<K, V>(
                         ),
                     )
                 }
-                else -> root.borrowMut()
+
+                else -> {
+                    root.borrowMut()
+                }
             }
         val edge = rootNode.lowerBound(SearchBound.fromRange(bound), ::compareKeys)
         return CursorMut(
@@ -870,7 +890,10 @@ class BTreeMap<K, V>(
                         ),
                     )
                 }
-                else -> root.borrowMut()
+
+                else -> {
+                    root.borrowMut()
+                }
             }
         val edge = rootNode.upperBound(SearchBound.fromRange(bound), ::compareKeys)
         return CursorMut(
@@ -1010,6 +1033,7 @@ internal fun <K> BTreeMap<K, SetValZST>.replace(key: K): K? {
                 .keys[r.handle.idx] = NodeSlot.Filled(key)
             keyMut
         }
+
         is SearchResult.GoDown -> {
             VacantEntry<K, SetValZST>(key = key, handle = r.handle, dormantMap = dormantMap)
                 .insert(SetValZST)
@@ -1028,7 +1052,10 @@ internal fun <K> BTreeMap<K, SetValZST>.getOrInsertWith(
     }
     val rootNode = mapRef.root!!.borrowMut()
     return when (val r = rootNode.searchTree(q, ::compareKeys)) {
-        is SearchResult.Found -> r.handle.intoKvMut().first
+        is SearchResult.Found -> {
+            r.handle.intoKvMut().first
+        }
+
         is SearchResult.GoDown -> {
             val key = f(q)
             check(compareKeys(key, q) == 0) { "new value is not equal" }
@@ -1755,6 +1782,7 @@ class Cursor<K, V> internal constructor(
                 current = kv.nextLeafEdge()
                 result
             }
+
             is NextKvResult.Err -> {
                 val rootRecovered = r.node
                 current = rootRecovered.lastLeafEdge()
@@ -1777,6 +1805,7 @@ class Cursor<K, V> internal constructor(
                 current = kv.nextBackLeafEdge()
                 result
             }
+
             is NextKvResult.Err -> {
                 val rootRecovered = r.node
                 current = rootRecovered.firstLeafEdge()
@@ -1925,6 +1954,7 @@ class CursorMutKey<K, V> internal constructor(
                 current = kv.nextLeafEdge()
                 result
             }
+
             is NextKvResult.Err -> {
                 current = r.node.lastLeafEdge()
                 null
@@ -1942,6 +1972,7 @@ class CursorMutKey<K, V> internal constructor(
                 current = kv.nextBackLeafEdge()
                 result
             }
+
             is NextKvResult.Err -> {
                 current = r.node.firstLeafEdge()
                 null

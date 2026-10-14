@@ -35,6 +35,7 @@ internal fun <K, V> Root<K, V>.bulkPush(
                             testNode = parent.forgetType()
                         }
                     }
+
                     is AscendResult.Err -> {
                         // We are at the top, create a new root node and push there.
                         openNode = this.pushInternalLevel()

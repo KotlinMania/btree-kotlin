@@ -1507,7 +1507,10 @@ class MapTests {
 
         // Existing key (insert)
         when (val e = map.entry(1)) {
-            is Entry.Vacant -> error("unreachable")
+            is Entry.Vacant -> {
+                error("unreachable")
+            }
+
             is Entry.Occupied -> {
                 assertEquals(10, e.entry.get())
                 assertEquals(10, e.entry.insert(100))
@@ -1518,7 +1521,10 @@ class MapTests {
 
         // Existing key (update)
         when (val e = map.entry(2)) {
-            is Entry.Vacant -> error("unreachable")
+            is Entry.Vacant -> {
+                error("unreachable")
+            }
+
             is Entry.Occupied -> {
                 val v = e.entry.getMut()
                 e.entry.insert(v * 10)
@@ -1530,7 +1536,10 @@ class MapTests {
 
         // Existing key (take)
         when (val e = map.entry(3)) {
-            is Entry.Vacant -> error("unreachable")
+            is Entry.Vacant -> {
+                error("unreachable")
+            }
+
             is Entry.Occupied -> {
                 assertEquals(30, e.entry.remove())
             }
@@ -1541,7 +1550,10 @@ class MapTests {
 
         // Inexistent key (insert)
         when (val e = map.entry(10)) {
-            is Entry.Occupied -> error("unreachable")
+            is Entry.Occupied -> {
+                error("unreachable")
+            }
+
             is Entry.Vacant -> {
                 assertEquals(1000, e.entry.insert(1000))
             }
@@ -1808,7 +1820,10 @@ class MapTests {
 
         assertEquals(null, a.height())
         when (val e = a.entry(key)) {
-            is Entry.Occupied -> error("unreachable")
+            is Entry.Occupied -> {
+                error("unreachable")
+            }
+
             is Entry.Vacant -> {
                 assertEquals(key, e.key())
                 e.entry.insert(value)

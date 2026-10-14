@@ -119,12 +119,16 @@ internal fun <BorrowType : Marker.BorrowType, K, V, Q> NodeRef<BorrowType, K, V,
     var self = this
     while (true) {
         when (val r = self.searchNode(key, compare)) {
-            is SearchResult.Found -> return SearchResult.Found(r.handle)
-            is SearchResult.GoDown ->
+            is SearchResult.Found -> {
+                return SearchResult.Found(r.handle)
+            }
+
+            is SearchResult.GoDown -> {
                 when (val forced = r.handle.force()) {
                     is ForceResult.Leaf -> return SearchResult.GoDown(forced.value)
                     is ForceResult.Internal -> self = forced.value.descend()
                 }
+            }
         }
     }
 }
@@ -197,6 +201,7 @@ internal fun <BorrowType : Marker.BorrowType, K, V, Q, R : RangeBounds<Q>> NodeR
                 throw IllegalArgumentException("range start and end are equal and excluded in BTreeMap")
             }
         }
+
         (start is Bound.Included || start is Bound.Excluded) &&
             (end is Bound.Included || end is Bound.Excluded) -> {
             val s: Q =
@@ -239,7 +244,10 @@ internal fun <BorrowType : Marker.BorrowType, K, V, Q, R : RangeBounds<Q>> NodeR
         check(lowerEdgeIdx == upperEdgeIdx)
         val commonEdge = Handle.newEdge(self, lowerEdgeIdx)
         when (val forced = commonEdge.force()) {
-            is ForceResult.Leaf -> return BifurcationResult.LeafEdge(forced.value)
+            is ForceResult.Leaf -> {
+                return BifurcationResult.LeafEdge(forced.value)
+            }
+
             is ForceResult.Internal -> {
                 self = forced.value.descend()
                 lowerBound = lowerChildBound
@@ -341,9 +349,17 @@ private fun <BorrowType, K, V, Type, Q> NodeRef<BorrowType, K, V, Type>.findKeyI
         //   key < k  -> Less    (negative)
         val cmp = -compare(k, key)
         when {
-            cmp > 0 -> {} // Ordering::Greater
-            cmp == 0 -> return IndexResult.KV(startIndex + offset) // Ordering::Equal
-            else -> return IndexResult.Edge(startIndex + offset) // Ordering::Less
+            cmp > 0 -> {}
+
+            // Ordering::Greater
+            cmp == 0 -> {
+                return IndexResult.KV(startIndex + offset)
+            }
+
+            // Ordering::Equal
+            else -> {
+                return IndexResult.Edge(startIndex + offset)
+            } // Ordering::Less
         }
     }
     return IndexResult.Edge(keys.size)
@@ -361,18 +377,27 @@ private fun <BorrowType, K, V, Type, Q> NodeRef<BorrowType, K, V, Type>.findLowe
     compare: (K, Q) -> Int,
 ): Pair<Int, SearchBound<Q>> =
     when (bound) {
-        is SearchBound.Included ->
+        is SearchBound.Included -> {
             when (val r = this.findKeyIndex(bound.value, 0, compare)) {
                 is IndexResult.KV -> Pair(r.idx, SearchBound.AllExcluded)
                 is IndexResult.Edge -> Pair(r.idx, bound)
             }
-        is SearchBound.Excluded ->
+        }
+
+        is SearchBound.Excluded -> {
             when (val r = this.findKeyIndex(bound.value, 0, compare)) {
                 is IndexResult.KV -> Pair(r.idx + 1, SearchBound.AllIncluded)
                 is IndexResult.Edge -> Pair(r.idx, bound)
             }
-        SearchBound.AllIncluded -> Pair(0, SearchBound.AllIncluded)
-        SearchBound.AllExcluded -> Pair(this.len(), SearchBound.AllExcluded)
+        }
+
+        SearchBound.AllIncluded -> {
+            Pair(0, SearchBound.AllIncluded)
+        }
+
+        SearchBound.AllExcluded -> {
+            Pair(this.len(), SearchBound.AllExcluded)
+        }
     }
 
 /**
@@ -388,16 +413,25 @@ private fun <BorrowType, K, V, Type, Q> NodeRef<BorrowType, K, V, Type>.findUppe
     compare: (K, Q) -> Int,
 ): Pair<Int, SearchBound<Q>> =
     when (bound) {
-        is SearchBound.Included ->
+        is SearchBound.Included -> {
             when (val r = this.findKeyIndex(bound.value, startIndex, compare)) {
                 is IndexResult.KV -> Pair(r.idx + 1, SearchBound.AllExcluded)
                 is IndexResult.Edge -> Pair(r.idx, bound)
             }
-        is SearchBound.Excluded ->
+        }
+
+        is SearchBound.Excluded -> {
             when (val r = this.findKeyIndex(bound.value, startIndex, compare)) {
                 is IndexResult.KV -> Pair(r.idx, SearchBound.AllIncluded)
                 is IndexResult.Edge -> Pair(r.idx, bound)
             }
-        SearchBound.AllIncluded -> Pair(this.len(), SearchBound.AllIncluded)
-        SearchBound.AllExcluded -> Pair(startIndex, SearchBound.AllExcluded)
+        }
+
+        SearchBound.AllIncluded -> {
+            Pair(this.len(), SearchBound.AllIncluded)
+        }
+
+        SearchBound.AllExcluded -> {
+            Pair(startIndex, SearchBound.AllExcluded)
+        }
     }

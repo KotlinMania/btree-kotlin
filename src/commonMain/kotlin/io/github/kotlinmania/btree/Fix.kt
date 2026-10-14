@@ -28,7 +28,7 @@ private fun <K, V> NodeRef<Marker.Mut, K, V, Marker.LeafOrInternal>.fixNodeThrou
         FixNodeThroughParentResult.Ok(null)
     } else {
         when (val choice = this.chooseParentKv()) {
-            is ChooseParentKvResult.Ok ->
+            is ChooseParentKvResult.Ok -> {
                 when (val side = choice.context) {
                     is LeftOrRight.Left -> {
                         val leftParentKv = side.value
@@ -40,6 +40,7 @@ private fun <K, V> NodeRef<Marker.Mut, K, V, Marker.LeafOrInternal>.fixNodeThrou
                             FixNodeThroughParentResult.Ok(null)
                         }
                     }
+
                     is LeftOrRight.Right -> {
                         val rightParentKv = side.value
                         if (rightParentKv.canMerge()) {
@@ -51,6 +52,8 @@ private fun <K, V> NodeRef<Marker.Mut, K, V, Marker.LeafOrInternal>.fixNodeThrou
                         }
                     }
                 }
+            }
+
             is ChooseParentKvResult.Err -> {
                 val root = choice.node
                 if (len > 0) {
@@ -84,7 +87,10 @@ internal fun <K, V> NodeRef<Marker.Mut, K, V, Marker.LeafOrInternal>.fixNodeAndA
                     return true
                 }
             }
-            is FixNodeThroughParentResult.Err -> return false
+
+            is FixNodeThroughParentResult.Err -> {
+                return false
+            }
         }
     }
 }
