@@ -66,10 +66,12 @@ internal class MergeIterInner<T>(
                 aNext = taken.item
                 bNext = if (b.hasNext()) b.next() else null
             }
+
             is Peeked.B -> {
                 bNext = taken.item
                 aNext = if (a.hasNext()) a.next() else null
             }
+
             null -> {
                 aNext = if (a.hasNext()) a.next() else null
                 bNext = if (b.hasNext()) b.next() else null
@@ -84,11 +86,15 @@ internal class MergeIterInner<T>(
                     peeked = Peeked.B(bNext)
                     bNext = null
                 }
+
                 ord > 0 -> {
                     peeked = Peeked.A(aNext)
                     aNext = null
                 }
-                else -> Unit
+
+                else -> {
+                    // Equal keys: keep both items for the caller
+                }
             }
         }
         return Pair(aNext, bNext)

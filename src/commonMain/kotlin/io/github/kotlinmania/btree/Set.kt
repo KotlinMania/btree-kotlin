@@ -117,24 +117,32 @@ class BTreeSet<T> private constructor(
             val cmpMaxMin = compareElements(selfMax, otherMin)
             val inner: DifferenceInner<T> =
                 when {
-                    cmpMinMax > 0 || cmpMaxMin < 0 -> DifferenceInner.Iterate(this.iter())
+                    cmpMinMax > 0 || cmpMaxMin < 0 -> {
+                        DifferenceInner.Iterate(this.iter())
+                    }
+
                     cmpMinMax == 0 -> {
                         val selfIter = this.iter()
                         selfIter.next()
                         DifferenceInner.Iterate(selfIter)
                     }
+
                     cmpMaxMin == 0 -> {
                         val selfIter = this.iter()
                         selfIter.nextBack()
                         DifferenceInner.Iterate(selfIter)
                     }
-                    this.size <= other.size / ITER_PERFORMANCE_TIPPING_SIZE_DIFF ->
+
+                    this.size <= other.size / ITER_PERFORMANCE_TIPPING_SIZE_DIFF -> {
                         DifferenceInner.Search(selfIter = this.iter(), otherSet = other)
-                    else ->
+                    }
+
+                    else -> {
                         DifferenceInner.Stitch(
                             selfIter = this.iter(),
                             otherIter = PeekableSetIter(other.iter()),
                         )
+                    }
                 }
             return Difference(inner, ::compareElements)
         }
@@ -162,14 +170,29 @@ class BTreeSet<T> private constructor(
             val cmpMaxMin = compareElements(selfMax, otherMin)
             val inner: IntersectionInner<T> =
                 when {
-                    cmpMinMax > 0 || cmpMaxMin < 0 -> IntersectionInner.Answer(null)
-                    cmpMinMax == 0 -> IntersectionInner.Answer(selfMin)
-                    cmpMaxMin == 0 -> IntersectionInner.Answer(selfMax)
-                    this.size <= other.size / ITER_PERFORMANCE_TIPPING_SIZE_DIFF ->
+                    cmpMinMax > 0 || cmpMaxMin < 0 -> {
+                        IntersectionInner.Answer(null)
+                    }
+
+                    cmpMinMax == 0 -> {
+                        IntersectionInner.Answer(selfMin)
+                    }
+
+                    cmpMaxMin == 0 -> {
+                        IntersectionInner.Answer(selfMax)
+                    }
+
+                    this.size <= other.size / ITER_PERFORMANCE_TIPPING_SIZE_DIFF -> {
                         IntersectionInner.Search(smallIter = this.iter(), largeSet = other)
-                    other.size <= this.size / ITER_PERFORMANCE_TIPPING_SIZE_DIFF ->
+                    }
+
+                    other.size <= this.size / ITER_PERFORMANCE_TIPPING_SIZE_DIFF -> {
                         IntersectionInner.Search(smallIter = other.iter(), largeSet = this)
-                    else -> IntersectionInner.Stitch(a = this.iter(), b = other.iter())
+                    }
+
+                    else -> {
+                        IntersectionInner.Stitch(a = this.iter(), b = other.iter())
+                    }
                 }
             return Intersection(inner, ::compareElements)
         }
@@ -222,20 +245,30 @@ class BTreeSet<T> private constructor(
         val otherMax = other.last() ?: return false
         val selfIter = this.iter()
         when {
-            compareElements(selfMin, otherMin) < 0 -> return false // other does not contain selfMin
+            compareElements(selfMin, otherMin) < 0 -> {
+                return false
+            }
+
+            // other does not contain selfMin
             selfMin == otherMin -> {
                 selfIter.next() // selfMin is contained in other, so remove it from consideration
                 // otherMin is now not in selfIter (used below)
             }
+
             else -> { /* selfMin > otherMin: otherMin is not in selfIter (used below) */ }
         }
 
         when {
-            compareElements(selfMax, otherMax) > 0 -> return false // other does not contain selfMax
+            compareElements(selfMax, otherMax) > 0 -> {
+                return false
+            }
+
+            // other does not contain selfMax
             selfMax == otherMax -> {
                 selfIter.nextBack() // selfMax is contained in other, so remove it from consideration
                 // otherMax is now not in selfIter (used below)
             }
+
             else -> { /* selfMax < otherMax: otherMax is not in selfIter (used below) */ }
         }
         return if (selfIter.len() <= other.size / ITER_PERFORMANCE_TIPPING_SIZE_DIFF) {
@@ -730,33 +763,39 @@ class BTreeSet<T> private constructor(
         private var primed: Boolean = false
 
         private fun computeNext(): T? {
-            return when (val inner = this.inner) {
+            when (val inner = this.inner) {
                 is DifferenceInner.Stitch -> {
                     var selfNext = inner.selfIter.advance() ?: return null
                     while (true) {
                         val peeked = inner.otherIter.peek()
                         val cmp = if (peeked == null) -1 else compare(selfNext, peeked)
                         when {
-                            cmp < 0 -> return selfNext
+                            cmp < 0 -> {
+                                return selfNext
+                            }
+
                             cmp == 0 -> {
                                 selfNext = inner.selfIter.advance() ?: return null
                                 inner.otherIter.next()
                             }
+
                             else -> {
                                 inner.otherIter.next()
                             }
                         }
                     }
-                    null
                 }
+
                 is DifferenceInner.Search -> {
                     while (true) {
                         val selfNext = inner.selfIter.advance() ?: return null
                         if (!inner.otherSet.contains(selfNext)) return selfNext
                     }
-                    null
                 }
-                is DifferenceInner.Iterate -> inner.iter.advance()
+
+                is DifferenceInner.Iterate -> {
+                    return inner.iter.advance()
+                }
             }
         }
 
@@ -869,7 +908,7 @@ class BTreeSet<T> private constructor(
         private var primed: Boolean = false
 
         private fun computeNext(): T? {
-            return when (val inner = this.inner) {
+            when (val inner = this.inner) {
                 is IntersectionInner.Stitch -> {
                     var aNext = inner.a.advance() ?: return null
                     var bNext = inner.b.advance() ?: return null
@@ -881,19 +920,19 @@ class BTreeSet<T> private constructor(
                             else -> return aNext
                         }
                     }
-                    null
                 }
+
                 is IntersectionInner.Search -> {
                     while (true) {
                         val smallNext = inner.smallIter.advance() ?: return null
                         if (inner.largeSet.contains(smallNext)) return smallNext
                     }
-                    null
                 }
+
                 is IntersectionInner.Answer -> {
                     val answer = inner.value
                     inner.value = null
-                    answer
+                    return answer
                 }
             }
         }

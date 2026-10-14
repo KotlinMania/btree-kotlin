@@ -349,8 +349,14 @@ fun <T : Comparable<T>> RangeBounds<T>.isEmpty(): Boolean {
     val s = startBound()
     val e = endBound()
     return !when {
-        s is Bound.Unbounded || e is Bound.Unbounded -> true
-        s is Bound.Included && e is Bound.Included -> s.value <= e.value
+        s is Bound.Unbounded || e is Bound.Unbounded -> {
+            true
+        }
+
+        s is Bound.Included && e is Bound.Included -> {
+            s.value <= e.value
+        }
+
         // (Included, Excluded) | (Excluded, Included) | (Excluded, Excluded)
         else -> {
             val sv = if (s is Bound.Included) s.value else (s as Bound.Excluded).value
@@ -387,14 +393,25 @@ interface IntoBounds<T : Comparable<T>> : RangeBounds<T> {
                             if (selfStart.value.compareTo(otherStart.value) >= 0) selfStart.value else otherStart.value,
                         )
                     }
+
                     selfStart is Bound.Excluded && otherStart is Bound.Excluded -> {
                         Bound.Excluded(
                             if (selfStart.value.compareTo(otherStart.value) >= 0) selfStart.value else otherStart.value,
                         )
                     }
-                    selfStart is Bound.Unbounded && otherStart is Bound.Unbounded -> Bound.Unbounded
-                    selfStart is Bound.Unbounded -> otherStart
-                    otherStart is Bound.Unbounded -> selfStart
+
+                    selfStart is Bound.Unbounded && otherStart is Bound.Unbounded -> {
+                        Bound.Unbounded
+                    }
+
+                    selfStart is Bound.Unbounded -> {
+                        otherStart
+                    }
+
+                    otherStart is Bound.Unbounded -> {
+                        selfStart
+                    }
+
                     else -> {
                         // (Included, Excluded) or (Excluded, Included)
                         val (i, e) =
@@ -415,14 +432,25 @@ interface IntoBounds<T : Comparable<T>> : RangeBounds<T> {
                             if (selfEnd.value.compareTo(otherEnd.value) <= 0) selfEnd.value else otherEnd.value,
                         )
                     }
+
                     selfEnd is Bound.Excluded && otherEnd is Bound.Excluded -> {
                         Bound.Excluded(
                             if (selfEnd.value.compareTo(otherEnd.value) <= 0) selfEnd.value else otherEnd.value,
                         )
                     }
-                    selfEnd is Bound.Unbounded && otherEnd is Bound.Unbounded -> Bound.Unbounded
-                    selfEnd is Bound.Unbounded -> otherEnd
-                    otherEnd is Bound.Unbounded -> selfEnd
+
+                    selfEnd is Bound.Unbounded && otherEnd is Bound.Unbounded -> {
+                        Bound.Unbounded
+                    }
+
+                    selfEnd is Bound.Unbounded -> {
+                        otherEnd
+                    }
+
+                    otherEnd is Bound.Unbounded -> {
+                        selfEnd
+                    }
+
                     else -> {
                         val (i, e) =
                             if (selfEnd is Bound.Included) {

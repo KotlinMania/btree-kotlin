@@ -246,7 +246,10 @@ internal fun <BorrowType : Marker.BorrowType, K, V, Q, R : RangeBounds<Q>> NodeR
                 compareBounds,
             )
     ) {
-        is BifurcationResult.LeafEdge -> return LeafRange.none()
+        is BifurcationResult.LeafEdge -> {
+            return LeafRange.none()
+        }
+
         is BifurcationResult.Ok -> {
             val bif = r.value
             var lowerEdge: Handle<NodeRef<BorrowType, K, V, Marker.LeafOrInternal>, Marker.Edge> =
@@ -275,7 +278,6 @@ internal fun <BorrowType : Marker.BorrowType, K, V, Q, R : RangeBounds<Q>> NodeR
             }
         }
     }
-    error("unreachable: while(true) above always returns or throws")
 }
 
 internal fun <BorrowType : Marker.BorrowType, K, V, Q : Comparable<Q>, R : RangeBounds<Q>> NodeRef<BorrowType, K, V, Marker.LeafOrInternal>.findLeafEdgesSpanningRangeExplicit(
@@ -355,12 +357,16 @@ internal fun <BorrowType : Marker.BorrowType, K, V> Handle<NodeRef<BorrowType, K
     while (true) {
         edge =
             when (val rk = edge.rightKv()) {
-                is EdgeKvResult.Ok -> return NextKvResult.Ok(rk.handle)
-                is EdgeKvResult.Err ->
+                is EdgeKvResult.Ok -> {
+                    return NextKvResult.Ok(rk.handle)
+                }
+
+                is EdgeKvResult.Err -> {
                     when (val asc = rk.handle.intoNode().ascend()) {
                         is AscendResult.Ok -> asc.handle.forgetNodeType(InternalEdgeForgetNodeType)
                         is AscendResult.Err -> return NextKvResult.Err(asc.node)
                     }
+                }
             }
     }
 }
@@ -372,12 +378,16 @@ internal fun <BorrowType : Marker.BorrowType, K, V> Handle<NodeRef<BorrowType, K
     while (true) {
         edge =
             when (val lk = edge.leftKv()) {
-                is EdgeKvResult.Ok -> return NextKvResult.Ok(lk.handle)
-                is EdgeKvResult.Err ->
+                is EdgeKvResult.Ok -> {
+                    return NextKvResult.Ok(lk.handle)
+                }
+
+                is EdgeKvResult.Err -> {
                     when (val asc = lk.handle.intoNode().ascend()) {
                         is AscendResult.Ok -> asc.handle.forgetNodeType(InternalEdgeForgetNodeType)
                         is AscendResult.Err -> return NextKvResult.Err(asc.node)
                     }
+                }
             }
     }
 }
@@ -402,10 +412,16 @@ internal fun <BorrowType : Marker.BorrowType, K, V> Handle<NodeRef<BorrowType, K
     while (true) {
         edge =
             when (val rk = edge.rightKv()) {
-                is EdgeKvResult.Ok -> return NextKvInternalResult.Ok(rk.handle)
-                is EdgeKvResult.Err ->
+                is EdgeKvResult.Ok -> {
+                    return NextKvInternalResult.Ok(rk.handle)
+                }
+
+                is EdgeKvResult.Err -> {
                     when (val asc = rk.handle.intoNode().ascend()) {
-                        is AscendResult.Ok -> asc.handle
+                        is AscendResult.Ok -> {
+                            asc.handle
+                        }
+
                         is AscendResult.Err -> {
                             // Receiver is `Internal`, so the recovered root is
                             // `Internal` at runtime — narrow back via direct
@@ -416,6 +432,7 @@ internal fun <BorrowType : Marker.BorrowType, K, V> Handle<NodeRef<BorrowType, K
                             )
                         }
                     }
+                }
             }
     }
 }
@@ -448,6 +465,7 @@ internal fun <K, V> Handle<NodeRef<Marker.Dying, K, V, Marker.Leaf>, Marker.Edge
                     val kv = rk.handle
                     return Pair(kv.nextLeafEdge(), kv)
                 }
+
                 is EdgeKvResult.Err -> {
                     val node = rk.handle.intoNode()
                     val parent = node.deallocateAndAscend()
@@ -475,6 +493,7 @@ internal fun <K, V> Handle<NodeRef<Marker.Dying, K, V, Marker.Leaf>, Marker.Edge
                     val kv = lk.handle
                     return Pair(kv.nextBackLeafEdge(), kv)
                 }
+
                 is EdgeKvResult.Err -> {
                     val node = lk.handle.intoNode()
                     val parent = node.deallocateAndAscend()
@@ -640,7 +659,10 @@ internal inline fun <K, V> NodeRef<Marker.Immut, K, V, Marker.LeafOrInternal>.vi
     visit: (Position<Marker.Immut, K, V>) -> Unit,
 ) {
     when (val f = this.force()) {
-        is ForceResult.Leaf -> visit(Position.Leaf(f.value))
+        is ForceResult.Leaf -> {
+            visit(Position.Leaf(f.value))
+        }
+
         is ForceResult.Internal -> {
             val internal = f.value
             visit(Position.Internal(internal))
@@ -657,9 +679,13 @@ internal inline fun <K, V> NodeRef<Marker.Immut, K, V, Marker.LeafOrInternal>.vi
                                     visit(Position.InternalKV())
                                     nk.kv.rightEdge()
                                 }
-                                is NextKvInternalResult.Err -> return
+
+                                is NextKvInternalResult.Err -> {
+                                    return
+                                }
                             }
                         }
+
                         is ForceResult.Internal -> {
                             val sub = descForced.value
                             visit(Position.Internal(sub))
@@ -676,8 +702,14 @@ internal fun <K, V> NodeRef<Marker.Immut, K, V, Marker.LeafOrInternal>.calcLengt
     var result = 0
     this.visitNodesInOrder { pos ->
         when (pos) {
-            is Position.Leaf -> result += pos.node.len()
-            is Position.Internal -> result += pos.node.len()
+            is Position.Leaf -> {
+                result += pos.node.len()
+            }
+
+            is Position.Internal -> {
+                result += pos.node.len()
+            }
+
             is Position.InternalKV -> { /* () */ }
         }
     }
@@ -687,7 +719,10 @@ internal fun <K, V> NodeRef<Marker.Immut, K, V, Marker.LeafOrInternal>.calcLengt
 /** Returns the leaf edge closest to a KV for forward navigation. */
 internal fun <BorrowType : Marker.BorrowType, K, V> Handle<NodeRef<BorrowType, K, V, Marker.LeafOrInternal>, Marker.KV>.nextLeafEdge(): Handle<NodeRef<BorrowType, K, V, Marker.Leaf>, Marker.Edge> =
     when (val f = this.force()) {
-        is ForceResult.Leaf -> f.value.rightEdge()
+        is ForceResult.Leaf -> {
+            f.value.rightEdge()
+        }
+
         is ForceResult.Internal -> {
             val internalKv = f.value
             val nextInternalEdge = internalKv.rightEdge()
@@ -698,7 +733,10 @@ internal fun <BorrowType : Marker.BorrowType, K, V> Handle<NodeRef<BorrowType, K
 /** Returns the leaf edge closest to a KV for backward navigation. */
 internal fun <BorrowType : Marker.BorrowType, K, V> Handle<NodeRef<BorrowType, K, V, Marker.LeafOrInternal>, Marker.KV>.nextBackLeafEdge(): Handle<NodeRef<BorrowType, K, V, Marker.Leaf>, Marker.Edge> =
     when (val f = this.force()) {
-        is ForceResult.Leaf -> f.value.leftEdge()
+        is ForceResult.Leaf -> {
+            f.value.leftEdge()
+        }
+
         is ForceResult.Internal -> {
             val internalKv = f.value
             val nextInternalEdge = internalKv.leftEdge()
@@ -719,7 +757,10 @@ internal fun <BorrowType : Marker.BorrowType, K, V, Q> NodeRef<BorrowType, K, V,
     while (true) {
         val (edge, newBound) = node.findLowerBoundEdge(b, compare)
         when (val f = edge.force()) {
-            is ForceResult.Leaf -> return f.value
+            is ForceResult.Leaf -> {
+                return f.value
+            }
+
             is ForceResult.Internal -> {
                 node = f.value.descend()
                 b = newBound
@@ -745,7 +786,10 @@ internal fun <BorrowType : Marker.BorrowType, K, V, Q> NodeRef<BorrowType, K, V,
     while (true) {
         val (edge, newBound) = node.findUpperBoundEdge(b, compare)
         when (val f = edge.force()) {
-            is ForceResult.Leaf -> return f.value
+            is ForceResult.Leaf -> {
+                return f.value
+            }
+
             is ForceResult.Internal -> {
                 node = f.value.descend()
                 b = newBound
