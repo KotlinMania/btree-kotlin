@@ -1,4 +1,4 @@
-// port-lint: ignore
+// port-lint: tests testing/rng.rs
 // Pinned regression tests for the Kotlin port of upstream
 // `testing/rng.rs::DeterministicRng`. These tests are not transliterated
 // from upstream — upstream does not test its test-helper RNG. They exist
