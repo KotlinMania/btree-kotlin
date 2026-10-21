@@ -974,7 +974,39 @@ class BTreeMap<K, V>(
         sb.append("}")
         return sb.toString()
     }
+
+    /** Formats this map for debugging. */
+    fun fmt(): String = toString()
+
+    /** Computes the hash of this map. */
+    fun hash(): Int = hashCode()
+
+    /** Checks equality with another [BTreeMap]. */
+    fun eq(other: BTreeMap<K, V>): Boolean = this == other
 }
+
+/**
+ * Compares two maps lexicographically by key and value.
+ */
+fun <K : Comparable<K>, V : Comparable<V>> BTreeMap<K, V>.cmp(other: BTreeMap<K, V>): Int {
+    val itA = this.iter()
+    val itB = other.iter()
+    while (itA.hasNext() && itB.hasNext()) {
+        val a = itA.next()
+        val b = itB.next()
+        val kCmp = a.first.compareTo(b.first)
+        if (kCmp != 0) return kCmp
+        val vCmp = a.second.compareTo(b.second)
+        if (vCmp != 0) return vCmp
+    }
+    return itA.hasNext().compareTo(itB.hasNext())
+}
+
+/**
+ * Partial comparison for two maps.
+ */
+fun <K : Comparable<K>, V : Comparable<V>> BTreeMap<K, V>.partialCmp(other: BTreeMap<K, V>): Int? =
+    cmp(other)
 
 object SharedMapIntoIter
 
@@ -1273,6 +1305,13 @@ class IntoIter<K, V> internal constructor(
         return out
     }
 
+    /** Helper class matching upstream DropGuard for cleanup unwinding. */
+    internal class DropGuard<K, V>(
+        val iter: IntoIter<K, V>,
+    ) {
+        fun drop(): Throwable? = iter.dropWithFailure()
+    }
+
     /**
      * Core of a `next` method returning a dying KV handle, invalidated by
      * further calls to this function and some others.
@@ -1306,7 +1345,8 @@ class IntoIter<K, V> internal constructor(
     }
 
     internal fun drop() {
-        throwFailure(dropWithFailure())
+        val guard = DropGuard(this)
+        throwFailure(guard.drop())
     }
 
     /**

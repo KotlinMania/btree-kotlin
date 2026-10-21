@@ -17,6 +17,12 @@ internal sealed class Cyclic3 : Comparable<Cyclic3> {
             A to B, B to C, C to A -> -1
             else -> 1
         }
+
+    fun cmp(other: Cyclic3): Int = compareTo(other)
+
+    fun partialCmp(other: Cyclic3): Int? = compareTo(other)
+
+    fun eq(other: Cyclic3): Boolean = this == other
 }
 
 // Controls the ordering of values wrapped by [Governed].
@@ -52,6 +58,12 @@ internal class Governed<T : Comparable<T>>(
         return value == other.value
     }
 
+    fun cmp(other: Governed<T>): Int = compareTo(other)
+
+    fun partialCmp(other: Governed<T>): Int? = compareTo(other)
+
+    fun eq(other: Governed<T>): Boolean = this == other
+
     override fun hashCode(): Int = value.hashCode()
 }
 
@@ -69,4 +81,10 @@ internal class IdBased(
     override fun hashCode(): Int = id.hashCode()
 
     override fun compareTo(other: IdBased): Int = id.compareTo(other.id)
+
+    fun cmp(other: IdBased): Int = compareTo(other)
+
+    fun partialCmp(other: IdBased): Int? = compareTo(other)
+
+    fun eq(other: IdBased): Boolean = this == other
 }

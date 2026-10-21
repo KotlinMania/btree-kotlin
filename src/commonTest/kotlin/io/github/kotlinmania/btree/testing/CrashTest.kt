@@ -110,6 +110,12 @@ internal class Instance(
 
     override fun compareTo(other: Instance): Int = id().compareTo(other.id())
 
+    fun cmp(other: Instance): Int = compareTo(other)
+
+    fun partialCmp(other: Instance): Int? = compareTo(other)
+
+    fun eq(other: Instance): Boolean = this == other
+
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
         if (other !is Instance) return false

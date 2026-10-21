@@ -117,6 +117,9 @@ sealed class Entry<K, V> {
             is Occupied -> entry.intoMut()
             is Vacant -> entry.insert(default())
         }
+
+    /** Formats this entry for debugging. */
+    fun fmt(): String = toString()
 }
 
 /**
@@ -172,6 +175,9 @@ class VacantEntry<K, V> internal constructor(
         return OccupiedEntry(handle = newHandle, dormantMap = dormantMap)
     }
 
+    /** Formats this vacant entry for debugging. */
+    fun fmt(): String = toString()
+
     override fun toString(): String = "VacantEntry(${this.key})"
 }
 
@@ -226,6 +232,9 @@ class OccupiedEntry<K, V> internal constructor(
         return oldKv
     }
 
+    /** Formats this occupied entry for debugging. */
+    fun fmt(): String = toString()
+
     override fun toString(): String = "OccupiedEntry(key=${this.key()}, value=${this.get()})"
 }
 
@@ -233,6 +242,7 @@ class OccupiedEntry<K, V> internal constructor(
  * The error returned by [BTreeMap.tryInsert] when the key already exists.
  *
  * Contains the occupied entry, and the value that was not inserted.
+ * Note: Kotlin / JVM prohibits subclasses of [Throwable] from being generic.
  */
 @HiddenFromObjC
 class OccupiedError internal constructor(
@@ -241,5 +251,8 @@ class OccupiedError internal constructor(
     /** The value which was not inserted, because the entry was already occupied. */
     val value: Any?,
 ) : Exception("failed to insert $value, key ${entry.key()} already exists with value ${entry.get()}") {
+    /** Formats this error for debugging. */
+    fun fmt(): String = toString()
+
     override fun toString(): String = "OccupiedError(key=${entry.key()}, oldValue=${entry.get()}, newValue=$value)"
 }

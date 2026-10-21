@@ -628,6 +628,21 @@ class BTreeSet<T> private constructor(
         return sb.toString()
     }
 
+    /** Formats this set for debugging. */
+    fun fmt(): String = toString()
+
+    /** Computes the hash of this set. */
+    fun hash(): Int = hashCode()
+
+    /** Checks equality with another [BTreeSet]. */
+    fun eq(other: BTreeSet<T>): Boolean = this == other
+
+    /** Compares this set with another lexicographically. */
+    fun cmp(other: BTreeSet<T>): Int = compareTo(other)
+
+    /** Partial comparison with another set. */
+    fun partialCmp(other: BTreeSet<T>): Int? = compareTo(other)
+
     // ========================================================================
     // Nested iterator types
     // ========================================================================

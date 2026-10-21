@@ -1059,6 +1059,17 @@ internal fun <K, V, NodeType> Handle<NodeRef<Marker.Dying, K, V, NodeType>, Mark
 }
 
 /**
+ * Helper struct matching upstream Dropper for drop-unwinding safety.
+ */
+private class Dropper<T>(
+    private val action: () -> Unit,
+) {
+    fun drop() {
+        action()
+    }
+}
+
+/**
  * Drops the key and value that the KV handle refers to.
  *
  * # Safety
@@ -1071,9 +1082,10 @@ internal fun <K, V, NodeType> Handle<NodeRef<Marker.Dying, K, V, NodeType>, Mark
     val v = leaf.vals[idx].initializedValue
     leaf.keys[idx] = NodeSlot.Empty
     leaf.vals[idx] = NodeSlot.Empty
+    val guard = Dropper<V> { dropElement(v) }
     var failure: Throwable? = null
     failure = rememberFailure(failure) { dropElement(key) }
-    failure = rememberFailure(failure) { dropElement(v) }
+    failure = rememberFailure(failure) { guard.drop() }
     throwFailure(failure)
 }
 

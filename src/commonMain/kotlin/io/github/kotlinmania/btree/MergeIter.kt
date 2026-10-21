@@ -41,6 +41,9 @@ internal class MergeIterInner<T>(
 
     override fun toString(): String = "MergeIterInner($a, $b, $peeked)"
 
+    /** Formats this merge iterator for debugging. */
+    fun fmt(): String = toString()
+
     internal fun clone(): MergeIterInner<T> {
         val cloned = MergeIterInner(a.clone(), b.clone())
         cloned.peeked = peeked
