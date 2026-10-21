@@ -17,6 +17,9 @@ import kotlin.native.HiddenFromObjC
 data object RangeFull : RangeBounds<Nothing> {
     override fun toString(): String = ".."
 
+    /** Formats this range for debugging. */
+    fun fmt(): String = toString()
+
     override fun startBound(): Bound<Nothing> = Bound.Unbounded
 
     override fun endBound(): Bound<Nothing> = Bound.Unbounded
@@ -37,6 +40,9 @@ data class OpsRange<Idx : Comparable<Idx>>(
     val end: Idx,
 ) : RangeBounds<Idx> {
     override fun toString(): String = "$start..$end"
+
+    /** Formats this range for debugging. */
+    fun fmt(): String = toString()
 
     override fun startBound(): Bound<Idx> = Bound.Included(start)
 
@@ -75,6 +81,9 @@ data class RangeFrom<Idx : Comparable<Idx>>(
 ) : RangeBounds<Idx> {
     override fun toString(): String = "$start.."
 
+    /** Formats this range for debugging. */
+    fun fmt(): String = toString()
+
     override fun startBound(): Bound<Idx> = Bound.Included(start)
 
     override fun endBound(): Bound<Idx> = Bound.Unbounded
@@ -95,6 +104,9 @@ data class RangeTo<Idx : Comparable<Idx>>(
     val end: Idx,
 ) : RangeBounds<Idx> {
     override fun toString(): String = "..$end"
+
+    /** Formats this range for debugging. */
+    fun fmt(): String = toString()
 
     override fun startBound(): Bound<Idx> = Bound.Unbounded
 
@@ -145,6 +157,9 @@ class RangeInclusive<Idx : Comparable<Idx>>(
     fun intoInner(): Pair<Idx, Idx> = Pair(start, end)
 
     override fun toString(): String = if (exhausted) "$start..=$end (exhausted)" else "$start..=$end"
+
+    /** Formats this range for debugging. */
+    fun fmt(): String = toString()
 
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
@@ -217,6 +232,9 @@ data class RangeToInclusive<Idx : Comparable<Idx>>(
     val end: Idx,
 ) : RangeBounds<Idx> {
     override fun toString(): String = "..=$end"
+
+    /** Formats this range for debugging. */
+    fun fmt(): String = toString()
 
     override fun startBound(): Bound<Idx> = Bound.Unbounded
 
