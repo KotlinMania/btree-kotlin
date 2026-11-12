@@ -7,14 +7,19 @@ import com.android.build.api.variant.KotlinMultiplatformAndroidComponentsExtensi
 import com.android.build.api.withAndroid
 import dev.detekt.gradle.Detekt
 import groovy.json.JsonSlurper
+import io.github.kotlinmania.build.AndroidDeviceTestVerifier
 import io.github.kotlinmania.build.AndroidSdkSupport
+import io.github.kotlinmania.build.BuildToolTask
 import io.github.kotlinmania.build.CentralPortalSupport
 import io.github.kotlinmania.build.FfiBuildSupport
 import io.github.kotlinmania.build.IdeSourceSetSupport
+import io.github.kotlinmania.build.NativeTestRunner
 import io.github.kotlinmania.build.SwiftExportSupport
 import io.github.kotlinmania.build.VerificationSupport
 import org.gradle.api.GradleException
 import org.gradle.api.artifacts.VersionCatalogsExtension
+import org.gradle.api.publish.maven.MavenPublication
+import org.gradle.api.publish.maven.tasks.AbstractPublishToMaven
 import org.gradle.api.tasks.Copy
 import org.gradle.api.tasks.Exec
 import org.gradle.api.tasks.bundling.Jar
@@ -27,6 +32,7 @@ import org.jetbrains.kotlin.gradle.ExperimentalWasmDsl
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import org.jetbrains.kotlin.gradle.dsl.KotlinVersion
 import org.jetbrains.kotlin.gradle.plugin.KotlinTarget
+import org.jetbrains.kotlin.gradle.plugin.mpp.AbstractExecutable
 import org.jetbrains.kotlin.gradle.plugin.mpp.KotlinNativeTarget
 import org.jetbrains.kotlin.gradle.plugin.mpp.apple.XCFramework
 import org.jetbrains.kotlin.gradle.plugin.mpp.apple.swiftexport.SwiftExportedModuleMetadata
@@ -38,6 +44,7 @@ import org.jetbrains.kotlin.gradle.targets.web.nodejs.BaseNodeJsRootExtension
 import org.jetbrains.kotlin.gradle.targets.web.yarn.BaseYarnRootExtension
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompilationTask
 import org.jlleitschuh.gradle.ktlint.reporter.ReporterType
+import java.util.Properties
 
 plugins {
     alias(libs.plugins.kotlin.multiplatform)
@@ -316,13 +323,21 @@ configurations.configureEach {
         exclude(group = "org.jetbrains", module = "annotations")
     }
     if (name == "swiftExportClasspath") {
-        dependencies.add(projectDependencyHandler.create("io.github.kotlinmania:swift-export-embeddable:2.4.20-km.4"))
+        dependencies.add(projectDependencyHandler.create("io.github.kotlinmania:swift-export-embeddable:2.4.20-km.5-protocol-spi-defaults"))
     }
 }
 
 val browserTestExcludes =
     providers
         .gradleProperty("project.js.browserTestExcludes")
+        .getOrElse("")
+        .split(',')
+        .map { it.trim() }
+        .filter { it.isNotEmpty() }
+
+val wasmWasiWindowsTestExcludes =
+    providers
+        .gradleProperty("project.wasmWasi.windowsTestExcludes")
         .getOrElse("")
         .split(',')
         .map { it.trim() }
@@ -481,6 +496,10 @@ kotlin {
     mingwX64 {
         configureBenchmarkCompilation()
         addSharedLib()
+        binaries.withType<AbstractExecutable>().configureEach {
+            // Match Linux, macOS, and Rust libtest 8 MiB stack reserve instead of MinGW's 1 MiB PE default.
+            linkerOpts("-Wl,--stack,8388608")
+        }
     }
 
     // Android NDK — 64-bit only
@@ -527,7 +546,13 @@ kotlin {
     wasmWasi {
         configureBenchmarkCompilation()
         binaries.library()
-        nodejs()
+        nodejs {
+            testTask {
+                if (System.getProperty("os.name", "").startsWith("Windows")) {
+                    wasmWasiWindowsTestExcludes.forEach { filter.excludeTestsMatching(it) }
+                }
+            }
+        }
     }
 
     swiftExport {
@@ -565,6 +590,10 @@ kotlin {
         .withType<org.jetbrains.kotlin.gradle.tasks.KotlinNativeCompile>()
         .matching { it.name.startsWith("compileSwiftExportMain") }
         .configureEach {
+            // KGP's generated SwiftExport bridge files emit type-erased generic casts
+            // (dereferenceExternalRCRef(self) as GenericType<Any?>) without @Suppress("UNCHECKED_CAST").
+            // Disable UNCHECKED_CAST on KGP's generated bridge only while keeping
+            // allWarningsAsErrors = true for all source compilations and all other bridge diagnostics.
             compilerOptions.freeCompilerArgs.add("-Xwarning-level=UNCHECKED_CAST:disabled")
         }
 
@@ -574,6 +603,12 @@ kotlin {
         check(nativeFfiTargetNames.all { it in configuredNativeTargets }) {
             "Unknown project.ffi.native.targets: ${nativeFfiTargetNames - configuredNativeTargets}"
         }
+        val discoveredDefFiles =
+            project
+                .fileTree("src/native/interop/cinterop") { include("*.def") }
+                .files
+                .sortedBy { it.name }
+                .ifEmpty { listOf(project.file(ffiDefFile)) }
         targets
             .withType<KotlinNativeTarget>()
             .matching {
@@ -597,26 +632,51 @@ kotlin {
 
                 compilations.getByName("main") {
                     cinterops {
-                        create(ffiNameLower) {
-                            defFile(project.file(ffiDefFile))
-                            packageName("$ffiNameLower.cinterop")
-                            if (wrapperTask != null) {
-                                extraOpts(
-                                    "-libraryPath",
-                                    layout.buildDirectory
-                                        .dir("cinterop-targets/$konanTargetName")
-                                        .get()
-                                        .asFile.absolutePath,
-                                )
+                        discoveredDefFiles.forEach { currentDefFile ->
+                            val defBaseName = currentDefFile.nameWithoutExtension
+                            val cinteropName =
+                                if (discoveredDefFiles.size == 1 && currentDefFile == project.file(ffiDefFile)) {
+                                    ffiNameLower
+                                } else {
+                                    defBaseName.replaceFirstChar { it.lowercase() }
+                                }
+                            val explicitPkg =
+                                if (currentDefFile.isFile) {
+                                    currentDefFile
+                                        .useLines { lines ->
+                                            lines
+                                                .map { it.trim() }
+                                                .firstOrNull { it.startsWith("package") && '=' in it }
+                                                ?.substringAfter('=')
+                                                ?.trim()
+                                                ?.takeIf { it.isNotEmpty() }
+                                        }
+                                } else {
+                                    null
+                                }
+                            create(cinteropName) {
+                                defFile(currentDefFile)
+                                packageName(explicitPkg ?: "$ffiNameLower.cinterop")
+                                if (wrapperTask != null) {
+                                    extraOpts(
+                                        "-libraryPath",
+                                        layout.buildDirectory
+                                            .dir("cinterop-targets/$konanTargetName")
+                                            .get()
+                                            .asFile.absolutePath,
+                                    )
+                                }
                             }
                         }
                     }
                 }
                 if (wrapperTask != null) {
-                    tasks.matching { it.name == "cinterop${ffiName}$targetCapitalized" }.configureEach {
-                        dependsOn(wrapperTask)
-                        inputs.files(wrapperTask)
-                    }
+                    tasks
+                        .matching { it.name.startsWith("cinterop") && it.name.endsWith(targetCapitalized) }
+                        .configureEach {
+                            dependsOn(wrapperTask)
+                            inputs.files(wrapperTask)
+                        }
                 }
             }
     }
@@ -666,7 +726,9 @@ kotlin {
 
         androidMain.dependencies {}
         named("androidHostTest").dependencies {}
-        named("androidDeviceTest").dependencies {}
+        named("androidDeviceTest").dependencies {
+            implementation(libs.androidx.test.runner)
+        }
 
         webMain.dependencies {}
         webTest.dependencies {}
@@ -1099,7 +1161,7 @@ val hasAppleTargets =
     kotlin.targets
         .withType<KotlinNativeTarget>()
         .any { it.konanTarget.family.isAppleFamily }
-CentralPortalSupport.configure(project, publishProjectName, hasAppleTargets)
+CentralPortalSupport.configure(project, publishProjectName, jvmFfiEnabled, hasAppleTargets)
 
 // ============================================================================
 // Verification, Build Aggregates & Runtime Validation
@@ -1163,24 +1225,168 @@ val fullTargetBuildTaskNames =
             add("${target}Binaries")
             add("${target}TestBinaries")
         }
-        if (jvmFfiEnabled) add("compile${ffiName}Jni")
-        if (napiFfiEnabled) add("buildNode$ffiName")
+        if (jvmFfiEnabled) {
+            add("compile${ffiName}JniDebug")
+            add("compile${ffiName}JniRelease")
+            add("compile${ffiName}Jni")
+        }
+        if (napiFfiEnabled) {
+            add("buildNode${ffiName}Debug")
+            add("buildNode${ffiName}Release")
+            add("buildNode$ffiName")
+        }
     }
+
+val debugBuildTaskNames =
+    buildSet {
+        addAll(
+            listOf(
+                "compileAndroidMain",
+                "compileAndroidHostTest",
+                "compileAndroidDeviceTest",
+                "assembleAndroidMain",
+                "jvmMainClasses",
+                "jvmTestClasses",
+                "compileDevelopmentLibraryKotlinJs",
+                "jsMainClasses",
+                "jsTestClasses",
+                "compileDevelopmentLibraryKotlinWasmJs",
+                "wasmJsMainClasses",
+                "wasmJsTestClasses",
+                "compileDevelopmentLibraryKotlinWasmWasi",
+                "wasmWasiMainClasses",
+                "wasmWasiTestClasses",
+                "assemble${frameworkName}DebugXCFramework",
+            ),
+        )
+        for (target in nativeTargetNames) {
+            val targetCap = target.replaceFirstChar { it.uppercase() }
+            add("compileKotlin$targetCap")
+            add("${target}TestBinaries")
+            if (nativeFfiEnabled && nativeFfiCompileWrapper && (nativeFfiTargetNames.isEmpty() || target in nativeFfiTargetNames)) {
+                add("compile${ffiName}WrapperDebugFor$targetCap")
+            }
+        }
+        if (jvmFfiEnabled) add("compile${ffiName}JniDebug")
+        if (napiFfiEnabled) add("buildNode${ffiName}Debug")
+    }
+
+val releaseBuildTaskNames =
+    buildSet {
+        addAll(
+            listOf(
+                "compileAndroidMain",
+                "assembleAndroidMain",
+                "jvmMainClasses",
+                "jvmJar",
+                "compileProductionLibraryKotlinJs",
+                "jsMainClasses",
+                "compileProductionLibraryKotlinWasmJs",
+                "wasmJsMainClasses",
+                "compileProductionLibraryKotlinWasmWasi",
+                "wasmWasiMainClasses",
+                "assemble${frameworkName}ReleaseXCFramework",
+            ),
+        )
+        for (target in nativeTargetNames) {
+            val targetCap = target.replaceFirstChar { it.uppercase() }
+            add("compileKotlin$targetCap")
+            if (nativeFfiEnabled && nativeFfiCompileWrapper && (nativeFfiTargetNames.isEmpty() || target in nativeFfiTargetNames)) {
+                add("compile${ffiName}WrapperReleaseFor$targetCap")
+            }
+        }
+        if (jvmFfiEnabled) add("compile${ffiName}JniRelease")
+        if (napiFfiEnabled) add("buildNode${ffiName}Release")
+    }
+
+val verifierProperties =
+    Properties().apply {
+        val verifierFile = rootProject.file("verifier.properties")
+        if (verifierFile.isFile) {
+            verifierFile.inputStream().use { load(it) }
+        }
+    }
+
+val foreignNativeRuntimeTasks =
+    listOf("linuxArm64", "linuxX64", "mingwX64").map { target ->
+        tasks.register<BuildToolTask>("validate${target.replaceFirstChar { it.uppercase() }}Runtime") {
+            group = "verification"
+            description = "Runs linked tests on a local native host or existing Parallels guest; records unavailable hosts."
+            dependsOn("linkDebugTest${target.replaceFirstChar { it.uppercase() }}")
+            toolClass.set(NativeTestRunner::class.java.name)
+            val executable = if (target == "mingwX64") "test.exe" else "test.kexe"
+            val binaryFile = layout.buildDirectory.file("bin/$target/debugTest/$executable")
+            onlyIf { binaryFile.get().asFile.exists() }
+            val platform = if (target == "mingwX64") "windows" else "linux"
+            arguments.addAll(
+                "--target",
+                target,
+                "--binary",
+                binaryFile.get().asFile.absolutePath,
+                "--report-dir",
+                layout.buildDirectory
+                    .dir("reports/local-native-tests")
+                    .get()
+                    .asFile.absolutePath,
+                "--allow-unavailable",
+            )
+            val vmSelector =
+                providers
+                    .gradleProperty("project.validation.$platform.vm")
+                    .orNull
+                    ?.trim()
+                    ?.takeIf { it.isNotEmpty() }
+                    ?: verifierProperties
+                        .getProperty("project.validation.$platform.vm")
+                        ?.trim()
+                        ?.takeIf { it.isNotEmpty() }
+            if (vmSelector != null) {
+                arguments.addAll("--vm", vmSelector)
+            }
+        }
+    }
+
+tasks.named("validateLinuxX64Runtime") {
+    mustRunAfter("validateLinuxArm64Runtime")
+}
+tasks.named("validateMingwX64Runtime") {
+    mustRunAfter("validateLinuxX64Runtime")
+}
+
+tasks.matching { it.name == "connectedAndroidDeviceTest" }.configureEach {
+    outputs.upToDateWhen { false }
+}
+
+tasks.register("verifyAndroidDeviceTestResults") {
+    group = "verification"
+    description = "Requires nonempty, passing Android device-test results."
+    dependsOn("connectedAndroidDeviceTest")
+    doLast {
+        AndroidDeviceTestVerifier.verify(
+            layout.buildDirectory
+                .dir("outputs/androidTest-results/connected")
+                .get()
+                .asFile,
+        )
+    }
+}
 
 tasks.register("hostTests") {
     group = "verification"
-    description = "Runs every enabled target's tests that this host can execute, plus Android host tests."
+    description = "Runs every enabled target's tests that this host can execute, foreign Parallels guest tests, and Android host and connected-device tests."
     dependsOn(
         rootProject.tasks.named("kotlinUpgradeYarnLock"),
         rootProject.tasks.named("kotlinWasmUpgradeYarnLock"),
         "allTests",
         "testAndroidHostTest",
+        "verifyAndroidDeviceTestResults",
+        foreignNativeRuntimeTasks,
     )
 }
 
 tasks.register("test") {
     group = "verification"
-    description = "Runs tests for every enabled target this host can run, Android host tests, and the Swift Export smoke test."
+    description = "Runs tests for every enabled target this host can run, foreign Parallels guest tests, Android host and connected-device tests, and the Swift Export smoke test."
     dependsOn("hostTests")
     dependsOn("swiftExportSmokeTest")
 }
@@ -1191,8 +1397,23 @@ tasks.named("check") {
     dependsOn("test")
 }
 
+tasks.register("debug") {
+    group = "build"
+    description = "Builds debug artifacts and FFI bindings across all enabled targets."
+    dependsOn(rootYarnLockTasks)
+    dependsOn(debugBuildTaskNames)
+}
+
+tasks.register("release") {
+    group = "build"
+    description = "Builds release artifacts and symbol-hidden FFI bindings across all enabled targets."
+    dependsOn(rootYarnLockTasks)
+    dependsOn(releaseBuildTaskNames)
+}
+
 tasks.named("build") {
     dependsOn(rootYarnLockTasks)
+    dependsOn("debug", "release")
     dependsOn(fullTargetBuildTaskNames)
 }
 
@@ -1286,6 +1507,153 @@ if (macroLayoutCSource.isFile) {
         }
     tasks.named("test") { dependsOn(wasmWasiPreopenTest) }
     tasks.named("check") { dependsOn(wasmWasiPreopenTest) }
+}
+
+val publicationCompilationTasks =
+    kotlin.targets
+        .filter { it.name != "metadata" }
+        .flatMap { target -> target.compilations.map { it.compileTaskProvider } }
+
+val compileAllTargets =
+    tasks.register("compileAllTargets") {
+        group = "verification"
+        description = "Compiles main and test sources for every declared target."
+        dependsOn(publicationCompilationTasks)
+        doLast {
+            val skippedCompilations =
+                publicationCompilationTasks.map { it.get() }.filter { task ->
+                    !task.state.executed ||
+                        (task.state.skipped && !task.state.upToDate && task.state.skipMessage != "FROM-CACHE")
+                }
+            check(skippedCompilations.isEmpty()) {
+                "Required target compilations did not complete: " +
+                    skippedCompilations.joinToString { "${it.path} (${it.state.skipMessage ?: "not executed"})" }
+            }
+        }
+    }
+
+val buildAllTargets =
+    tasks.register("buildAllTargets") {
+        group = "verification"
+        description = "Compiles and links every declared target before runtime validation."
+        dependsOn(
+            rootYarnLockTasks,
+            compileAllTargets,
+            fullTargetBuildTaskNames.filter { it != "swiftExportSmokeTest" },
+        )
+    }
+
+foreignNativeRuntimeTasks.forEach { taskProvider ->
+    taskProvider.configure { mustRunAfter(buildAllTargets) }
+}
+tasks.withType<AbstractTestTask>().configureEach {
+    mustRunAfter(buildAllTargets)
+}
+tasks.matching { it.name == "connectedAndroidDeviceTest" }.configureEach {
+    mustRunAfter(buildAllTargets)
+}
+tasks.named("swiftExportSmokeTest") { mustRunAfter(buildAllTargets) }
+
+val publicationPomChecks =
+    publishing.publications.withType<MavenPublication>().map { publication ->
+        tasks.named("checkPomFileFor${publication.name.replaceFirstChar { it.uppercase() }}Publication")
+    }
+
+val checkPublicationPoms =
+    tasks.register("checkPublicationPoms") {
+        group = "verification"
+        description = "Checks the generated POM for every Maven publication."
+        dependsOn(publicationPomChecks)
+        doLast {
+            for (provider in publicationPomChecks) {
+                val task = provider.get()
+                task.state.rethrowFailure()
+                check(
+                    task.state.executed &&
+                        (!task.state.skipped || task.state.upToDate || task.state.skipMessage == "FROM-CACHE"),
+                ) {
+                    "Required POM check did not execute: ${task.path} (${task.state.skipMessage})"
+                }
+            }
+        }
+    }
+
+val publicationRuntimeTaskNames =
+    listOf(
+        "jvmTest",
+        "testAndroidHostTest",
+        "jsBrowserTest",
+        "jsNodeTest",
+        "wasmJsBrowserTest",
+        "wasmJsNodeTest",
+        "wasmWasiNodeTest",
+        "macosArm64Test",
+        "iosSimulatorArm64Test",
+        "tvosSimulatorArm64Test",
+        "watchosSimulatorArm64Test",
+    )
+
+tasks.matching { it.name in publicationRuntimeTaskNames }.configureEach {
+    outputs.upToDateWhen { false }
+    outputs.doNotCacheIf("Publication requires actual runtime execution") { true }
+}
+
+val verifyPublicationRuntimes =
+    tasks.register("verifyPublicationRuntimes") {
+        group = "verification"
+        description = "Rejects skipped required test tasks and missing, empty or failing runtime reports."
+        dependsOn(buildAllTargets, publicationRuntimeTaskNames, foreignNativeRuntimeTasks, "verifyAndroidDeviceTestResults")
+        doLast {
+            for (provider in foreignNativeRuntimeTasks) {
+                val task = provider.get()
+                task.state.rethrowFailure()
+                check(task.state.executed && !task.state.skipped) {
+                    "Required native runtime did not execute: ${task.path} (${task.state.skipMessage})"
+                }
+            }
+            val androidVerifyTask = tasks.named("verifyAndroidDeviceTestResults").get()
+            androidVerifyTask.state.rethrowFailure()
+            check(androidVerifyTask.state.executed && !androidVerifyTask.state.skipped) {
+                "Required Android device runtime did not execute: ${androidVerifyTask.path} (${androidVerifyTask.state.skipMessage})"
+            }
+            for (name in publicationRuntimeTaskNames) {
+                val task = tasks.named<AbstractTestTask>(name).get()
+                task.state.rethrowFailure()
+                check(task.state.executed && !task.state.skipped) {
+                    "Required runtime did not execute: ${task.path} (${task.state.skipMessage})"
+                }
+                val reports =
+                    fileTree(
+                        task.reports.junitXml.outputLocation
+                            .get()
+                            .asFile,
+                    ) { include("*.xml") }.files
+                VerificationSupport.verifyJunitXmlReports(task.path, reports)
+            }
+        }
+    }
+
+val publicationCheck =
+    tasks.register("publicationCheck") {
+        group = "verification"
+        description = "Builds every target, runs tests and checks every POM before Maven publication."
+        dependsOn("build", compileAllTargets, checkPublicationPoms, verifyPublicationRuntimes)
+        doLast {
+            for (name in fullTargetBuildTaskNames + "build") {
+                val task = tasks.named(name).get()
+                task.state.rethrowFailure()
+                check(
+                    task.state.executed &&
+                        (!task.state.skipped || task.state.upToDate || task.state.skipMessage == "FROM-CACHE"),
+                ) {
+                    "Required build task did not execute: ${task.path} (${task.state.skipMessage})"
+                }
+            }
+        }
+    }
+
+tasks.withType<AbstractPublishToMaven>().configureEach {
+    dependsOn(publicationCheck)
 }
 
 tasks.register("classes") {
