@@ -97,6 +97,8 @@ public final class FfiBuildSupport {
         String variantCap = isDebug ? "Debug" : "Release";
         String variantLower = isDebug ? "debug" : "release";
         String wrapperTaskName = "compile" + ffiName + "Wrapper" + variantCap + "For" + targetCapitalized;
+        Object minSdkProp = project.findProperty("android.minSdk");
+        String androidMinSdk = minSdkProp != null ? minSdkProp.toString().trim() : "24";
         return project.getTasks().register(wrapperTaskName, ExecTask.class, task -> {
             task.setGroup("build");
             task.setDescription("Compiles " + variantLower + " native C/C++ wrapper sources into static libraries for " + konanTargetName);
@@ -104,6 +106,10 @@ public final class FfiBuildSupport {
             File outDir = project.getLayout().getBuildDirectory().dir("cinterop-targets/" + konanTargetName + "/" + variantLower).get().getAsFile();
             File outFile = new File(outDir, ffiWrapperBase + ".a");
             task.getInputs().files(project.fileTree(cinteropDir, spec -> spec.include("*.c", "*.cpp", "*.h", "*.hpp")));
+            if (konanTargetName.startsWith("android")) {
+                task.getInputs().property("androidMinSdk", androidMinSdk);
+                task.getInputs().property("androidArm64BranchProtection", konanTargetName.contains("arm64") ? "standard" : "none");
+            }
             if (konanTargetName.startsWith("linux")) {
                 task.getInputs().dir(rootProject.file("buildSrc/src/main/java"));
                 task.getOutputs().file(new File(outDir, "native-archive-verification.json"));
@@ -186,21 +192,32 @@ public final class FfiBuildSupport {
                         ensureKonanDependency(project, "target-sysroot-1-android_ndk", konanDataDir, konanDeps, execOps);
                         File sysroot = new File(ndkDir, "sysroot");
                         String clangSuffix = isCpp ? "clang++" : "clang";
-                        File clangBin = konanTargetName.contains("arm64")
-                            ? new File(ndkDir, "bin/aarch64-linux-android21-" + clangSuffix)
-                            : new File(ndkDir, "bin/x86_64-linux-android21-" + clangSuffix);
-                        File arBin = konanTargetName.contains("arm64")
+                        boolean isArm64 = konanTargetName.contains("arm64");
+                        File clangBin = isArm64
+                            ? new File(ndkDir, "bin/aarch64-linux-android" + androidMinSdk + "-" + clangSuffix)
+                            : new File(ndkDir, "bin/x86_64-linux-android" + androidMinSdk + "-" + clangSuffix);
+                        File arBin = isArm64
                             ? new File(ndkDir, "bin/aarch64-linux-android-ar")
                             : new File(ndkDir, "bin/x86_64-linux-android-ar");
+                        if (!arBin.exists()) {
+                            arBin = new File(ndkDir, "bin/llvm-ar");
+                        }
                         if (clangBin.exists() && sysroot.exists()) {
-                            execOps.exec(s -> s.commandLine(
+                            List<String> cmd = new ArrayList<>(List.of(
                                 clangBin.getAbsolutePath(), "--sysroot=" + sysroot.getAbsolutePath(),
-                                optFlag, defFlag, "-fPIC", "-fvisibility=hidden",
+                                optFlag, defFlag, "-fPIC", "-fvisibility=hidden"
+                            ));
+                            if (isArm64) {
+                                cmd.add("-mbranch-protection=standard");
+                            }
+                            cmd.addAll(List.of(
                                 "-Wall", "-Wextra", "-Werror", "-Wno-unused-parameter", "-c", "-I" + srcFile.getParent(),
                                 srcFile.getAbsolutePath(), "-o", tempObj.getAbsolutePath()
-                            )).assertNormalExitValue();
+                            ));
+                            execOps.exec(s -> s.commandLine(cmd)).assertNormalExitValue();
+                            File resolvedAr = arBin;
                             execOps.exec(s -> s.commandLine(
-                                arBin.getAbsolutePath(), "rcs", stemArchive.getAbsolutePath(), tempObj.getAbsolutePath()
+                                resolvedAr.getAbsolutePath(), "rcs", stemArchive.getAbsolutePath(), tempObj.getAbsolutePath()
                             )).assertNormalExitValue();
                         } else {
                             copyPrebuilt(project, konanTargetName, stemBase, stemArchive);
@@ -547,6 +564,8 @@ public final class FfiBuildSupport {
         String variantCap = isDebug ? "Debug" : "Release";
         String variantLower = isDebug ? "debug" : "release";
         String jvmMainCDir = IdeSourceSetSupport.sourceSetDir("jvmMain") + "/c/";
+        Object minSdkProp = project.findProperty("android.minSdk");
+        String configuredMinSdk = minSdkProp != null ? minSdkProp.toString().trim() : "24";
         return project.getTasks().register("compileAndroidJni" + variantCap, AndroidJniCompileTask.class, task -> {
             task.setGroup("build");
             task.setDescription("Compiles " + variantLower + " Android JNI C sources into shared libraries");
@@ -556,6 +575,8 @@ public final class FfiBuildSupport {
                     "compile" + ffiName + "Wrapper" + variantCap + "ForAndroidNativeX64"
                 );
             }
+            task.getInputs().property("androidMinSdk", configuredMinSdk);
+            task.getInputs().property("androidArm64BranchProtection", "standard");
             task.getInputs().files(project.fileTree(jvmMainCDir, spec -> spec.include("*.c", "*.h")));
             task.getInputs().files(project.fileTree("src/native/interop/cinterop", spec -> spec.include("*.h")));
             task.getNativeDirectory().set(project.getLayout().getBuildDirectory().dir("android-jni-" + variantLower));
@@ -600,6 +621,9 @@ public final class FfiBuildSupport {
                     cmd.add(compiler.getAbsolutePath());
                     cmd.add("--sysroot=" + new File(ndk, "sysroot").getAbsolutePath());
                     cmd.addAll(List.of("-shared", "-fPIC", "-fvisibility=hidden"));
+                    if ("arm64-v8a".equals(abi)) {
+                        cmd.add("-mbranch-protection=standard");
+                    }
                     if (isDebug) {
                         cmd.addAll(List.of("-O0", "-g"));
                     } else {

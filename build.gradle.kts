@@ -1353,6 +1353,70 @@ tasks.named("validateMingwX64Runtime") {
     mustRunAfter("validateLinuxX64Runtime")
 }
 
+val hostIsArm64ForAndroidNative =
+    System
+        .getProperty("os.arch", "")
+        .lowercase()
+        .let { it == "aarch64" || it == "arm64" }
+
+val androidNativeAdbExecutable =
+    rootProject.file(
+        ".android-sdk/platform-tools/" +
+            if (System.getProperty("os.name", "").startsWith("Windows")) "adb.exe" else "adb",
+    )
+
+val androidNativeRuntimeTasks =
+    listOf("androidNativeArm64", "androidNativeX64").map { target ->
+        tasks.register<BuildToolTask>("validate${target.replaceFirstChar { it.uppercase() }}Runtime") {
+            group = "verification"
+            description = "Runs linked Android Native tests on a connected Android device or emulator via adb."
+            dependsOn("linkDebugTest${target.replaceFirstChar { it.uppercase() }}")
+            toolClass.set(NativeTestRunner::class.java.name)
+            val binaryFile = layout.buildDirectory.file("bin/$target/debugTest/test.kexe")
+            onlyIf { binaryFile.get().asFile.exists() }
+            outputs.upToDateWhen { false }
+            arguments.addAll(
+                "--target",
+                target,
+                "--binary",
+                binaryFile.get().asFile.absolutePath,
+                "--adb",
+                androidNativeAdbExecutable.absolutePath,
+                "--report-dir",
+                layout.buildDirectory
+                    .dir("reports/local-native-tests")
+                    .get()
+                    .asFile.absolutePath,
+            )
+            val isHostMatchingAbi =
+                (target == "androidNativeArm64" && hostIsArm64ForAndroidNative) ||
+                    (target == "androidNativeX64" && !hostIsArm64ForAndroidNative)
+            if (!isHostMatchingAbi) {
+                arguments.add("--allow-unavailable")
+            }
+            val vmSelector =
+                providers
+                    .gradleProperty("project.validation.android.vm")
+                    .orNull
+                    ?.trim()
+                    ?.takeIf { it.isNotEmpty() }
+                    ?: verifierProperties
+                        .getProperty("project.validation.android.vm")
+                        ?.trim()
+                        ?.takeIf { it.isNotEmpty() }
+            if (vmSelector != null) {
+                arguments.addAll("--vm", vmSelector)
+            }
+        }
+    }
+
+tasks.named("validateAndroidNativeArm64Runtime") {
+    mustRunAfter("verifyAndroidDeviceTestResults")
+}
+tasks.named("validateAndroidNativeX64Runtime") {
+    mustRunAfter("validateAndroidNativeArm64Runtime")
+}
+
 tasks.matching { it.name == "connectedAndroidDeviceTest" }.configureEach {
     outputs.upToDateWhen { false }
 }
@@ -1380,6 +1444,7 @@ tasks.register("hostTests") {
         "allTests",
         "testAndroidHostTest",
         "verifyAndroidDeviceTestResults",
+        androidNativeRuntimeTasks,
         foreignNativeRuntimeTasks,
     )
 }
@@ -1546,6 +1611,9 @@ val buildAllTargets =
 foreignNativeRuntimeTasks.forEach { taskProvider ->
     taskProvider.configure { mustRunAfter(buildAllTargets) }
 }
+androidNativeRuntimeTasks.forEach { taskProvider ->
+    taskProvider.configure { mustRunAfter(buildAllTargets) }
+}
 tasks.withType<AbstractTestTask>().configureEach {
     mustRunAfter(buildAllTargets)
 }
@@ -1602,9 +1670,15 @@ val verifyPublicationRuntimes =
     tasks.register("verifyPublicationRuntimes") {
         group = "verification"
         description = "Rejects skipped required test tasks and missing, empty or failing runtime reports."
-        dependsOn(buildAllTargets, publicationRuntimeTaskNames, foreignNativeRuntimeTasks, "verifyAndroidDeviceTestResults")
+        dependsOn(
+            buildAllTargets,
+            publicationRuntimeTaskNames,
+            androidNativeRuntimeTasks,
+            foreignNativeRuntimeTasks,
+            "verifyAndroidDeviceTestResults",
+        )
         doLast {
-            for (provider in foreignNativeRuntimeTasks) {
+            for (provider in foreignNativeRuntimeTasks + androidNativeRuntimeTasks) {
                 val task = provider.get()
                 task.state.rethrowFailure()
                 check(task.state.executed && !task.state.skipped) {
