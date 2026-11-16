@@ -20,9 +20,6 @@ potential-bugs:
   UnsafeCallOnNullableType: { active: false }
   UnnecessaryNotNullOperator: { active: false }
   ImplicitDefaultLocale: { active: false }
-  IteratorNotThrowingNoSuchElementException: { active: false }
-  DoubleMutabilityForCollection: { active: false }
-  MapGetWithNotNullAssertionOperator: { active: false }
 
 performance:
   active: true
@@ -41,8 +38,6 @@ style:
   MaxLineLength: { active: false }
   UseCheckOrError: { active: false }
   UseRequire: { active: false }
-  UseCheckNotNull: { active: false }
-  UseRequireNotNull: { active: false }
   ForbiddenComment: { active: false }
   ThrowsCount: { active: false }
   LoopWithTooManyJumpStatements: { active: false }
@@ -53,13 +48,7 @@ style:
   UnusedPrivateProperty: { active: false }
   RedundantVisibilityModifier: { active: false }
   AbstractClassCanBeInterface: { active: false }
-  VarCouldBeVal: { active: false }
-  UseOrEmpty: { active: false }
-  UseIsNullOrEmpty: { active: false }
-  NestedClassesVisibility: { active: false }
-  UnnecessaryFilter: { active: false }
-  UnusedPrivateFunction: { active: false }
-  UnusedVariable: { active: false }
+  AbstractClassCanBeConcreteClass: { active: false }
 
 complexity:
   active: true
@@ -85,7 +74,7 @@ empty-blocks:
   EmptySecondaryConstructor: { active: true }
   EmptyTryBlock: { active: true }
   EmptyWhenBlock: { active: true }
-  EmptyWhileBlock: { active: false }
+  EmptyWhileBlock: { active: true }
 
 naming:
   active: true
@@ -99,7 +88,6 @@ naming:
   MatchingDeclarationName: { active: false }
   ObjectPropertyNaming: { active: false }
   MemberNameEqualsClassName: { active: false }
-  NoNameShadowing: { active: false }
 
 exceptions:
   active: true
@@ -109,7 +97,6 @@ exceptions:
   InstanceOfCheckForException: { active: false }
   ExceptionRaisedInUnexpectedLocation: { active: false }
   ThrowingExceptionsWithoutMessageOrCause: { active: false }
-  ThrowingExceptionFromFinally: { active: false }
 
 coroutines:
   active: false

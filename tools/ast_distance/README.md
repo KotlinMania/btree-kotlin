@@ -2,7 +2,7 @@
 
 Cross-language AST similarity tool used to verify the Kotlin port stays
 faithful to the upstream Rust source. Every Kotlin file that lands in
-`src/commonMain/kotlin/io/github/kotlinmania/btree/` should be
+`src/common/commonMain/kotlin/io/github/kotlinmania/btree/` should be
 compared against its `library/alloc/src/collections/btree/` counterpart
 under `tmp/rust-stdlib-collections-btree/`. ast_distance is the sole
 oracle for port progress.
@@ -30,7 +30,7 @@ each clone.
 ```bash
 ./tools/ast_distance/ast_distance --compare-functions \
     tmp/rust-stdlib-collections-btree/<file>.rs rust \
-    src/commonMain/kotlin/io/github/kotlinmania/btree/<File>.kt kotlin
+    src/common/commonMain/kotlin/io/github/kotlinmania/btree/<File>.kt kotlin
 ```
 
 Reports per-function name parity, AST cosine, and identifier-cosine
@@ -42,7 +42,7 @@ file MUST run this after their port lands.
 ```bash
 ./tools/ast_distance/ast_distance --deep \
     tmp/rust-stdlib-collections-btree rust \
-    src/commonMain/kotlin/io/github/kotlinmania/btree kotlin
+    src/common/commonMain/kotlin/io/github/kotlinmania/btree kotlin
 ```
 
 Walks both trees, pairs files by the `// port-lint:` header, and

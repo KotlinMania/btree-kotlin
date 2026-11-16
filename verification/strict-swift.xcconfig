@@ -1,0 +1,4 @@
+// Generated dependencies retain their supported language mode; authored tests use Swift 6.
+SWIFT_VERSION = 5
+SWIFT_TREAT_WARNINGS_AS_ERRORS = YES
+GCC_TREAT_WARNINGS_AS_ERRORS = YES
