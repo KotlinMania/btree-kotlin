@@ -83,7 +83,10 @@ class BTreeSet<T> private constructor(
                 object : Iterator<Pair<T, SetValZST>> {
                     override fun hasNext(): Boolean = iter.hasNext()
 
-                    override fun next(): Pair<T, SetValZST> = Pair(iter.next(), SetValZST)
+                    override fun next(): Pair<T, SetValZST> {
+                        if (!hasNext()) throw NoSuchElementException()
+                        return Pair(iter.next(), SetValZST)
+                    }
                 }
             val map = BTreeMap.bulkBuildFromSortedIter<T, SetValZST>(mapped)
             return BTreeSet(map)
@@ -552,7 +555,10 @@ class BTreeSet<T> private constructor(
 
             override fun hasNext(): Boolean = inner.hasNext()
 
-            override fun next(): T = inner.next().first
+            override fun next(): T {
+                if (!hasNext()) throw NoSuchElementException()
+                return inner.next().first
+            }
 
             override fun remove() = inner.remove()
         }
@@ -654,7 +660,10 @@ class BTreeSet<T> private constructor(
     ) : Iterator<T> {
         override fun hasNext(): Boolean = inner.hasNext()
 
-        override fun next(): T = inner.next().first
+        override fun next(): T {
+            if (!hasNext()) throw NoSuchElementException()
+            return inner.next().first
+        }
 
         /** Returns the next element from the back of the iterator, or `null` if exhausted. */
         fun nextBack(): T? = inner.nextBack()?.first
@@ -692,7 +701,10 @@ class BTreeSet<T> private constructor(
     ) : Iterator<T> {
         override fun hasNext(): Boolean = inner.hasNext()
 
-        override fun next(): T = inner.next().first
+        override fun next(): T {
+            if (!hasNext()) throw NoSuchElementException()
+            return inner.next().first
+        }
 
         /** Returns the next element from the back of the iterator, or `null` if exhausted. */
         fun nextBack(): T? = inner.nextBack()?.first
@@ -738,7 +750,10 @@ class BTreeSet<T> private constructor(
     ) : Iterator<T> {
         override fun hasNext(): Boolean = inner.hasNext()
 
-        override fun next(): T = inner.next().first
+        override fun next(): T {
+            if (!hasNext()) throw NoSuchElementException()
+            return inner.next().first
+        }
 
         /** Returns the next element from the back of the iterator, or `null` if exhausted. */
         fun nextBack(): T? = inner.nextBack()?.first
@@ -1049,7 +1064,10 @@ class BTreeSet<T> private constructor(
     ) : Iterator<T> {
         override fun hasNext(): Boolean = inner.hasNext()
 
-        override fun next(): T = inner.next().first
+        override fun next(): T {
+            if (!hasNext()) throw NoSuchElementException()
+            return inner.next().first
+        }
 
         fun sizeHint(): Pair<Int, Int?> = inner.sizeHint()
 
