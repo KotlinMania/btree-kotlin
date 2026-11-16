@@ -708,17 +708,17 @@ class SetTests {
     @Test
     fun testOrdAbsence() {
         fun <K> set(set: BTreeSet<K>) {
-            val ignoreVal1 = set.isEmpty()
-            val ignoreVal2 = set.len()
+            set.isEmpty()
+            set.len()
             set.clear()
-            val ignoreVal3 = set.iter()
-            val ignoreVal4 = set.intoIter()
+            set.iter()
+            set.intoIter()
         }
 
         fun <K> setDebug(set: BTreeSet<K>) {
-            val ignoreVal1 = set.toString()
-            val ignoreVal2 = set.iter().toString()
-            val ignoreVal3 = set.intoIter().toString()
+            set.toString()
+            set.iter().toString()
+            set.intoIter().toString()
         }
 
         fun <K> setClone(set: BTreeSet<K>) {

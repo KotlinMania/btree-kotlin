@@ -16,16 +16,6 @@ internal class LeafRange<BorrowType, K, V>(
 
     internal fun clone(): LeafRange<BorrowType, K, V> = LeafRange(front, back)
 
-    private fun isEmpty(): Boolean {
-        val f = front
-        val b = back
-        return when {
-            f == null && b == null -> true
-            f == null || b == null -> false
-            else -> f.eq(b)
-        }
-    }
-
     /** Temporarily takes out another, immutable equivalent of the same range. */
     internal fun reborrow(): LeafRange<Marker.Immut, K, V> =
         LeafRange(
@@ -168,7 +158,7 @@ internal fun <K, V> LazyLeafRange<Marker.Dying, K, V>.takeFront(): Handle<NodeRe
 }
 
 internal fun <K, V> LazyLeafRange<Marker.Dying, K, V>.deallocatingNextUnchecked(): Handle<NodeRef<Marker.Dying, K, V, Marker.LeafOrInternal>, Marker.KV> {
-    check(front != null)
+    checkNotNull(front)
     val edge = initFront()!!
     val (newEdge, kv) = edge.deallocatingNextUnchecked()
     front = LazyLeafHandle.Edge(newEdge)
@@ -176,7 +166,7 @@ internal fun <K, V> LazyLeafRange<Marker.Dying, K, V>.deallocatingNextUnchecked(
 }
 
 internal fun <K, V> LazyLeafRange<Marker.Dying, K, V>.deallocatingNextBackUnchecked(): Handle<NodeRef<Marker.Dying, K, V, Marker.LeafOrInternal>, Marker.KV> {
-    check(back != null)
+    checkNotNull(back)
     val edge = initBack()!!
     val (newEdge, kv) = edge.deallocatingNextBackUnchecked()
     back = LazyLeafHandle.Edge(newEdge)

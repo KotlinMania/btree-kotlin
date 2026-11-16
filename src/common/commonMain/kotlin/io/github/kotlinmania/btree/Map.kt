@@ -1379,7 +1379,10 @@ class Keys<K, V> internal constructor(
 ) : Iterator<K> {
     override fun hasNext(): Boolean = inner.hasNext()
 
-    override fun next(): K = inner.next().first
+    override fun next(): K {
+        if (!hasNext()) throw NoSuchElementException()
+        return inner.next().first
+    }
 
     fun nextBack(): K? = inner.nextBack()?.first
 
@@ -1419,7 +1422,10 @@ class Values<K, V> internal constructor(
 ) : Iterator<V> {
     override fun hasNext(): Boolean = inner.hasNext()
 
-    override fun next(): V = inner.next().second
+    override fun next(): V {
+        if (!hasNext()) throw NoSuchElementException()
+        return inner.next().second
+    }
 
     fun nextBack(): V? = inner.nextBack()?.second
 
@@ -1455,7 +1461,10 @@ class ValuesMut<K, V> internal constructor(
 ) : MutableIterator<V> {
     override fun hasNext(): Boolean = inner.hasNext()
 
-    override fun next(): V = inner.next().second
+    override fun next(): V {
+        if (!hasNext()) throw NoSuchElementException()
+        return inner.next().second
+    }
 
     fun nextBack(): V? = inner.nextBack()?.second
 
@@ -1496,7 +1505,10 @@ class IntoKeys<K, V> internal constructor(
 ) : Iterator<K> {
     override fun hasNext(): Boolean = inner.hasNext()
 
-    override fun next(): K = inner.next().first
+    override fun next(): K {
+        if (!hasNext()) throw NoSuchElementException()
+        return inner.next().first
+    }
 
     fun nextBack(): K? = inner.nextBack()?.first
 
@@ -1539,7 +1551,10 @@ class IntoValues<K, V> internal constructor(
 ) : Iterator<V> {
     override fun hasNext(): Boolean = inner.hasNext()
 
-    override fun next(): V = inner.next().second
+    override fun next(): V {
+        if (!hasNext()) throw NoSuchElementException()
+        return inner.next().second
+    }
 
     fun nextBack(): V? = inner.nextBack()?.second
 
@@ -2267,7 +2282,10 @@ private class KeySetView<K, V>(
 
             override fun hasNext(): Boolean = inner.hasNext()
 
-            override fun next(): K = inner.next().first
+            override fun next(): K {
+                if (!hasNext()) throw NoSuchElementException()
+                return inner.next().first
+            }
 
             override fun remove() = inner.remove()
         }

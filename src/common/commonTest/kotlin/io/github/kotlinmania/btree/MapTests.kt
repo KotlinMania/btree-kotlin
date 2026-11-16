@@ -84,15 +84,18 @@ private inline fun assertFailsWithMoved(
     block: () -> Unit,
 ) {
     assertFailsWith<Throwable> {
+        var blockFailure: Throwable? = null
         try {
             block()
-        } finally {
-            var failure: Throwable? = null
-            for (map in maps) {
-                failure = map.dropEntries(failure)
-            }
-            if (failure != null) throw failure
+        } catch (t: Throwable) {
+            blockFailure = t
         }
+        var dropFailure: Throwable? = null
+        for (map in maps) {
+            dropFailure = map.dropEntries(dropFailure)
+        }
+        val toThrow = blockFailure ?: dropFailure
+        if (toThrow != null) throw toThrow
     }
 }
 
@@ -197,7 +200,7 @@ class MapTests {
         assertEquals(size - 1, map.lastEntry()!!.key())
 
         for (i in 0 until size) {
-            assertEquals(i * 10, map.get(i)!!)
+            assertEquals(i * 10, checkNotNull(map.get(i)))
         }
 
         for (i in size until size * 2) {
@@ -210,7 +213,7 @@ class MapTests {
         }
 
         for (i in 0 until size) {
-            assertEquals(i * 100, map.get(i)!!)
+            assertEquals(i * 100, checkNotNull(map.get(i)))
         }
 
         for (i in 0 until size / 2) {
@@ -220,7 +223,7 @@ class MapTests {
 
         for (i in 0 until size / 2) {
             assertEquals(null, map.get(2 * i))
-            assertEquals(i * 200 + 100, map.get(2 * i + 1)!!)
+            assertEquals(i * 200 + 100, checkNotNull(map.get(2 * i + 1)))
         }
 
         for (i in 0 until size / 2) {
@@ -392,7 +395,7 @@ class MapTests {
 
         // Forward and backward iteration sees enough pairs (also tested elsewhere)
         var countForwards = 0
-        var iter1 = map.iterMut()
+        val iter1 = map.iterMut()
         while (iter1.hasNext()) {
             iter1.next()
             countForwards++
@@ -400,7 +403,7 @@ class MapTests {
         assertEquals(size, countForwards)
 
         var countBackwards = 0
-        var iter2 =
+        val iter2 =
             map
                 .iterMut()
                 .toList()
@@ -414,7 +417,7 @@ class MapTests {
 
         // Iterate forwards, trying to mutate to unique values
         var idx = 0
-        var iter3 = map.iterMut()
+        val iter3 = map.iterMut()
         while (iter3.hasNext()) {
             val (k, _) = iter3.next()
             assertEquals(tryFrom(idx), k)
@@ -425,7 +428,7 @@ class MapTests {
 
         // Iterate backwards, checking that mutations succeeded and trying to mutate again
         idx = 0
-        var iter4 =
+        val iter4 =
             map
                 .iterMut()
                 .toList()
@@ -441,7 +444,7 @@ class MapTests {
 
         // Check that backward mutations succeeded
         idx = 0
-        var iter5 = map.iterMut()
+        val iter5 = map.iterMut()
         while (iter5.hasNext()) {
             val (k, v) = iter5.next()
             assertEquals(tryFrom(idx), k)
@@ -530,7 +533,9 @@ class MapTests {
         // Descend into first child.
         val front = it.next()
         // Descend into first child again, after running through second child.
-        while (it.nextBack() != null) {}
+        do {
+            val drained = it.nextBack()
+        } while (drained != null)
         // Check immutable access.
         assertEquals(Pair(0, 0), front)
         // Perform mutable access.
@@ -1439,42 +1444,42 @@ class MapTests {
             v: BTreeMap<T, Unit>,
             t: T,
         ) {
-            val ignoreVal = v.get(t)
+            v.get(t)
         }
 
         fun <T : Comparable<T>> getMut(
             v: BTreeMap<T, Unit>,
             t: T,
         ) {
-            val ignoreVal = v.getMut(t)
+            v.getMut(t)
         }
 
         fun <T : Comparable<T>> getKeyValue(
             v: BTreeMap<T, Unit>,
             t: T,
         ) {
-            val ignoreVal = v.getKeyValue(t)
+            v.getKeyValue(t)
         }
 
         fun <T : Comparable<T>> containsKey(
             v: BTreeMap<T, Unit>,
             t: T,
         ) {
-            val ignoreVal = v.containsKey(t)
+            v.containsKey(t)
         }
 
         fun <T : Comparable<T>> range(
             v: BTreeMap<T, Unit>,
             t: T,
         ) {
-            val ignoreVal = v.range(RangeFrom(t))
+            v.range(RangeFrom(t))
         }
 
         fun <T : Comparable<T>> rangeMut(
             v: BTreeMap<T, Unit>,
             t: T,
         ) {
-            val ignoreVal = v.rangeMut(RangeFrom(t))
+            v.rangeMut(RangeFrom(t))
         }
 
         fun <T : Comparable<T>> remove(
@@ -1578,7 +1583,7 @@ class MapTests {
         m.clear()
         assertEquals(0, m.len())
 
-        for (i in 0 until 100) {
+        repeat(100) {
             m.insert(SetValZST, SetValZST)
         }
 
@@ -1599,7 +1604,7 @@ class MapTests {
 
         val m = BTreeMap<Bad, Bad>()
 
-        for (i in 0 until 100) {
+        repeat(100) {
             m.insert(Bad(), Bad())
         }
         m.check()
@@ -1746,36 +1751,36 @@ class MapTests {
     @Test
     fun testOrdAbsence() {
         fun <K> map(map: BTreeMap<K, Unit>) {
-            val ignoreVal1 = map.isEmpty()
-            val ignoreVal2 = map.len()
+            map.isEmpty()
+            map.len()
             map.clear()
-            val ignoreVal3 = map.iter()
-            val ignoreVal4 = map.iterMut()
-            val ignoreVal5 = map.keys()
-            val ignoreVal6 = map.values()
-            val ignoreVal7 = map.valuesMut()
+            map.iter()
+            map.iterMut()
+            map.keys()
+            map.values()
+            map.valuesMut()
             if (true) {
-                val ignoreVal8 = map.intoValues()
+                map.intoValues()
             } else if (true) {
-                val ignoreVal9 = map.intoIter()
+                map.intoIter()
             } else {
-                val ignoreVal10 = map.intoKeys()
+                map.intoKeys()
             }
         }
 
         fun <K> mapDebug(map: BTreeMap<K, Unit>) {
-            val ignoreVal1 = map.toString()
-            val ignoreVal2 = map.iter().toString()
-            val ignoreVal3 = map.iterMut().toString()
-            val ignoreVal4 = map.keys().toString()
-            val ignoreVal5 = map.values().toString()
-            val ignoreVal6 = map.valuesMut().toString()
+            map.toString()
+            map.iter().toString()
+            map.iterMut().toString()
+            map.keys().toString()
+            map.values().toString()
+            map.valuesMut().toString()
             if (true) {
-                val ignoreVal7 = map.intoIter().toString()
+                map.intoIter().toString()
             } else if (true) {
-                val ignoreVal8 = map.intoKeys().toString()
+                map.intoKeys().toString()
             } else {
-                val ignoreVal9 = map.intoValues().toString()
+                map.intoValues().toString()
             }
         }
 
@@ -2355,7 +2360,7 @@ class MapTests {
         val map = BTreeMap<Int, Int>()
         var i = 1
         val offset = 165
-        for (j in 0 until loops) {
+        repeat(loops) {
             i = (i + offset) and 0xFF
             map.insert(i, i)
             map.remove(0xFF - i)
@@ -2370,7 +2375,7 @@ class MapTests {
         val map = BTreeMap<Governed<Int>, Unit>()
         var i = 1
         val offset = 165
-        for (j in 0 until loops) {
+        repeat(loops) {
             i = (i + offset) and 0xFF
             map.insert(Governed(i, gov), Unit)
             map.remove(Governed(0xFF - i, gov))

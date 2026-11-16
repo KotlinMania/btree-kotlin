@@ -1158,7 +1158,6 @@ internal fun <K, V> Handle<NodeRef<Marker.Mut, K, V, Marker.Leaf>, Marker.KV>.re
 internal fun <K, V> Handle<NodeRef<Marker.Mut, K, V, Marker.Internal>, Marker.KV>.split(
     tag: SplitTag.Internal,
 ): SplitResult<K, V, Marker.Internal> {
-    val oldLen = node.len()
     val newNode = InternalNode.new<K, V>()
     val kv = this.splitLeafData(newNode)
     val newLen = newNode.len
@@ -1514,7 +1513,7 @@ internal fun <K, V> BalancingContext<K, V>.bulkStealLeft(count: Int) {
         }
 
         is ForceResult.Leaf -> {
-            when (val rf = rightNode.reborrowMut().force()) {
+            when (rightNode.reborrowMut().force()) {
                 is ForceResult.Leaf -> { /* ok */ }
 
                 is ForceResult.Internal -> {
@@ -1596,7 +1595,7 @@ internal fun <K, V> BalancingContext<K, V>.bulkStealRight(count: Int) {
         }
 
         is ForceResult.Leaf -> {
-            when (val rf = rightNode.reborrowMut().force()) {
+            when (rightNode.reborrowMut().force()) {
                 is ForceResult.Leaf -> { /* ok */ }
 
                 is ForceResult.Internal -> {
@@ -1725,7 +1724,7 @@ internal fun <K, V> Handle<NodeRef<Marker.Mut, K, V, Marker.LeafOrInternal>, Mar
             }
 
             is ForceResult.Leaf -> {
-                when (val rf = rightNode.force()) {
+                when (rightNode.force()) {
                     is ForceResult.Leaf -> { /* ok */ }
 
                     is ForceResult.Internal -> {

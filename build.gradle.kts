@@ -323,7 +323,7 @@ configurations.configureEach {
         exclude(group = "org.jetbrains", module = "annotations")
     }
     if (name == "swiftExportClasspath") {
-        dependencies.add(projectDependencyHandler.create("io.github.kotlinmania:swift-export-embeddable:2.4.20-km.5-protocol-spi-defaults"))
+        dependencies.add(projectDependencyHandler.create("io.github.kotlinmania:swift-export-embeddable:2.4.20-km.4"))
     }
 }
 
@@ -1359,6 +1359,19 @@ val hostIsArm64ForAndroidNative =
         .lowercase()
         .let { it == "aarch64" || it == "arm64" }
 
+val macHasHypervisorSupport =
+    !System.getProperty("os.name", "").lowercase().contains("mac") ||
+        ProcessBuilder("/usr/sbin/sysctl", "-n", "kern.hv_support")
+            .start()
+            .let { proc ->
+                val out =
+                    proc.inputStream
+                        .bufferedReader()
+                        .readText()
+                        .trim()
+                proc.waitFor() == 0 && out == "1"
+            }
+
 val androidNativeAdbExecutable =
     rootProject.file(
         ".android-sdk/platform-tools/" +
@@ -1388,9 +1401,10 @@ val androidNativeRuntimeTasks =
                     .get()
                     .asFile.absolutePath,
             )
-            val isHostMatchingAbi =
+            val hostMatchesTarget =
                 (target == "androidNativeArm64" && hostIsArm64ForAndroidNative) ||
                     (target == "androidNativeX64" && !hostIsArm64ForAndroidNative)
+            val isHostMatchingAbi = hostMatchesTarget && macHasHypervisorSupport
             if (!isHostMatchingAbi) {
                 arguments.add("--allow-unavailable")
             }
